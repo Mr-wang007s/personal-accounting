@@ -9,25 +9,41 @@
 .user-card {
   display: flex;
   align-items: center;
-  padding: 48rpx 32rpx;
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  padding: 56rpx 32rpx;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
   color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  top: -80rpx;
+  right: -80rpx;
+  width: 240rpx;
+  height: 240rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
 }
 
 .avatar {
-  width: 120rpx;
-  height: 120rpx;
+  width: 128rpx;
+  height: 128rpx;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 32rpx;
+  position: relative;
+  z-index: 1;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
 }
 
 .avatar text {
-  font-size: 48rpx;
-  font-weight: 600;
+  font-size: 52rpx;
+  font-weight: 700;
 }
 
 .user-info {
@@ -50,8 +66,9 @@
 .section {
   background-color: var(--bg-primary);
   margin: 24rpx 32rpx;
-  padding: 24rpx;
+  padding: 28rpx;
   border-radius: var(--radius-lg);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
 .section-header {
@@ -96,16 +113,21 @@
 .ledger-item {
   display: flex;
   align-items: center;
-  padding: 20rpx;
+  padding: 24rpx;
   background-color: var(--bg-tertiary);
   border-radius: var(--radius-md);
   border: 2rpx solid transparent;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+}
+
+.ledger-item:active {
+  background-color: var(--border-color);
 }
 
 .ledger-item.active {
   border-color: var(--primary-color);
-  background-color: rgba(99, 102, 241, 0.05);
+  background-color: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 2rpx 8rpx rgba(99, 102, 241, 0.15);
 }
 
 .ledger-icon {

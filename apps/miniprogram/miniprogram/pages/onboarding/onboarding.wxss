@@ -97,7 +97,8 @@
 .nickname-input,
 .ledger-input {
   width: 100%;
-  padding: 32rpx;
+  line-height: 160rpx;
+  height: 160rpx;
   background-color: #FFFFFF;
   border-radius: var(--radius-lg);
   font-size: 32rpx;

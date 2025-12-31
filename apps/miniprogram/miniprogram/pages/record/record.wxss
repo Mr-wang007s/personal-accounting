@@ -56,6 +56,8 @@
 }
 
 .amount-input {
+  height: 160rpx;
+  line-height: 160rpx;
   font-size: 72rpx;
   font-weight: 700;
   color: var(--text-primary);
@@ -162,6 +164,7 @@
 /* 备注输入 */
 .note-input {
   width: 100%;
+  height: 160rpx;
   padding: 20rpx 24rpx;
   background-color: var(--bg-tertiary);
   border-radius: var(--radius-md);
@@ -183,17 +186,20 @@
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background-color: var(--bg-primary);
   box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  z-index: 2;
 }
 
 .btn-save {
-  width: 100%;
+  flex: 3;
   padding: 28rpx;
   border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 600;
   color: #FFFFFF;
   border: none;
-  margin-bottom: 16rpx;
 }
 
 .btn-save.expense {
@@ -210,7 +216,7 @@
 }
 
 .btn-delete {
-  width: 100%;
+  flex: 1;
   padding: 28rpx;
   border-radius: var(--radius-md);
   font-size: 30rpx;

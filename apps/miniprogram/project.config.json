@@ -41,10 +41,21 @@
     "showES6CompileOption": false,
     "useCompilerPlugins": [
       "typescript"
-    ]
+    ],
+    "compileWorklet": false,
+    "localPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
   },
-  "appid": "",
+  "appid": "wxf098ecb7ce1f732e",
   "libVersion": "3.3.4",
   "srcMiniprogramRoot": "miniprogram/",
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

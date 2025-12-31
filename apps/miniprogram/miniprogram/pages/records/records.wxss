@@ -11,7 +11,7 @@
   position: relative;
   background-color: var(--bg-primary);
   padding: 0 32rpx;
-  border-bottom: 1rpx solid var(--border-color);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 }
 
 .tab {
@@ -22,6 +22,7 @@
   color: var(--text-secondary);
   position: relative;
   z-index: 1;
+  transition: color 0.3s ease;
 }
 
 .tab.active {
@@ -34,10 +35,10 @@
   bottom: 0;
   left: 32rpx;
   width: calc(50% - 32rpx);
-  height: 4rpx;
-  background-color: var(--primary-color);
-  border-radius: 2rpx;
-  transition: transform 0.3s ease;
+  height: 6rpx;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+  border-radius: 3rpx;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 月份选择 */
@@ -51,19 +52,25 @@
 }
 
 .month-nav {
-  width: 64rpx;
-  height: 64rpx;
+  width: 72rpx;
+  height: 72rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background-color: var(--bg-tertiary);
+  transition: all 0.2s ease;
+}
+
+.month-nav:active {
+  background-color: var(--border-color);
+  transform: scale(0.95);
 }
 
 .month-nav image {
   width: 32rpx;
   height: 32rpx;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .month-display {
@@ -89,25 +96,38 @@
   display: flex;
   background-color: var(--bg-primary);
   margin: 0 32rpx 24rpx;
-  padding: 24rpx;
+  padding: 28rpx 24rpx;
   border-radius: var(--radius-lg);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
 .month-summary .summary-item {
   flex: 1;
   text-align: center;
+  position: relative;
+}
+
+.month-summary .summary-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rpx;
+  height: 60rpx;
+  background-color: var(--border-color);
 }
 
 .month-summary .label {
   font-size: 24rpx;
   color: var(--text-muted);
   display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: 12rpx;
 }
 
 .month-summary .value {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 34rpx;
+  font-weight: 700;
 }
 
 .month-summary .value.income {

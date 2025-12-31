@@ -64,6 +64,7 @@
       value="{{note}}"
       bindinput="onNoteInput"
       maxlength="100"
+      type="text"
     />
   </view>
   
