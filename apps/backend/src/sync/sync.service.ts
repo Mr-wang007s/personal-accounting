@@ -58,6 +58,13 @@ export class SyncService {
   async pull(userId: string, deviceId: string, lastSyncVersion: number) {
     this.logger.log(`[Pull] userId=${userId}, deviceId=${deviceId}, lastSyncVersion=${lastSyncVersion}`)
     
+    // 验证用户存在
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      this.logger.error(`[Pull] 用户不存在: ${userId}`)
+      throw new Error(`User not found: ${userId}`)
+    }
+    
     // 获取自上次同步以来的所有变更
     const changes = await this.prisma.record.findMany({
       where: {
@@ -85,7 +92,7 @@ export class SyncService {
         userId_deviceId: { userId, deviceId },
       },
       create: {
-        userId,
+        user: { connect: { id: userId } },
         deviceId,
         serverVersion,
         lastSyncAt: new Date(),
@@ -275,7 +282,7 @@ export class SyncService {
         userId_deviceId: { userId, deviceId },
       },
       create: {
-        userId,
+        user: { connect: { id: userId } },
         deviceId,
         serverVersion,
         lastSyncAt: new Date(),
@@ -302,6 +309,13 @@ export class SyncService {
 
   // 全量同步（用于首次同步或数据恢复）
   async fullSync(userId: string, deviceId: string) {
+    // 验证用户存在
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      this.logger.error(`[FullSync] 用户不存在: ${userId}`)
+      throw new Error(`User not found: ${userId}`)
+    }
+
     const records = await this.prisma.record.findMany({
       where: { userId, deletedAt: null },
       orderBy: { date: 'desc' },
@@ -321,7 +335,7 @@ export class SyncService {
         userId_deviceId: { userId, deviceId },
       },
       create: {
-        userId,
+        user: { connect: { id: userId } },
         deviceId,
         serverVersion,
         lastSyncAt: new Date(),

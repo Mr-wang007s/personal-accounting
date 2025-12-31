@@ -16,6 +16,7 @@ export class UsersService {
         unionid: dto.unionid,
         nickname: dto.nickname,
         avatar: dto.avatar,
+        password: dto.password,
       },
     })
   }

@@ -17,6 +17,7 @@ model User {
   unionid   String?  @unique // 微信 unionid（可选）
   nickname  String?
   avatar    String?
+  password  String?  // 密码（可选，Web 端使用）
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

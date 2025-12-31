@@ -99,22 +99,20 @@ export class AuthService {
 
   // 开发环境模拟登录（也用于 Web/小程序注册登录）
   async devLogin(openid: string, nickname?: string): Promise<TokenResponseDto> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new UnauthorizedException('Dev login not allowed in production')
-    }
+    // if (process.env.NODE_ENV === 'production') {
+    //   throw new UnauthorizedException('Dev login not allowed in production')
+    // }
 
     let user = await this.usersService.findByOpenid(openid)
 
     if (!user) {
+      // 自动创建用户，默认密码 20260101
       user = await this.usersService.create({
         openid,
         nickname: nickname || `User ${openid.slice(-4)}`,
+        password: '20260101',
       })
     }
-    //  else if (nickname && user.nickname !== nickname) {
-    //   // 更新昵称
-    //   user = await this.usersService.update(user.id, { nickname })
-    // }
 
     const payload: JwtPayload = {
       sub: user.id,
