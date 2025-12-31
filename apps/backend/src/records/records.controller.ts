@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Inject,
 } from '@nestjs/common'
 import {
   ApiTags,
@@ -31,7 +32,7 @@ import { User } from '@prisma/client'
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class RecordsController {
-  constructor(private readonly recordsService: RecordsService) {}
+  constructor(@Inject(RecordsService) private readonly recordsService: RecordsService) {}
 
   @Post()
   @ApiOperation({ summary: '创建记账记录' })

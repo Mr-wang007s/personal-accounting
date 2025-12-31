@@ -238,7 +238,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // 登录
   const login = useCallback(async (identifier: string): Promise<boolean> => {
-    if (!stateRef.current.isConnected) return false
     
     const success = await syncService.devLogin(identifier)
     setIsAuthenticated(success)

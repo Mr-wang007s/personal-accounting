@@ -38,7 +38,8 @@ describe('Sync E2E Tests', () => {
         .expect(200)
 
       expect(response.body).toHaveProperty('serverVersion')
-      expect(response.body).toHaveProperty('lastSyncVersion')
+      expect(response.body).toHaveProperty('deviceId')
+      expect(response.body).toHaveProperty('needsSync')
     })
   })
 
@@ -98,7 +99,7 @@ describe('Sync E2E Tests', () => {
         .post('/sync/push')
         .set('X-Device-Id', deviceId)
         .send({
-          changes: [
+          created: [
             {
               clientId: 'client-record-001',
               type: 'expense',
@@ -106,17 +107,16 @@ describe('Sync E2E Tests', () => {
               category: 'food',
               date: '2024-01-15',
               note: '午餐',
-              operation: 'create',
             },
           ],
-          clientVersion: 0,
+          updated: [],
+          deleted: [],
         })
         .expect(201)
 
       expect(response.body).toHaveProperty('serverVersion')
-      expect(response.body).toHaveProperty('results')
-      expect(response.body.results).toBeInstanceOf(Array)
-      expect(response.body.results[0].success).toBe(true)
+      expect(response.body).toHaveProperty('created')
+      expect(response.body.created).toBe(1)
     })
 
     it('should handle update operations', async () => {
@@ -137,20 +137,21 @@ describe('Sync E2E Tests', () => {
         .post('/sync/push')
         .set('X-Device-Id', deviceId)
         .send({
-          changes: [
+          created: [],
+          updated: [
             {
               id: record.id,
               clientId: 'client-record-002',
               amount: 200,
               note: '更新后',
-              operation: 'update',
+              syncVersion: 1,
             },
           ],
-          clientVersion: 1,
+          deleted: [],
         })
         .expect(201)
 
-      expect(response.body.results[0].success).toBe(true)
+      expect(response.body.updated).toBe(1)
 
       // 验证更新
       const updatedRecord = await prisma.record.findUnique({
@@ -176,18 +177,13 @@ describe('Sync E2E Tests', () => {
         .post('/sync/push')
         .set('X-Device-Id', deviceId)
         .send({
-          changes: [
-            {
-              id: record.id,
-              clientId: 'client-record-003',
-              operation: 'delete',
-            },
-          ],
-          clientVersion: 1,
+          created: [],
+          updated: [],
+          deleted: [record.id],
         })
         .expect(201)
 
-      expect(response.body.results[0].success).toBe(true)
+      expect(response.body.deleted).toBe(1)
 
       // 验证软删除
       const deletedRecord = await prisma.record.findUnique({

@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   Headers,
+  Inject,
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader } from '@nestjs/swagger'
 import { SyncService } from './sync.service'
@@ -20,7 +21,7 @@ import { User } from '@prisma/client'
 @ApiBearerAuth()
 @ApiHeader({ name: 'X-Device-Id', description: '设备唯一标识', required: true })
 export class SyncController {
-  constructor(private readonly syncService: SyncService) {}
+  constructor(@Inject(SyncService) private readonly syncService: SyncService) {}
 
   @Get('status')
   @ApiOperation({ summary: '获取同步状态' })

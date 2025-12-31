@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
 import { RecordsService } from '../records/records.service'
@@ -25,9 +25,9 @@ export class SyncService {
   private readonly logger = new Logger(SyncService.name)
   
   constructor(
-    private prisma: PrismaService,
-    private cache: CacheService,
-    private recordsService: RecordsService,
+    @Inject(PrismaService) private prisma: PrismaService,
+    @Inject(CacheService) private cache: CacheService,
+    @Inject(RecordsService) private recordsService: RecordsService,
   ) {}
 
   // 获取同步状态
@@ -161,6 +161,7 @@ export class SyncService {
               date: new Date(record.date || new Date()),
               note: record.note,
               clientId: record.clientId,
+              syncVersion: 1, // 新创建的记录版本为 1
             },
           })
           this.logger.log(`[Push] 创建成功: id=${newRecord.id}`)

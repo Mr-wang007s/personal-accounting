@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
 import { Record, RecordType, Prisma } from '@prisma/client'
@@ -41,8 +41,8 @@ export interface MonthlyTrend {
 @Injectable()
 export class RecordsService {
   constructor(
-    private prisma: PrismaService,
-    private cache: CacheService,
+    @Inject(PrismaService) private prisma: PrismaService,
+    @Inject(CacheService) private cache: CacheService,
   ) {}
 
   // 创建记录

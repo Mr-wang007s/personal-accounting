@@ -4,7 +4,7 @@
     "target": "ES2017",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "declaration": true,
+    "noEmit": true,
     "lib": ["ES2017"],
     "typeRoots": ["./miniprogram/typings"],
     "types": [],
@@ -12,8 +12,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
-    "inlineSourceMap": true,
-    "inlineSources": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["miniprogram/*"]

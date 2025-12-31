@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import swc from 'unplugin-swc'
 
 export default defineConfig({
   test: {
@@ -8,6 +9,16 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30000,
     hookTimeout: 30000,
+    // 串行执行测试，避免数据库冲突
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+    sequence: {
+      shuffle: false,
+    },
     env: {
       NODE_ENV: 'test',
       SKIP_AUTH: 'true',
@@ -17,4 +28,9 @@ export default defineConfig({
       PORT: '3000',
     },
   },
+  plugins: [
+    swc.vite({
+      module: { type: 'es6' },
+    }),
+  ],
 })

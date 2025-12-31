@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "个人记账小程序",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w"
+    "typecheck": "tsc --noEmit",
+    "clean": "find miniprogram -name '*.js' -not -name 'app.json' -delete && find miniprogram -name '*.d.ts' -not -path '*/typings/*' -delete"
   },
   "devDependencies": {
     "miniprogram-api-typings": "^3.12.0",
