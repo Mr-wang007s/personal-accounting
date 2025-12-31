@@ -1,0 +1,28 @@
+{
+  "name": "@personal-accounting/backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:prod": "node dist/main.js",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@personal-accounting/shared": "workspace:*",
+    "@personal-accounting/business-logic": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  },
+  "placeholder": "后续添加 Nest.js 相关依赖"
+}

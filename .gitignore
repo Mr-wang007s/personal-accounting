@@ -1,3 +1,16 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.next
+out
+
+# Turbo
+.turbo
+
 # Logs
 logs
 *.log
@@ -6,20 +19,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-# Dependencies
-node_modules
-
-# Build outputs
-dist
-dist-ssr
-*.local
-
-# Caches
-.vite
-vite.config.ts.timestamp-*
-*.tsbuildinfo
-.eslintcache
 
 # Environment variables
 .env
@@ -31,14 +30,20 @@ vite.config.ts.timestamp-*
 # Testing
 coverage
 .nyc_output
+test-results
+playwright-report
 e2e/test-results
 e2e/report
-playwright-report
-test-results
+
+# Caches
+.vite
+*.tsbuildinfo
+.eslintcache
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -47,9 +52,17 @@ test-results
 *.sln
 *.sw?
 
-# Python virtual environment (if any)
+# Python (if any)
 .venv
 venv
 __pycache__
 *.pyc
 *.pyo
+
+# Database
+*.sqlite
+*.db
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
