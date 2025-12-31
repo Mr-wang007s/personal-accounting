@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 
 interface SyncSettingsProps {
   onClose?: () => void
@@ -17,11 +18,13 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     syncState,
     lastSyncAt,
     pendingCount,
+    autoSyncEnabled,
+    lastSyncResult,
     discoverServer,
     login,
     sync,
-    fullSync,
     disconnect,
+    setAutoSyncEnabled,
   } = useSync()
 
   const [inputUrl, setInputUrl] = useState(serverUrl || 'http://192.168.1.100:3000')
@@ -82,26 +85,6 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     }
   }
 
-  const handleFullSync = async () => {
-    if (!confirm('全量同步将用服务器数据覆盖本地数据，确定继续？')) {
-      return
-    }
-
-    setError(null)
-    setLoading(true)
-    
-    try {
-      const result = await fullSync()
-      if (!result.success) {
-        setError(result.error || '全量同步失败')
-      }
-    } catch {
-      setError('全量同步失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleDisconnect = () => {
     if (confirm('断开连接将清除同步数据，确定继续？')) {
       disconnect()
@@ -120,7 +103,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
           )}
         </CardTitle>
         <CardDescription>
-          连接家庭服务器，同步记账数据
+          连接家庭服务器，双向同步记账数据
         </CardDescription>
       </CardHeader>
       
@@ -177,16 +160,36 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
         {/* 步骤 3: 同步操作 */}
         {isConnected && isAuthenticated && (
           <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-lg space-y-1 text-sm">
+            {/* 自动同步开关 */}
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div>
+                <Label className="font-medium">自动备份同步</Label>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  数据变更后自动双向同步
+                </p>
+              </div>
+              <Switch
+                checked={autoSyncEnabled}
+                onCheckedChange={setAutoSyncEnabled}
+              />
+            </div>
+
+            {/* 同步状态 */}
+            <div className="p-3 bg-gray-50 rounded-lg space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">状态</span>
                 <span className="font-medium">
-                  {syncState === 'syncing' ? '同步中...' : '已就绪'}
+                  {syncState === 'syncing' ? '🔄 同步中...' : 
+                   syncState === 'success' ? '✅ 同步成功' :
+                   syncState === 'error' ? '❌ 同步失败' :
+                   syncState === 'offline' ? '📴 离线' : '✓ 已就绪'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">待同步</span>
-                <span className="font-medium">{pendingCount} 条</span>
+                <span className={`font-medium ${pendingCount > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                  {pendingCount > 0 ? `${pendingCount} 条待上传` : '已同步'}
+                </span>
               </div>
               {lastSyncAt && (
                 <div className="flex justify-between">
@@ -198,30 +201,56 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
               )}
             </div>
 
-            <div className="flex gap-2">
-              <Button 
-                className="flex-1" 
-                onClick={handleSync}
-                disabled={loading || syncState === 'syncing'}
-              >
-                {syncState === 'syncing' ? '同步中...' : '立即同步'}
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={handleFullSync}
-                disabled={loading || syncState === 'syncing'}
-              >
-                全量同步
-              </Button>
-            </div>
+            {/* 上次同步结果 */}
+            {lastSyncResult && lastSyncResult.success && (
+              <div className="p-3 bg-green-50 rounded-lg text-sm">
+                <div className="font-medium text-green-700 mb-1">同步完成</div>
+                <div className="grid grid-cols-2 gap-1 text-green-600">
+                  <span>↓ 拉取: {lastSyncResult.pulled} 条</span>
+                  <span>↑ 推送: {lastSyncResult.pushed} 条</span>
+                  <span>⚡ 合并: {lastSyncResult.merged} 条</span>
+                  {lastSyncResult.conflicts > 0 && (
+                    <span className="text-yellow-600">⚠ 冲突: {lastSyncResult.conflicts} 条</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 冲突详情 */}
+            {lastSyncResult?.conflictRecords && lastSyncResult.conflictRecords.length > 0 && (
+              <div className="p-3 bg-yellow-50 rounded-lg text-sm">
+                <div className="font-medium text-yellow-700 mb-2">冲突记录（已自动解决）</div>
+                <div className="space-y-1 text-yellow-600 max-h-32 overflow-y-auto">
+                  {lastSyncResult.conflictRecords.slice(0, 5).map((conflict, i) => (
+                    <div key={i} className="text-xs">
+                      • {conflict.conflictType === 'update_update' ? '双方修改' : 
+                         conflict.conflictType === 'update_delete' ? '本地修改/服务器删除' : 
+                         '本地删除/服务器修改'} 
+                      → 采用{conflict.resolvedBy === 'local' ? '本地' : '服务器'}版本
+                    </div>
+                  ))}
+                  {lastSyncResult.conflictRecords.length > 5 && (
+                    <div className="text-xs">...还有 {lastSyncResult.conflictRecords.length - 5} 条</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Button 
+              className="w-full" 
+              onClick={handleSync}
+              disabled={loading || syncState === 'syncing'}
+            >
+              {syncState === 'syncing' ? '同步中...' : '立即同步'}
+            </Button>
           </div>
         )}
 
         {/* 说明 */}
         <div className="text-xs text-gray-400 space-y-1">
-          <p>• 连接到局域网内的家庭服务器</p>
-          <p>• 数据优先保存在本地，连接服务器后自动同步</p>
-          <p>• 全量同步会用服务器数据覆盖本地数据</p>
+          <p>• 双向同步：本地 ↔ 服务器数据自动合并</p>
+          <p>• 智能合并：按修改时间自动解决冲突</p>
+          <p>• 离线优先：无网络时数据保存在本地</p>
         </div>
       </CardContent>
     </Card>

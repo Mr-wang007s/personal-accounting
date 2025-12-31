@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,9 +21,10 @@ import type { Record } from '@personal-accounting/shared/types'
 
 interface RecordsPageProps {
   onNavigate: (page: string) => void
+  onEditRecord?: (record: Record) => void
 }
 
-export function RecordsPage({ onNavigate: _onNavigate }: RecordsPageProps) {
+export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPageProps) {
   const { records, deleteRecord } = useRecords()
   const [currentMonth, setCurrentMonth] = useState(dayjs())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -170,7 +171,8 @@ export function RecordsPage({ onNavigate: _onNavigate }: RecordsPageProps) {
                     return (
                       <Card
                         key={record.id}
-                        className="border-0 shadow-sm hover:shadow-md transition-all duration-300 group"
+                        className="border-0 shadow-sm hover:shadow-md transition-all duration-300 group cursor-pointer"
+                        onClick={() => onEditRecord?.(record)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
@@ -210,7 +212,19 @@ export function RecordsPage({ onNavigate: _onNavigate }: RecordsPageProps) {
                                 {formatCurrency(record.amount)}
                               </p>
                               <button
-                                onClick={() => handleDeleteClick(record)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onEditRecord?.(record)
+                                }}
+                                className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-indigo-100 transition-all duration-200"
+                              >
+                                <Pencil className="w-4 h-4 text-indigo-500" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(record)
+                                }}
                                 className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-100 transition-all duration-200"
                               >
                                 <Trash2 className="w-4 h-4 text-rose-500" />

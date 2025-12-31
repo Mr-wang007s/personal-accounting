@@ -8,10 +8,12 @@ import { RecordsPage } from '@/pages/RecordsPage'
 import { StatisticsPage } from '@/pages/StatisticsPage'
 import { SyncSettings } from '@/components/sync/SyncSettings'
 import { SyncStatusBar } from '@/components/sync/SyncStatusBar'
+import type { Record } from '@personal-accounting/shared/types'
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home')
   const [showSyncSettings, setShowSyncSettings] = useState(false)
+  const [editingRecord, setEditingRecord] = useState<Record | null>(null)
   const { refreshData } = useRecords()
   const { syncState } = useSync()
 
@@ -20,7 +22,16 @@ function AppContent() {
       setShowSyncSettings(true)
       return
     }
+    // 离开编辑页面时清除编辑状态
+    if (currentPage === 'edit' && page !== 'edit') {
+      setEditingRecord(null)
+    }
     setCurrentPage(page)
+  }
+
+  const handleEditRecord = (record: Record) => {
+    setEditingRecord(record)
+    setCurrentPage('edit')
   }
 
   // 同步成功后刷新数据
@@ -38,8 +49,18 @@ function AppContent() {
         return <RecordFormPage type="income" onNavigate={handleNavigate} />
       case 'expense':
         return <RecordFormPage type="expense" onNavigate={handleNavigate} />
+      case 'edit':
+        return editingRecord ? (
+          <RecordFormPage 
+            type={editingRecord.type} 
+            onNavigate={handleNavigate} 
+            editRecord={editingRecord}
+          />
+        ) : (
+          <RecordsPage onNavigate={handleNavigate} onEditRecord={handleEditRecord} />
+        )
       case 'records':
-        return <RecordsPage onNavigate={handleNavigate} />
+        return <RecordsPage onNavigate={handleNavigate} onEditRecord={handleEditRecord} />
       case 'statistics':
         return <StatisticsPage onNavigate={handleNavigate} />
       default:
@@ -47,7 +68,7 @@ function AppContent() {
     }
   }
 
-  const showBottomNav = !['income', 'expense'].includes(currentPage)
+  const showBottomNav = !['income', 'expense', 'edit'].includes(currentPage)
 
   return (
     <div className="min-h-screen bg-slate-50">

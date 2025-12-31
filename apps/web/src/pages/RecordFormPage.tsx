@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, Calendar } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,41 +8,68 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { CategoryIcon } from '@/components/common/CategoryIcon'
 import { useRecords } from '@/context/RecordsContext'
 import { getCategoriesByType } from '@personal-accounting/shared/constants'
-import type { RecordType } from '@personal-accounting/shared/types'
+import type { RecordType, Record } from '@personal-accounting/shared/types'
 import { cn, getToday } from '@/lib/utils'
 
 interface RecordFormPageProps {
   type: RecordType
   onNavigate: (page: string) => void
+  editRecord?: Record // 编辑模式：传入要编辑的记录
 }
 
-export function RecordFormPage({ type, onNavigate }: RecordFormPageProps) {
-  const { addRecord } = useRecords()
+export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageProps) {
+  const { addRecord, updateRecord } = useRecords()
+  const isEditMode = !!editRecord
+  
+  // 编辑模式下使用记录的类型，否则使用传入的类型
+  const recordType = isEditMode ? editRecord.type : type
+  
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('')
   const [date, setDate] = useState(getToday())
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const categories = getCategoriesByType(type)
-  const isIncome = type === 'income'
+  // 编辑模式下初始化表单
+  useEffect(() => {
+    if (editRecord) {
+      setAmount(String(editRecord.amount))
+      setCategory(editRecord.category)
+      setDate(editRecord.date)
+      setNote(editRecord.note || '')
+    }
+  }, [editRecord])
+
+  const categories = getCategoriesByType(recordType)
+  const isIncome = recordType === 'income'
 
   const handleSubmit = () => {
     if (!amount || !category) return
 
     setIsSubmitting(true)
     
-    addRecord({
-      type,
-      amount: parseFloat(amount),
-      category,
-      date,
-      note: note || undefined,
-    })
+    if (isEditMode) {
+      // 编辑模式：更新记录
+      updateRecord(editRecord.id, {
+        amount: parseFloat(amount),
+        category,
+        date,
+        note: note || undefined,
+      })
+    } else {
+      // 新增模式
+      addRecord({
+        type: recordType,
+        amount: parseFloat(amount),
+        category,
+        date,
+        note: note || undefined,
+      })
+    }
 
     setTimeout(() => {
       setIsSubmitting(false)
-      onNavigate('home')
+      onNavigate(isEditMode ? 'records' : 'home')
     }, 300)
   }
 
@@ -57,9 +84,9 @@ export function RecordFormPage({ type, onNavigate }: RecordFormPageProps) {
   return (
     <>
       <Header
-        title={isIncome ? '记收入' : '记支出'}
+        title={isEditMode ? '编辑账单' : (isIncome ? '记收入' : '记支出')}
         showBack
-        onBack={() => onNavigate('home')}
+        onBack={() => onNavigate(isEditMode ? 'records' : 'home')}
       />
       <PageContainer hasBottomNav={false}>
         {/* Amount Input */}
@@ -182,7 +209,7 @@ export function RecordFormPage({ type, onNavigate }: RecordFormPageProps) {
           ) : (
             <div className="flex items-center gap-2">
               <Check className="w-5 h-5" />
-              保存记录
+              {isEditMode ? '保存修改' : '保存记录'}
             </div>
           )}
         </Button>

@@ -191,7 +191,7 @@ class ApiClient {
   async devLogin(identifier: string): Promise<{ accessToken: string; user: unknown }> {
     return this.request('/api/auth/dev/login', {
       method: 'POST',
-      body: JSON.stringify({ identifier }),
+      body: JSON.stringify({ openid: identifier }),
     })
   }
 

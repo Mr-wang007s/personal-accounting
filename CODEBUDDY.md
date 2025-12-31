@@ -1,170 +1,134 @@
-# CODEBUDDY.md This file provides guidance to CodeBuddy when working with code in this repository.
+# Personal Accounting - 项目指南
 
-## Commands
+> 继承自 [根目录 CODEBUDDY.md](../CODEBUDDY.md)
 
-### Development
+> 本文件为 personal-accounting 提供项目级指导。详细信息请参阅各子模块的 CODEBUDDY.md。
+
+## 快速开始
+
 ```bash
-# Install dependencies (from root)
+# 安装依赖
 pnpm install
 
-# Start web development server (http://localhost:5173)
-pnpm dev:web
+# 启动开发环境
+pnpm dev              # 同时启动 web + backend
+pnpm dev:web          # 仅前端 (http://localhost:5173)
+pnpm dev:backend      # 仅后端 (http://localhost:3000)
 
-# Start backend development server (requires Nest.js setup)
-pnpm dev:backend
+# 构建
+pnpm build            # 构建所有包（Turborepo 自动处理依赖顺序）
 
-# Start all packages in dev mode
-pnpm dev
+# 代码质量
+pnpm typecheck        # 类型检查
+pnpm lint             # ESLint
+pnpm format           # 格式化
 ```
 
-### Build & Test
-```bash
-# Build all packages (respects dependency order via Turborepo)
-pnpm build
+## 项目架构
 
-# Build specific app
-pnpm build:web
-pnpm build:backend
-
-# Run E2E tests (Playwright, requires web app running)
-pnpm test:e2e
-
-# Run E2E tests with UI
-cd apps/web && pnpm test:e2e:ui
-
-# Type checking
-pnpm typecheck
-
-# Linting
-pnpm lint
-
-# Format code
-pnpm format
-```
-
-### Package-specific
-```bash
-# Build shared packages (required before running apps)
-cd packages/shared && pnpm build
-cd packages/business-logic && pnpm build
-
-# Run unit tests for business-logic
-cd packages/business-logic && pnpm test
-```
-
-## Architecture
-
-### Monorepo Structure
-
-This is a **Turborepo + pnpm workspace** monorepo for a personal accounting application. The architecture separates concerns into shared packages and application-specific code.
+### Monorepo 结构
 
 ```
 personal-accounting/
-├── packages/           # Shared libraries
-│   ├── shared/         # Types, constants, utilities
-│   ├── business-logic/ # Pure business logic (calculations, statistics)
-│   └── ui-components/  # Reusable UI components (planned)
+├── packages/                    # 共享包
+│   ├── shared/                  # 类型、常量、工具函数
+│   └── business-logic/          # 纯计算逻辑（无副作用）
 └── apps/
-    ├── web/            # React + Vite frontend
-    └── backend/        # Nest.js API (scaffolded, not implemented)
+    ├── web/                     # React 前端 → apps/web/CODEBUDDY.md
+    └── backend/                 # NestJS 后端 → apps/backend/CODEBUDDY.md
 ```
 
-### Package Dependencies
+### 依赖关系
 
 ```
-@personal-accounting/web
-    └── @personal-accounting/business-logic
-            └── @personal-accounting/shared
-    └── @personal-accounting/shared
+web ─────┬── business-logic ── shared
+         └── shared
 
-@personal-accounting/backend
-    └── @personal-accounting/business-logic
-    └── @personal-accounting/shared
+backend ─┬── business-logic ── shared
+         └── shared
 ```
 
-**Important**: Always build shared packages before running apps. Turborepo handles this via `dependsOn: ["^build"]` in `turbo.json`.
+## 核心共享包
 
-### Core Packages
+### `@personal-accounting/shared`
 
-#### `@personal-accounting/shared`
-Central type definitions, constants, and utilities shared across all packages.
-
-- **Types** (`src/types/index.ts`): `Record`, `Category`, `Statistics`, `DateRange`, API response types
-- **Constants** (`src/constants/index.ts`): `EXPENSE_CATEGORIES`, `INCOME_CATEGORIES`, `CHART_COLORS`, category lookup functions
-- **Utils** (`src/utils/index.ts`): Date formatting (`dayjs` wrapper), currency formatting, ID generation, validation
-
-**Export paths**:
 ```typescript
-import { Record, Category } from '@personal-accounting/shared/types'
-import { EXPENSE_CATEGORIES, getCategoryById } from '@personal-accounting/shared/constants'
+// 类型
+import type { Record, Category, Statistics, User } from '@personal-accounting/shared/types'
+
+// 常量
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryById } from '@personal-accounting/shared/constants'
+
+// 工具
 import { formatCurrency, dayjs, generateId } from '@personal-accounting/shared/utils'
 ```
 
-#### `@personal-accounting/business-logic`
-Pure function implementations for all business calculations. Framework-agnostic, testable in isolation.
+**分类定义**：
+- 支出 (10): 餐饮、交通、购物、娱乐、住房、医疗、教育、通讯、水电、其他
+- 收入 (6): 工资、奖金、投资、兼职、退款、其他
 
-- **RecordCalculator** (`src/records/index.ts`): Balance calculation, category breakdown, monthly trends, date filtering/sorting/grouping
-- **StatisticsService** (`src/statistics/index.ts`): Complete statistics generation, monthly/yearly stats, period comparison
-
-**Key design**: All methods are static and operate on arrays of `Record` objects. No side effects, no state.
+### `@personal-accounting/business-logic`
 
 ```typescript
 import { RecordCalculator } from '@personal-accounting/business-logic/records'
 import { StatisticsService } from '@personal-accounting/business-logic/statistics'
 
-const balance = RecordCalculator.calculateBalance(records)
-const stats = StatisticsService.getStatistics(records, dateRange)
+RecordCalculator.calculateBalance(records)
+RecordCalculator.getCategoryBreakdown(records)
+StatisticsService.getStatistics(records, dateRange?)
 ```
 
-### Web Application (`apps/web`)
-
-**Stack**: React 18 + TypeScript + Vite + Tailwind CSS + Radix UI primitives
-
-#### State Management
-- **RecordsContext** (`src/context/RecordsContext.tsx`): Global state for records and statistics
-- **StorageService** (`src/services/storageService.ts`): localStorage persistence layer (to be replaced with API calls)
-
-#### Navigation
-Simple state-based routing in `App.tsx`. Pages: `home`, `record`, `income`, `expense`, `records`, `statistics`.
-
-#### UI Components
-- **Layout**: `BottomNav`, `Header`, `PageContainer`
-- **Common**: `CategoryIcon`, `EmptyState`
-- **UI primitives** (`src/components/ui/`): shadcn/ui style components using Radix UI
-
-#### Pages
-| Page | File | Purpose |
-|------|------|---------|
-| Home | `HomePage.tsx` | Dashboard with balance overview, quick actions, recent records |
-| Record Form | `RecordFormPage.tsx` | Add/edit income or expense records |
-| Records List | `RecordsPage.tsx` | View all records with filtering |
-| Statistics | `StatisticsPage.tsx` | Charts and category breakdown |
-
-### Data Model
+## 数据模型
 
 ```typescript
 interface Record {
-  id: string           // Generated unique ID
+  id: string                    // cuid
   type: 'income' | 'expense'
   amount: number
-  category: string     // Category ID (e.g., 'food', 'salary')
-  date: string         // YYYY-MM-DD format
+  category: string              // 分类 ID
+  date: string                  // YYYY-MM-DD
   note?: string
-  createdAt: string    // ISO timestamp
+  createdAt: string
+  // 同步字段（后端）
+  syncVersion: number
+  clientId: string
+  deletedAt?: string            // 软删除
 }
 ```
 
-**Categories**: Predefined in `shared/constants`. 10 expense categories (餐饮, 交通, 购物...) and 6 income categories (工资, 奖金, 投资...). Each has `id`, `name`, `icon` (Lucide icon name), `type`.
+## 同步架构
 
-### Current Limitations
+### 离线优先流程
 
-1. **No backend**: Data persists only in localStorage
-2. **No authentication**: Single-user, local-only
-3. **No real routing**: State-based page switching (no URL support)
+1. 所有操作先写入 localStorage
+2. 变更追踪到 `pendingChanges` Map
+3. 3 秒防抖后自动同步
+4. 网络恢复时同步待处理变更
 
-### Development Roadmap
+### 版本协议
 
-1. **Backend API**: Implement Nest.js with Prisma + PostgreSQL
-2. **Authentication**: CloudBase or custom auth
-3. **Data sync**: Replace localStorage with API calls
-4. **Multi-device**: Cloud storage for cross-device access
+- 每条记录有 `syncVersion`，服务端更新时递增
+- 客户端追踪 `recordVersions`: `{ isLocalOnly, localUpdatedAt, serverUpdatedAt }`
+- Pull 返回指定版本后的变更
+
+### 冲突解决
+
+- 基于时间戳：后修改者胜出
+- 冲突类型：`update_update`、`update_delete`、`delete_update`
+- 默认策略：删除操作服务端优先
+
+## API 概览
+
+| 模块 | 端点 | 说明 |
+|------|------|------|
+| Auth | `/api/auth/dev/login` | 开发登录 (body: `{openid}`) |
+| Records | `/api/records` | 记录 CRUD |
+| Sync | `/api/sync/pull`, `/sync/push` | 增量同步 |
+| Discovery | `/api/discovery/ping` | 健康检查 (无需认证) |
+
+响应格式：`{ code, message, data, timestamp }`
+
+## 子模块文档
+
+- **前端详情**: [`apps/web/CODEBUDDY.md`](apps/web/CODEBUDDY.md)
+- **后端详情**: [`apps/backend/CODEBUDDY.md`](apps/backend/CODEBUDDY.md)
