@@ -1,0 +1,73 @@
+// Prisma Schema for Personal Accounting App
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id        String   @id @default(cuid())
+  openid    String   @unique // 微信 openid
+  unionid   String?  @unique // 微信 unionid（可选）
+  nickname  String?
+  avatar    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关联
+  records      Record[]
+  syncVersions SyncVersion[]
+
+  @@map("users")
+}
+
+// 记账记录表
+model Record {
+  id        String     @id @default(cuid())
+  type      RecordType
+  amount    Decimal
+  category  String
+  date      DateTime
+  note      String?
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  deletedAt DateTime?  @map("deleted_at") // 软删除
+
+  // 同步相关
+  syncVersion Int      @default(0) @map("sync_version")
+  clientId    String?  @map("client_id") // 客户端生成的 ID，用于冲突检测
+
+  // 关联
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, deletedAt])
+  @@index([userId, syncVersion])
+  @@map("records")
+}
+
+// 同步版本表（用于增量同步）
+model SyncVersion {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  deviceId      String   @map("device_id")
+  lastSyncAt    DateTime @default(now()) @map("last_sync_at")
+  serverVersion Int      @default(0) @map("server_version")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@map("sync_versions")
+}
+
+// 记录类型枚举
+enum RecordType {
+  income
+  expense
+}

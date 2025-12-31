@@ -1,0 +1,11 @@
+# Build outputs
+dist/
+
+# TypeScript compiled files in src (should never exist)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
