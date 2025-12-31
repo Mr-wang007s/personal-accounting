@@ -5,11 +5,11 @@
 
 import { apiClient, SyncRecord, PushPayload } from './apiClient'
 import type { Record } from '@personal-accounting/shared/types'
+import { STORAGE_KEY } from '@personal-accounting/shared/constants'
 
 // 存储键
 const SYNC_META_KEY = 'pa_sync_meta'
 const PENDING_CHANGES_KEY = 'pa_pending_changes'
-const STORAGE_KEY = 'pa_records'
 const RECORD_VERSIONS_KEY = 'pa_record_versions'
 
 interface SyncMeta {
@@ -364,9 +364,10 @@ class SyncService {
       console.log(`[Sync] 检查变更: id=${id}, action=${change.action}, version=`, version)
       
       if (change.action === 'create' && version?.isLocalOnly) {
-        const record = mergedMap.get(id)
+        // 优先从 mergedMap 获取，如果没有则从 pendingChange.data 获取
+        const record = mergedMap.get(id) || (change.data as Record | undefined)
         console.log(`[Sync] create 变更, record=`, record)
-        if (record) {
+        if (record && record.id) {
           toCreate.push(record)
         }
       } else if (change.action === 'update') {
@@ -384,6 +385,31 @@ class SyncService {
         if (!version?.isLocalOnly) {
           toDelete.push(serverId)
         }
+      }
+    }
+
+    // 检测本地有但服务器没有的记录（首次同步或未被追踪的本地记录）
+    for (const [id, record] of mergedMap) {
+      const version = this.recordVersions.get(id)
+      const alreadyInToCreate = toCreate.some(r => r.id === id)
+      
+      // 检查是否已存在于服务器
+      const existsOnServer = serverByClientId.has(id) || 
+                             serverMap.has(id) || 
+                             (version?.serverId && serverMap.has(version.serverId)) ||
+                             (version && !version.isLocalOnly && version.serverId)
+      
+      // 如果记录不在服务器上，且不在待创建列表中
+      if (!existsOnServer && !alreadyInToCreate) {
+        console.log(`[Sync] 检测到未追踪的本地记录，添加到 toCreate: ${id}`)
+        toCreate.push(record)
+        // 标记为待同步
+        this.recordVersions.set(id, {
+          id,
+          syncVersion: 0,
+          localUpdatedAt: record.createdAt || new Date().toISOString(),
+          isLocalOnly: true,
+        })
       }
     }
 

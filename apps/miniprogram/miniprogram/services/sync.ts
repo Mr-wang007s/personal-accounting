@@ -372,9 +372,11 @@ class SyncService {
       const version = this.recordVersions.get(id)
 
       if (change.action === 'create' && version?.isLocalOnly) {
-        const record = mergedMap.get(id)
-        if (record) {
+        // 优先从 mergedMap 获取，如果没有则从 pendingChange.data 获取
+        const record = mergedMap.get(id) || (change.data as Record | undefined)
+        if (record && record.id) {
           toCreate.push(record)
+          console.log(`[Sync] pendingChanges create: ${id}`)
         }
       } else if (change.action === 'update') {
         const serverRecord = serverByClientId.get(id) || serverMap.get(version?.serverId || '')
@@ -390,6 +392,34 @@ class SyncService {
         if (!version?.isLocalOnly) {
           toDelete.push(serverId)
         }
+      }
+    }
+
+    // 检测本地有但服务器没有的记录（首次同步或未被追踪的本地记录）
+    for (const [id, record] of mergedMap) {
+      const version = this.recordVersions.get(id)
+      const hasPendingChange = this.pendingChanges.has(id)
+      const alreadyInToCreate = toCreate.some(r => r.id === id)
+      
+      // 检查是否已存在于服务器
+      const existsOnServer = serverByClientId.has(id) || 
+                             serverMap.has(id) || 
+                             (version?.serverId && serverMap.has(version.serverId)) ||
+                             (version && !version.isLocalOnly && version.serverId)
+      
+      console.log(`[Sync] 检查记录 ${id}: existsOnServer=${existsOnServer}, serverId=${version?.serverId}, isLocalOnly=${version?.isLocalOnly}, hasPendingChange=${hasPendingChange}, alreadyInToCreate=${alreadyInToCreate}`)
+      
+      // 如果记录不在服务器上，且不在待创建列表中
+      if (!existsOnServer && !alreadyInToCreate) {
+        console.log(`[Sync] 添加到 toCreate: ${id}`)
+        toCreate.push(record)
+        // 标记为待同步
+        this.recordVersions.set(id, {
+          id,
+          syncVersion: 0,
+          localUpdatedAt: record.createdAt || new Date().toISOString(),
+          isLocalOnly: true,
+        })
       }
     }
 
@@ -432,6 +462,8 @@ class SyncService {
 
     try {
       console.log('[Sync] 开始同步...')
+      console.log('[Sync] pendingChanges:', [...this.pendingChanges.entries()])
+      console.log('[Sync] recordVersions:', [...this.recordVersions.entries()])
 
       // 1. 拉取服务器变更
       const pullResult = await apiClient.pull(this.syncMeta.lastSyncVersion)
@@ -439,12 +471,15 @@ class SyncService {
 
       // 2. Diff 合并
       const localRecords = this.getLocalRecords()
+      console.log('[Sync] 本地记录:', localRecords)
       const localMap = new Map(localRecords.map((r) => [r.id, r]))
 
       const { mergedRecords, toCreate, toUpdate, toDelete, conflicts, mergedCount } = this.diffAndMerge(
         localMap,
         pullResult.changes
       )
+      
+      console.log('[Sync] Diff 结果: toCreate=', toCreate.length, 'toUpdate=', toUpdate.length, 'toDelete=', toDelete.length)
 
       result.conflicts = conflicts.length
       result.conflictRecords = conflicts
