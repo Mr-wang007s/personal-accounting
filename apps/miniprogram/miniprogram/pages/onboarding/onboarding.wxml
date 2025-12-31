@@ -1,0 +1,77 @@
+<!--首次使用引导页-->
+<view class="page-container">
+  <view class="content">
+    <!-- 步骤指示器 -->
+    <view class="steps-indicator">
+      <view class="step {{step >= 1 ? 'active' : ''}}">1</view>
+      <view class="step-line {{step >= 2 ? 'active' : ''}}"></view>
+      <view class="step {{step >= 2 ? 'active' : ''}}">2</view>
+    </view>
+    
+    <!-- 步骤 1: 设置昵称 -->
+    <view class="step-content" wx:if="{{step === 1}}">
+      <view class="step-icon">
+        <text>👋</text>
+      </view>
+      <text class="step-title">欢迎使用记账本</text>
+      <text class="step-desc">首先，告诉我们你的昵称</text>
+      
+      <view class="form-section">
+        <input 
+          class="nickname-input" 
+          placeholder="请输入你的昵称" 
+          value="{{nickname}}"
+          bindinput="onNicknameInput"
+          maxlength="20"
+          focus="{{step === 1}}"
+        />
+      </view>
+      
+      <button class="next-btn" bindtap="nextStep" disabled="{{!nickname}}">
+        下一步
+      </button>
+    </view>
+    
+    <!-- 步骤 2: 创建账本 -->
+    <view class="step-content" wx:if="{{step === 2}}">
+      <view class="step-icon">
+        <text>📒</text>
+      </view>
+      <text class="step-title">创建你的第一个账本</text>
+      <text class="step-desc">给账本起个名字吧</text>
+      
+      <view class="form-section">
+        <input 
+          class="ledger-input" 
+          placeholder="例如：日常开销" 
+          value="{{ledgerName}}"
+          bindinput="onLedgerNameInput"
+          maxlength="20"
+          focus="{{step === 2}}"
+        />
+        
+        <view class="icon-section">
+          <text class="icon-label">选择图标</text>
+          <view class="icon-grid">
+            <view 
+              class="icon-item {{ledgerIcon === item ? 'selected' : ''}}"
+              wx:for="{{ledgerIcons}}"
+              wx:key="*this"
+              bindtap="selectIcon"
+              data-icon="{{item}}"
+            >
+              <text>{{item}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      
+      <view class="btn-group">
+        <button class="back-btn" bindtap="prevStep">返回</button>
+        <button class="start-btn" bindtap="complete" disabled="{{!ledgerName}}">
+          开始记账
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

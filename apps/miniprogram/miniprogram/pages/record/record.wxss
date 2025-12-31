@@ -1,0 +1,221 @@
+/* 记账表单页样式 */
+.page-container {
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+  padding-bottom: 200rpx;
+}
+
+/* 类型切换 */
+.type-tabs {
+  display: flex;
+  background-color: var(--bg-primary);
+  padding: 16rpx;
+  margin: 24rpx 32rpx;
+  border-radius: var(--radius-lg);
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx;
+  border-radius: var(--radius-md);
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.tab.active {
+  color: #FFFFFF;
+}
+
+.tab.active.expense {
+  background-color: var(--danger-color);
+}
+
+.tab.active.income {
+  background-color: var(--success-color);
+}
+
+/* 金额输入 */
+.amount-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx 32rpx;
+  background-color: var(--bg-primary);
+  margin: 0 32rpx 24rpx;
+  border-radius: var(--radius-lg);
+}
+
+.currency-symbol {
+  font-size: 56rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 16rpx;
+}
+
+.amount-input {
+  font-size: 72rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  min-width: 200rpx;
+  max-width: 400rpx;
+}
+
+.amount-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* 分类选择 */
+.section {
+  background-color: var(--bg-primary);
+  margin: 0 32rpx 24rpx;
+  padding: 24rpx;
+  border-radius: var(--radius-lg);
+}
+
+.section-title {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  margin-bottom: 20rpx;
+  display: block;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16rpx;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx 8rpx;
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+}
+
+.category-item.selected {
+  background-color: var(--primary-color);
+}
+
+.category-item.selected .category-name {
+  color: #FFFFFF;
+}
+
+.category-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8rpx;
+}
+
+.category-item.selected .category-icon {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.category-icon image {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.category-name {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* 日期选择 */
+.date-picker {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.date-picker image:first-child {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 16rpx;
+  opacity: 0.6;
+}
+
+.date-picker text {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+
+.date-picker .arrow {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.4;
+}
+
+/* 备注输入 */
+.note-input {
+  width: 100%;
+  padding: 20rpx 24rpx;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.note-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* 底部按钮 */
+.bottom-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background-color: var(--bg-primary);
+  box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.btn-save {
+  width: 100%;
+  padding: 28rpx;
+  border-radius: var(--radius-md);
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  border: none;
+  margin-bottom: 16rpx;
+}
+
+.btn-save.expense {
+  background-color: var(--danger-color);
+}
+
+.btn-save.income {
+  background-color: var(--success-color);
+}
+
+.btn-save[disabled] {
+  background-color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.btn-delete {
+  width: 100%;
+  padding: 28rpx;
+  border-radius: var(--radius-md);
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--danger-color);
+  background-color: rgba(239, 68, 68, 0.1);
+  border: none;
+}

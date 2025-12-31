@@ -1,0 +1,13 @@
+.icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-image {
+  display: block;
+}
+
+.icon-fallback {
+  color: currentColor;
+}

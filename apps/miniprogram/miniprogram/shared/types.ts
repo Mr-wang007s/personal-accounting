@@ -1,0 +1,102 @@
+/**
+ * 类型定义 - 与 @personal-accounting/shared 保持一致
+ * 小程序环境下的类型定义副本
+ */
+
+// 记录类型
+export type RecordType = 'income' | 'expense'
+
+// 记账记录
+export interface Record {
+  id: string
+  type: RecordType
+  amount: number
+  category: string
+  date: string
+  note?: string
+  createdAt: string
+  ledgerId?: string
+}
+
+// 分类
+export interface Category {
+  id: string
+  name: string
+  icon: string
+  type: RecordType
+}
+
+// 分类统计
+export interface CategoryStat {
+  category: string
+  amount: number
+  percentage: number
+  icon: string
+  name?: string // 小程序扩展字段
+}
+
+// 月度数据
+export interface MonthlyData {
+  month: string
+  income: number
+  expense: number
+}
+
+// 统计数据
+export interface Statistics {
+  totalIncome: number
+  totalExpense: number
+  balance: number
+  categoryBreakdown: CategoryStat[]
+  monthlyTrend: MonthlyData[]
+}
+
+// 日期范围
+export interface DateRange {
+  start: string
+  end: string
+}
+
+// 账本
+export interface Ledger {
+  id: string
+  name: string
+  icon?: string
+  color?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// 用户配置
+export interface UserProfile {
+  id: string
+  nickname: string
+  currentLedgerId: string
+  createdAt: string
+  updatedAt: string
+}
+
+// 按日期分组的记录
+export interface GroupedRecords {
+  date: string
+  dateLabel: string
+  records: Record[]
+  totalIncome: number
+  totalExpense: number
+}
+
+// API 响应类型
+export interface ApiResponse<T> {
+  code: number
+  message: string
+  data: T
+  timestamp: string
+}
+
+// 分页响应
+export interface PaginatedResponse<T> {
+  records: T[]
+  total: number
+  page: number
+  pageSize: number
+}

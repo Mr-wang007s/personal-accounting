@@ -1,0 +1,133 @@
+<!--个人中心页-->
+<view class="page-container">
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <view class="avatar">
+      <text>{{avatarText}}</text>
+    </view>
+    <view class="user-info">
+      <text class="nickname">{{userProfile.nickname || '用户'}}</text>
+      <text class="user-id">ID: {{userIdDisplay}}</text>
+    </view>
+  </view>
+  
+  <!-- 账本管理 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">我的账本</text>
+      <view class="add-btn" bindtap="showCreateLedger">
+        <image src="/assets/icons/plus.png" mode="aspectFit"></image>
+        <text>新建</text>
+      </view>
+    </view>
+    
+    <view class="ledger-list">
+      <view 
+        class="ledger-item {{item.id === currentLedger.id ? 'active' : ''}}"
+        wx:for="{{ledgers}}"
+        wx:key="id"
+        bindtap="switchLedger"
+        data-id="{{item.id}}"
+      >
+        <view class="ledger-icon">
+          <text>{{item.icon || '📒'}}</text>
+        </view>
+        <view class="ledger-info">
+          <text class="ledger-name">{{item.name}}</text>
+          <text class="ledger-count">{{item.recordCount}}条记录</text>
+        </view>
+        <view class="ledger-actions">
+          <image 
+            wx:if="{{item.id === currentLedger.id}}"
+            class="check-icon"
+            src="/assets/icons/check.png" 
+            mode="aspectFit"
+          ></image>
+          <image 
+            wx:if="{{ledgers.length > 1}}"
+            class="delete-icon"
+            src="/assets/icons/trash.png" 
+            mode="aspectFit"
+            catchtap="deleteLedger"
+            data-id="{{item.id}}"
+            data-name="{{item.name}}"
+          ></image>
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 数据管理 -->
+  <view class="section">
+    <text class="section-title">数据管理</text>
+    
+    <view class="menu-list">
+      <view class="menu-item" bindtap="exportData">
+        <view class="menu-icon">
+          <image src="/assets/icons/download.png" mode="aspectFit"></image>
+        </view>
+        <text class="menu-text">导出数据</text>
+        <image class="menu-arrow" src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
+      </view>
+      
+      <view class="menu-item danger" bindtap="clearCurrentLedgerData">
+        <view class="menu-icon">
+          <image src="/assets/icons/trash.png" mode="aspectFit"></image>
+        </view>
+        <text class="menu-text">清除当前账本数据</text>
+        <image class="menu-arrow" src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 关于 -->
+  <view class="section">
+    <text class="section-title">关于</text>
+    
+    <view class="menu-list">
+      <view class="menu-item">
+        <view class="menu-icon">
+          <image src="/assets/icons/info.png" mode="aspectFit"></image>
+        </view>
+        <text class="menu-text">版本</text>
+        <text class="menu-value">1.0.0</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 新建账本弹窗 -->
+  <view class="modal-mask" wx:if="{{showCreateModal}}" bindtap="hideCreateLedger"></view>
+  <view class="modal-content" wx:if="{{showCreateModal}}">
+    <text class="modal-title">新建账本</text>
+    <view class="modal-body">
+      <view class="form-item">
+        <text class="form-label">账本名称</text>
+        <input 
+          class="form-input" 
+          placeholder="请输入账本名称" 
+          value="{{newLedgerName}}"
+          bindinput="onLedgerNameInput"
+          maxlength="20"
+        />
+      </view>
+      <view class="form-item">
+        <text class="form-label">选择图标</text>
+        <view class="icon-grid">
+          <view 
+            class="icon-item {{newLedgerIcon === item ? 'selected' : ''}}"
+            wx:for="{{ledgerIcons}}"
+            wx:key="*this"
+            bindtap="selectLedgerIcon"
+            data-icon="{{item}}"
+          >
+            <text>{{item}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="modal-footer">
+      <button class="modal-btn cancel" bindtap="hideCreateLedger">取消</button>
+      <button class="modal-btn confirm" bindtap="createLedger" disabled="{{!newLedgerName}}">创建</button>
+    </view>
+  </view>
+</view>

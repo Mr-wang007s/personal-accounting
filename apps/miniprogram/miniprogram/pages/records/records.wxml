@@ -1,0 +1,150 @@
+<!--账单明细页-->
+<view class="page-container">
+  <!-- Tab 切换 -->
+  <view class="tabs-header">
+    <view class="tab {{activeTab === 'records' ? 'active' : ''}}" bindtap="switchTab" data-tab="records">
+      <text>账单明细</text>
+    </view>
+    <view class="tab {{activeTab === 'stats' ? 'active' : ''}}" bindtap="switchTab" data-tab="stats">
+      <text>统计分析</text>
+    </view>
+    <view class="tab-indicator" style="transform: translateX({{activeTab === 'stats' ? '100%' : '0'}})"></view>
+  </view>
+  
+  <!-- 账单明细 -->
+  <view class="tab-content" wx:if="{{activeTab === 'records'}}">
+    <!-- 月份选择 -->
+    <view class="month-selector">
+      <view class="month-nav" bindtap="prevMonth">
+        <image src="/assets/icons/chevron-left.png" mode="aspectFit"></image>
+      </view>
+      <picker mode="date" fields="month" value="{{currentMonthStr}}" bindchange="onMonthChange">
+        <view class="month-display">
+          <text>{{currentYear}}年{{currentMonth}}月</text>
+          <image src="/assets/icons/chevron-down.png" mode="aspectFit"></image>
+        </view>
+      </picker>
+      <view class="month-nav" bindtap="nextMonth">
+        <image src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
+      </view>
+    </view>
+    
+    <!-- 月度汇总 -->
+    <view class="month-summary">
+      <view class="summary-item">
+        <text class="label">收入</text>
+        <text class="value income">+{{monthIncomeDisplay}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="label">支出</text>
+        <text class="value expense">-{{monthExpenseDisplay}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="label">结余</text>
+        <text class="value {{monthBalance >= 0 ? 'positive' : 'negative'}}">{{monthBalanceDisplay}}</text>
+      </view>
+    </view>
+    
+    <!-- 记录列表 -->
+    <view class="records-container" wx:if="{{groupedRecords.length > 0}}">
+      <view class="date-group" wx:for="{{groupedRecords}}" wx:key="date">
+        <view class="date-header">
+          <text class="date-label">{{item.dateLabel}}</text>
+          <view class="date-summary">
+            <text class="income" wx:if="{{item.totalIncome > 0}}">+{{item.incomeDisplay}}</text>
+            <text class="expense" wx:if="{{item.totalExpense > 0}}">-{{item.expenseDisplay}}</text>
+          </view>
+        </view>
+        
+        <view class="record-list">
+          <view 
+            class="record-item" 
+            wx:for="{{item.records}}" 
+            wx:for-item="record" 
+            wx:key="id"
+            bindtap="editRecord"
+            data-id="{{record.id}}"
+          >
+            <view class="record-icon" style="background-color: {{record.categoryColor}}20;">
+              <image src="/assets/icons/category/{{record.categoryIcon}}.png" mode="aspectFit"></image>
+            </view>
+            <view class="record-info">
+              <text class="record-category">{{record.categoryName}}</text>
+              <text class="record-note" wx:if="{{record.note}}">{{record.note}}</text>
+            </view>
+            <text class="record-amount {{record.type}}">{{record.type === 'income' ? '+' : '-'}}{{record.amountDisplay}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-state" wx:else>
+      <image src="/assets/icons/empty.png" mode="aspectFit"></image>
+      <text>本月暂无记录</text>
+    </view>
+  </view>
+  
+  <!-- 统计分析 -->
+  <view class="tab-content" wx:if="{{activeTab === 'stats'}}">
+    <!-- 总览卡片 -->
+    <view class="stats-overview">
+      <view class="overview-card income-card">
+        <text class="card-label">总收入</text>
+        <text class="card-value">¥{{totalIncomeDisplay}}</text>
+      </view>
+      <view class="overview-card expense-card">
+        <text class="card-label">总支出</text>
+        <text class="card-value">¥{{totalExpenseDisplay}}</text>
+      </view>
+    </view>
+    
+    <!-- 月度趋势 -->
+    <view class="stats-section">
+      <text class="section-title">近6个月收支趋势</text>
+      <view class="trend-chart">
+        <view class="chart-bars">
+          <view class="bar-group" wx:for="{{monthlyTrend}}" wx:key="month">
+            <view class="bar income-bar" style="height: {{item.incomeHeight}}rpx;"></view>
+            <view class="bar expense-bar" style="height: {{item.expenseHeight}}rpx;"></view>
+            <text class="bar-label">{{item.month}}</text>
+          </view>
+        </view>
+        <view class="chart-legend">
+          <view class="legend-item">
+            <view class="legend-dot income"></view>
+            <text>收入</text>
+          </view>
+          <view class="legend-item">
+            <view class="legend-dot expense"></view>
+            <text>支出</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 支出分类占比 -->
+    <view class="stats-section" wx:if="{{categoryBreakdown.length > 0}}">
+      <text class="section-title">支出分类占比</text>
+      <view class="category-list">
+        <view class="category-item" wx:for="{{categoryBreakdown}}" wx:key="category">
+          <view class="category-left">
+            <view class="category-icon" style="background-color: {{item.color}}20;">
+              <image src="/assets/icons/category/{{item.icon}}.png" mode="aspectFit"></image>
+            </view>
+            <text class="category-name">{{item.name}}</text>
+          </view>
+          <view class="category-right">
+            <text class="category-amount">¥{{item.amountDisplay}}</text>
+            <text class="category-percent">{{item.percentDisplay}}%</text>
+          </view>
+          <view class="category-bar" style="width: {{item.percentage}}%; background-color: {{item.color}};"></view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-state" wx:if="{{categoryBreakdown.length === 0}}">
+      <image src="/assets/icons/empty.png" mode="aspectFit"></image>
+      <text>暂无统计数据</text>
+    </view>
+  </view>
+</view>

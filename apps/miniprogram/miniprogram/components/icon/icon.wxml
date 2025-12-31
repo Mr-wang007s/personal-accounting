@@ -1,0 +1,11 @@
+<!--图标组件-->
+<view class="icon-container" style="width: {{size}}rpx; height: {{size}}rpx;">
+  <image 
+    wx:if="{{src}}"
+    class="icon-image"
+    src="{{src}}"
+    mode="aspectFit"
+    style="width: {{size}}rpx; height: {{size}}rpx;"
+  ></image>
+  <text wx:else class="icon-fallback" style="font-size: {{size * 0.6}}rpx;">{{fallback}}</text>
+</view>
