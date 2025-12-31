@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
 interface WechatSessionResponse {
@@ -20,9 +20,9 @@ export class WechatService {
   private readonly appId: string
   private readonly appSecret: string
 
-  constructor(private configService: ConfigService) {
-    this.appId = this.configService.get('WECHAT_APP_ID', '')
-    this.appSecret = this.configService.get('WECHAT_APP_SECRET', '')
+  constructor(@Inject(ConfigService) private configService: ConfigService) {
+    this.appId = this.configService.get<string>('WECHAT_APP_ID', '')
+    this.appSecret = this.configService.get<string>('WECHAT_APP_SECRET', '')
   }
 
   // 通过 code 获取 session

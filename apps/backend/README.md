@@ -211,6 +211,69 @@ GET /api/discovery/ping  - 健康检查（无需认证）
 | PORT | 服务端口 | 3000 |
 | NODE_ENV | 环境 | development |
 | ENABLE_DISCOVERY | 启用局域网服务发现 | true |
+| SKIP_AUTH | 跳过 JWT 认证（仅开发环境） | false |
+
+## 开发环境认证跳过
+
+在开发联调时，可以通过设置 `SKIP_AUTH=true` 环境变量来跳过 JWT 认证，无需获取 token 即可直接调用需要认证的接口。
+
+### 配置方式
+
+在 `.env` 文件中添加：
+
+```bash
+SKIP_AUTH=true
+```
+
+### 工作原理
+
+当 `SKIP_AUTH=true` 且 `NODE_ENV` 不是 `production` 时：
+- 所有需要认证的接口会自动使用 mock 用户
+- Mock 用户 ID: `dev-user-001`
+- Mock 用户 OpenID: `dev-openid-001`
+
+### 注意事项
+
+- 生产环境会自动忽略此配置
+- 首次使用需确保数据库中存在 mock 用户（可通过 `/api/auth/dev/login` 创建）
+
+## 测试
+
+### 运行单元测试
+
+```bash
+pnpm test
+```
+
+### 运行 E2E 测试
+
+```bash
+# 运行所有 E2E 测试
+pnpm test:e2e
+
+# 监听模式
+pnpm test:e2e:watch
+```
+
+### E2E 测试覆盖范围
+
+- **认证测试** (`auth.e2e-spec.ts`)
+  - 获取用户信息
+  - 开发环境登录
+  - Token 刷新
+
+- **记账记录测试** (`records.e2e-spec.ts`)
+  - 创建/查询/更新/删除记录
+  - 批量删除
+  - 统计数据
+  - 月度趋势
+  - 分类统计
+
+- **数据同步测试** (`sync.e2e-spec.ts`)
+  - 同步状态查询
+  - 增量拉取
+  - 推送变更
+  - 全量同步
 
 ## 局域网部署
 

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
+import { Injectable, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import * as dgram from 'dgram'
 import * as os from 'os'
@@ -17,7 +17,7 @@ export class DiscoveryService implements OnModuleInit, OnModuleDestroy {
   private readonly serviceName = 'personal-accounting'
   private readonly broadcastPort = 41234
 
-  constructor(private configService: ConfigService) {}
+  constructor(@Inject(ConfigService) private configService: ConfigService) {}
 
   async onModuleInit() {
     const enableDiscovery = this.configService.get('ENABLE_DISCOVERY', 'true')
