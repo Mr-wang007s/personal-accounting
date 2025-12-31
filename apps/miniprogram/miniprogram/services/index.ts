@@ -5,3 +5,5 @@
 export { StorageService } from './storage'
 export { LedgerService } from './ledger'
 export { RecordService } from './record'
+export { syncService, SyncState, SyncResult } from './sync'
+export { apiClient } from './apiClient'

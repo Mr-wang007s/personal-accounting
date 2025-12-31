@@ -7,6 +7,7 @@ import { getCategoryById } from '../shared/constants'
 import { RecordCalculator } from '../business-logic/records'
 import { StatisticsService } from '../business-logic/statistics'
 import { StorageService } from './storage'
+import { syncService } from './sync'
 
 export const RecordService = {
   /**
@@ -32,6 +33,10 @@ export const RecordService = {
     }
 
     StorageService.addRecord(record)
+    
+    // 追踪变更用于同步
+    syncService.trackCreate(record)
+    
     return record
   },
 
@@ -40,6 +45,9 @@ export const RecordService = {
    */
   updateRecord(id: string, updates: Partial<Record>): void {
     StorageService.updateRecord(id, updates)
+    
+    // 追踪变更用于同步
+    syncService.trackUpdate(id, updates)
   },
 
   /**
@@ -47,6 +55,9 @@ export const RecordService = {
    */
   deleteRecord(id: string): void {
     StorageService.deleteRecord(id)
+    
+    // 追踪变更用于同步
+    syncService.trackDelete(id)
   },
 
   /**

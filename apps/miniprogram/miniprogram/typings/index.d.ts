@@ -5,6 +5,8 @@
  * 此文件仅保留小程序特有的全局类型声明
  */
 
+/// <reference path="./wx.d.ts" />
+
 // 从 shared 导入核心类型
 import type { 
   Record, 

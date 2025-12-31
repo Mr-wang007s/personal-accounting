@@ -36,7 +36,6 @@ export function ProfilePage(_props: ProfilePageProps) {
   const [showNewLedger, setShowNewLedger] = useState(false)
   const [newLedgerName, setNewLedgerName] = useState('')
   const [inputUrl, setInputUrl] = useState(serverUrl || 'http://127.0.0.1:3000')
-  const [inputIdentifier, setInputIdentifier] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -64,34 +63,26 @@ export function ProfilePage(_props: ProfilePageProps) {
   }
 
   const handleConnect = async () => {
+    if (!userProfile?.nickname) {
+      setError('请先设置用户昵称')
+      return
+    }
     setError(null)
     setLoading(true)
     try {
       const success = await discoverServer(inputUrl)
       if (!success) {
         setError('无法连接到服务器，请检查地址是否正确')
+        setLoading(false)
+        return
       }
-    } catch {
-      setError('连接失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLogin = async () => {
-    if (!inputIdentifier.trim()) {
-      setError('请输入用户标识')
-      return
-    }
-    setError(null)
-    setLoading(true)
-    try {
-      const success = await login(inputIdentifier)
-      if (!success) {
+      // 连接成功后自动使用昵称登录
+      const loginSuccess = await login(userProfile.nickname)
+      if (!loginSuccess) {
         setError('登录失败')
       }
     } catch {
-      setError('登录失败')
+      setError('连接失败')
     } finally {
       setLoading(false)
     }
@@ -330,28 +321,9 @@ export function ProfilePage(_props: ProfilePageProps) {
                     )}
                   </div>
                   {isConnected && (
-                    <p className="text-xs text-green-600">✓ 已连接到 {serverUrl}</p>
+                    <p className="text-xs text-green-600">✓ 已连接到 {serverUrl}（用户: {userProfile?.nickname}）</p>
                   )}
                 </div>
-
-                {/* 登录 */}
-                {isConnected && !isAuthenticated && (
-                  <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">用户标识</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={inputIdentifier}
-                        onChange={(e) => setInputIdentifier(e.target.value)}
-                        placeholder="输入任意标识，如: test_user"
-                        disabled={loading}
-                        className="flex-1"
-                      />
-                      <Button onClick={handleLogin} disabled={loading} size="sm">
-                        {loading ? '登录中...' : '登录'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
 
                 {/* 同步状态 */}
                 {isConnected && isAuthenticated && (

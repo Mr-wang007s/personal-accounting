@@ -4,6 +4,8 @@
 import type { Ledger, UserProfile } from '../../shared/types'
 import { LedgerService } from '../../services/ledger'
 import { StorageService } from '../../services/storage'
+import { syncService, SyncState, SyncResult } from '../../services/sync'
+import { apiClient } from '../../services/apiClient'
 
 interface LedgerDisplay extends Ledger {
   recordCount: number
@@ -22,6 +24,18 @@ Page({
     newLedgerName: '',
     newLedgerIcon: '📒',
     ledgerIcons: ['📒', '💰', '🏠', '🚗', '✈️', '🎮', '🛒', '💼', '🎓', '❤️', '🌟', '📱'],
+
+    // 同步相关
+    showSyncModal: false,
+    syncState: 'idle' as SyncState,
+    isConnected: false,
+    isAuthenticated: false,
+    serverUrl: '',
+    inputServerUrl: 'http://192.168.1.100:3000',
+    lastSyncAt: '',
+    pendingCount: 0,
+    autoSyncEnabled: true,
+    syncError: '',
   },
 
   onLoad() {
@@ -30,6 +44,7 @@ Page({
 
   onShow() {
     this.loadData()
+    this.loadSyncStatus()
   },
 
   // 加载数据
@@ -189,5 +204,199 @@ Page({
         }
       }
     })
+  },
+
+  // ==================== 同步功能 ====================
+
+  // 加载同步状态
+  loadSyncStatus() {
+    const meta = syncService.getSyncMeta()
+    const token = apiClient.getToken()
+    const autoSync = wx.getStorageSync('pa_auto_sync')
+
+    this.setData({
+      serverUrl: meta.serverUrl || '',
+      inputServerUrl: meta.serverUrl || 'http://192.168.1.100:3000',
+      lastSyncAt: meta.lastSyncAt || '',
+      pendingCount: syncService.getPendingCount(),
+      isConnected: !!meta.serverUrl,
+      isAuthenticated: !!token,
+      autoSyncEnabled: autoSync !== false,
+    })
+
+    // 检查连接状态
+    if (meta.serverUrl) {
+      this.checkConnection()
+    }
+  },
+
+  // 检查连接
+  async checkConnection() {
+    const connected = await syncService.checkConnection()
+    this.setData({
+      isConnected: connected,
+      syncState: connected ? 'idle' : 'offline',
+    })
+  },
+
+  // 显示同步设置弹窗
+  showSyncSettings() {
+    this.setData({
+      showSyncModal: true,
+      syncError: '',
+    })
+  },
+
+  // 隐藏同步设置弹窗
+  hideSyncModal() {
+    this.setData({ showSyncModal: false })
+  },
+
+  // 输入服务器地址
+  onServerUrlInput(e: WechatMiniprogram.Input) {
+    this.setData({ inputServerUrl: e.detail.value })
+  },
+
+  // 连接服务器（连接成功后自动使用昵称登录）
+  async connectServer() {
+    const { inputServerUrl, userProfile } = this.data
+    if (!inputServerUrl.trim()) {
+      this.setData({ syncError: '请输入服务器地址' })
+      return
+    }
+
+    if (!userProfile?.nickname) {
+      this.setData({ syncError: '请先设置用户昵称' })
+      return
+    }
+
+    this.setData({ syncState: 'checking', syncError: '' })
+
+    try {
+      const success = await syncService.discoverServer(inputServerUrl)
+      if (success) {
+        // 连接成功后自动使用昵称登录
+        const loginSuccess = await syncService.devLogin(userProfile.nickname)
+        if (loginSuccess) {
+          this.setData({
+            isConnected: true,
+            isAuthenticated: true,
+            serverUrl: inputServerUrl,
+            syncState: 'idle',
+          })
+          wx.showToast({ title: '连接成功', icon: 'success' })
+        } else {
+          this.setData({
+            isConnected: true,
+            serverUrl: inputServerUrl,
+            syncError: '登录失败',
+            syncState: 'error',
+          })
+        }
+      } else {
+        this.setData({
+          syncError: '无法连接到服务器，请检查地址',
+          syncState: 'error',
+        })
+      }
+    } catch (error) {
+      this.setData({
+        syncError: '连接失败',
+        syncState: 'error',
+      })
+    }
+  },
+
+  // 断开连接
+  disconnectServer() {
+    wx.showModal({
+      title: '确认断开',
+      content: '断开连接将清除同步配置，确定继续？',
+      confirmColor: '#EF4444',
+      success: (res) => {
+        if (res.confirm) {
+          syncService.disconnect()
+          this.setData({
+            isConnected: false,
+            isAuthenticated: false,
+            serverUrl: '',
+            lastSyncAt: '',
+            pendingCount: 0,
+            syncState: 'idle',
+          })
+          wx.showToast({ title: '已断开连接', icon: 'success' })
+        }
+      }
+    })
+  },
+
+  // 手动同步
+  async manualSync() {
+    if (this.data.syncState === 'syncing') return
+
+    this.setData({ syncState: 'syncing', syncError: '' })
+
+    try {
+      const result = await syncService.sync()
+
+      if (result.success) {
+        this.setData({
+          syncState: 'success',
+          lastSyncAt: syncService.getSyncMeta().lastSyncAt || '',
+          pendingCount: syncService.getPendingCount(),
+        })
+
+        // 刷新应用数据
+        const app = getApp<IAppOption>()
+        app.refreshData()
+        this.loadData()
+
+        wx.showToast({
+          title: `同步完成 ↓${result.pulled} ↑${result.pushed}`,
+          icon: 'none',
+        })
+
+        setTimeout(() => {
+          this.setData({ syncState: 'idle' })
+        }, 2000)
+      } else {
+        this.setData({
+          syncState: 'error',
+          syncError: result.error || '同步失败',
+        })
+        setTimeout(() => {
+          this.setData({ syncState: 'idle' })
+        }, 3000)
+      }
+    } catch (error) {
+      this.setData({
+        syncState: 'error',
+        syncError: '同步失败',
+      })
+      setTimeout(() => {
+        this.setData({ syncState: 'idle' })
+      }, 3000)
+    }
+  },
+
+  // 切换自动同步
+  toggleAutoSync(e: WechatMiniprogram.SwitchChange) {
+    const enabled = e.detail.value
+    this.setData({ autoSyncEnabled: enabled })
+    wx.setStorageSync('pa_auto_sync', enabled)
+  },
+
+  // 获取同步状态文本
+  getSyncStateText(): string {
+    const { syncState, isConnected, isAuthenticated } = this.data
+    if (!isConnected) return '未连接'
+    if (!isAuthenticated) return '未登录'
+    switch (syncState) {
+      case 'syncing': return '同步中...'
+      case 'success': return '同步成功'
+      case 'error': return '同步失败'
+      case 'offline': return '离线'
+      default: return '已就绪'
+    }
   },
 })

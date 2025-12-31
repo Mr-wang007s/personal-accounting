@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSync } from '@/context/SyncContext'
+import { useLedger } from '@/context/LedgerContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +12,7 @@ interface SyncSettingsProps {
 }
 
 export function SyncSettings({ onClose }: SyncSettingsProps) {
+  const { userProfile } = useLedger()
   const {
     isConnected,
     isAuthenticated,
@@ -28,29 +30,12 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
   } = useSync()
 
   const [inputUrl, setInputUrl] = useState(serverUrl || 'http://127.0.0.1:3000')
-  const [inputIdentifier, setInputIdentifier] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const handleConnect = async () => {
-    setError(null)
-    setLoading(true)
-    
-    try {
-      const success = await discoverServer(inputUrl)
-      if (!success) {
-        setError('无法连接到服务器，请检查地址是否正确')
-      }
-    } catch {
-      setError('连接失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLogin = async () => {
-    if (!inputIdentifier.trim()) {
-      setError('请输入用户标识')
+    if (!userProfile?.nickname) {
+      setError('请先设置用户昵称')
       return
     }
 
@@ -58,12 +43,19 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     setLoading(true)
     
     try {
-      const success = await login(inputIdentifier)
+      const success = await discoverServer(inputUrl)
       if (!success) {
+        setError('无法连接到服务器，请检查地址是否正确')
+        setLoading(false)
+        return
+      }
+      // 连接成功后自动使用昵称登录
+      const loginSuccess = await login(userProfile.nickname)
+      if (!loginSuccess) {
         setError('登录失败')
       }
     } catch {
-      setError('登录失败')
+      setError('连接失败')
     } finally {
       setLoading(false)
     }
@@ -135,29 +127,11 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
             )}
           </div>
           {isConnected && (
-            <p className="text-sm text-green-600">✓ 已连接到 {serverUrl}</p>
+            <p className="text-sm text-green-600">✓ 已连接到 {serverUrl}（用户: {userProfile?.nickname}）</p>
           )}
         </div>
 
-        {/* 步骤 2: 登录 */}
-        {isConnected && !isAuthenticated && (
-          <div className="space-y-2">
-            <Label>用户标识（开发模式）</Label>
-            <div className="flex gap-2">
-              <Input
-                value={inputIdentifier}
-                onChange={(e) => setInputIdentifier(e.target.value)}
-                placeholder="输入任意标识，如: test_user"
-                disabled={loading}
-              />
-              <Button onClick={handleLogin} disabled={loading}>
-                {loading ? '登录中...' : '登录'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* 步骤 3: 同步操作 */}
+        {/* 步骤 2: 同步操作 */}
         {isConnected && isAuthenticated && (
           <div className="space-y-4">
             {/* 自动同步开关 */}
