@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import dayjs from './dayjs'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -14,28 +15,29 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  return dayjs(date).format('YYYY年M月D日')
 }
 
 export function formatShortDate(date: string): string {
-  return new Date(date).toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  })
+  return dayjs(date).format('M月D日')
 }
 
 export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2)
+  return dayjs().valueOf().toString(36) + Math.random().toString(36).substring(2)
 }
 
-export function getMonthRange(date: Date = new Date()): { start: string; end: string } {
-  const year = date.getFullYear()
-  const month = date.getMonth()
-  const start = new Date(year, month, 1).toISOString().split('T')[0]
-  const end = new Date(year, month + 1, 0).toISOString().split('T')[0]
+export function getMonthRange(date: dayjs.Dayjs = dayjs()): { start: string; end: string } {
+  const start = date.startOf('month').format('YYYY-MM-DD')
+  const end = date.endOf('month').format('YYYY-MM-DD')
   return { start, end }
+}
+
+// 获取今天的日期字符串 YYYY-MM-DD
+export function getToday(): string {
+  return dayjs().format('YYYY-MM-DD')
+}
+
+// 获取当前时间的 ISO 字符串
+export function getNowISO(): string {
+  return dayjs().toISOString()
 }

@@ -1,6 +1,7 @@
 import { Record, Statistics, DateRange, CategoryStat, MonthlyData } from '@/types'
 import { STORAGE_KEY, getCategoryById } from '@/lib/constants'
-import { generateId } from '@/lib/utils'
+import { generateId, getNowISO } from '@/lib/utils'
+import dayjs from '@/lib/dayjs'
 
 class StorageService {
   private getStorageData(): Record[] {
@@ -15,17 +16,17 @@ class StorageService {
 
   getRecords(): Record[] {
     return this.getStorageData().sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf()
     )
   }
 
   getRecordsByDateRange(dateRange: DateRange): Record[] {
     const records = this.getRecords()
+    const start = dateRange.start
+    const end = dateRange.end
     return records.filter(record => {
-      const recordDate = new Date(record.date)
-      const startDate = new Date(dateRange.start)
-      const endDate = new Date(dateRange.end)
-      return recordDate >= startDate && recordDate <= endDate
+      // 直接字符串比较，YYYY-MM-DD 格式可以正确排序
+      return record.date >= start && record.date <= end
     })
   }
 
@@ -34,7 +35,7 @@ class StorageService {
     const newRecord: Record = {
       ...data,
       id: generateId(),
-      createdAt: new Date().toISOString(),
+      createdAt: getNowISO(),
     }
     records.push(newRecord)
     this.setStorageData(records)
@@ -94,14 +95,14 @@ class StorageService {
 
     // Monthly trend (last 6 months)
     const monthlyTrend: MonthlyData[] = []
-    const now = new Date()
+    const now = dayjs()
     for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const monthStr = date.toISOString().slice(0, 7)
+      const date = now.subtract(i, 'month')
+      const monthStr = date.format('YYYY-MM')
       const monthRecords = records.filter(r => r.date.startsWith(monthStr))
       
       monthlyTrend.push({
-        month: `${date.getMonth() + 1}月`,
+        month: `${date.month() + 1}月`,
         income: monthRecords
           .filter(r => r.type === 'income')
           .reduce((sum, r) => sum + r.amount, 0),

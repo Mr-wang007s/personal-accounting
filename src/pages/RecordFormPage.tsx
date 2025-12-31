@@ -8,7 +8,7 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { CategoryIcon } from '@/components/common/CategoryIcon'
 import { useRecords } from '@/context/RecordsContext'
 import { getCategoriesByType } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+import { cn, getToday } from '@/lib/utils'
 import { RecordType } from '@/types'
 
 interface RecordFormPageProps {
@@ -20,7 +20,7 @@ export function RecordFormPage({ type, onNavigate }: RecordFormPageProps) {
   const { addRecord } = useRecords()
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(getToday())
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 

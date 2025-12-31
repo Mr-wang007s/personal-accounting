@@ -18,39 +18,45 @@ import { useRecords } from '@/context/RecordsContext'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getCategoryById } from '@/lib/constants'
 import { Record } from '@/types'
+import dayjs from '@/lib/dayjs'
 
 interface RecordsPageProps {
   onNavigate: (page: string) => void
 }
 
 export function RecordsPage({ onNavigate }: RecordsPageProps) {
-  const { records, deleteRecord, getRecordsByDateRange, getStatistics } = useRecords()
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const { records, deleteRecord } = useRecords()
+  const [currentMonth, setCurrentMonth] = useState(dayjs())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState<Record | null>(null)
 
   const monthStr = useMemo(() => {
-    return currentMonth.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-    })
+    return currentMonth.format('YYYY年M月')
   }, [currentMonth])
 
   const monthRecords = useMemo(() => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const start = new Date(year, month, 1).toISOString().split('T')[0]
-    const end = new Date(year, month + 1, 0).toISOString().split('T')[0]
-    return getRecordsByDateRange({ start, end })
+    const start = currentMonth.startOf('month').format('YYYY-MM-DD')
+    const end = currentMonth.endOf('month').format('YYYY-MM-DD')
+    // 直接用字符串比较，避免时区问题
+    return records.filter(record => {
+      return record.date >= start && record.date <= end
+    })
   }, [currentMonth, records])
 
   const monthStats = useMemo(() => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const start = new Date(year, month, 1).toISOString().split('T')[0]
-    const end = new Date(year, month + 1, 0).toISOString().split('T')[0]
-    return getStatistics({ start, end })
-  }, [currentMonth, records])
+    // 基于 monthRecords 计算统计
+    const totalIncome = monthRecords
+      .filter(r => r.type === 'income')
+      .reduce((sum, r) => sum + r.amount, 0)
+    const totalExpense = monthRecords
+      .filter(r => r.type === 'expense')
+      .reduce((sum, r) => sum + r.amount, 0)
+    return {
+      totalIncome,
+      totalExpense,
+      balance: totalIncome - totalExpense
+    }
+  }, [monthRecords])
 
   // Group records by date
   const groupedRecords = useMemo(() => {
@@ -62,20 +68,22 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
       groups[record.date].push(record)
     })
     return Object.entries(groups).sort(
-      ([a], [b]) => new Date(b).getTime() - new Date(a).getTime()
+      ([a], [b]) => dayjs(b).valueOf() - dayjs(a).valueOf()
     )
   }, [monthRecords])
 
   const handlePrevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))
+    setCurrentMonth(currentMonth.subtract(1, 'month'))
   }
 
   const handleNextMonth = () => {
-    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
-    if (next <= new Date()) {
+    const next = currentMonth.add(1, 'month')
+    if (next.isBefore(dayjs()) || next.isSame(dayjs(), 'month')) {
       setCurrentMonth(next)
     }
   }
+
+  const isCurrentMonth = currentMonth.isSame(dayjs(), 'month')
 
   const handleDeleteClick = (record: Record) => {
     setRecordToDelete(record)
@@ -106,10 +114,7 @@ export function RecordsPage({ onNavigate }: RecordsPageProps) {
           <button
             onClick={handleNextMonth}
             className="p-2 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-30"
-            disabled={
-              currentMonth.getMonth() === new Date().getMonth() &&
-              currentMonth.getFullYear() === new Date().getFullYear()
-            }
+            disabled={isCurrentMonth}
           >
             <ChevronRight className="w-5 h-5 text-slate-600" />
           </button>
