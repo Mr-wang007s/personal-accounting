@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import type { Record, Statistics, DateRange } from '@personal-accounting/shared/types'
 import { storageService } from '@/services/storageService'
 import { syncService } from '@/services/syncService'
+import { useLedger } from '@/context/LedgerContext'
 
 interface RecordsContextType {
   records: Record[]
@@ -33,12 +34,18 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     setStatistics(storageService.getStatistics())
   }
 
+  const { currentLedger } = useLedger()
+
+  useEffect(() => {
+    refreshData()
+  }, [currentLedger?.id])
+
   useEffect(() => {
     refreshData()
     
     // 监听 storage 变化（用于同步后刷新）
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'pa_records') {
+      if (e.key === 'personal_accounting_records') {
         refreshData()
       }
     }

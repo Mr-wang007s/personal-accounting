@@ -17,9 +17,10 @@ export function PageContainer({
   return (
     <main
       className={cn(
-        'min-h-screen bg-gradient-to-b from-slate-50 to-white',
+        'min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20',
         hasHeader && 'pt-12',
-        hasBottomNav && 'pb-18',
+        // 底部固定 BottomNav，高度约为 3.5rem，这里预留更多空间
+        hasBottomNav && 'pb-20',
         className
       )}
     >
