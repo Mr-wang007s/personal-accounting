@@ -194,11 +194,23 @@ class ApiClient {
     })
   }
 
-  // 开发环境登录
-  async devLogin(identifier: string): Promise<{ accessToken: string; user: unknown }> {
+  // 用户注册/登录（开发环境）
+  async register(nickname: string): Promise<{ accessToken: string; user: { id: string; openid: string; nickname: string; avatar: string | null } }> {
+    // 使用 deviceId 作为唯一标识
     return this.request('/api/auth/dev/login', {
       method: 'POST',
-      data: { openid: identifier },
+      data: { 
+        openid: this.deviceId,
+        nickname 
+      },
+    })
+  }
+
+  // 开发环境登录（兼容旧接口）
+  async devLogin(identifier: string, nickname?: string): Promise<{ accessToken: string; user: { id: string; openid: string; nickname: string; avatar: string | null } }> {
+    return this.request('/api/auth/dev/login', {
+      method: 'POST',
+      data: { openid: identifier, nickname },
     })
   }
 

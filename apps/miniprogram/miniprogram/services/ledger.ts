@@ -4,12 +4,19 @@
 import type { Ledger, UserProfile } from '../shared/types'
 import { generateId, getNowISO } from '../shared/utils'
 import { StorageService } from './storage'
+import { apiClient } from './apiClient'
+import { syncService } from './sync'
 
 export const LedgerService = {
   /**
    * 初始化用户（首次使用）
+   * 同时注册到后端服务器
    */
-  initializeUser(nickname: string, ledgerName: string): { userProfile: UserProfile; ledger: Ledger } {
+  async initializeUser(
+    nickname: string, 
+    ledgerName: string,
+    serverUrl?: string
+  ): Promise<{ userProfile: UserProfile; ledger: Ledger; registered: boolean }> {
     const now = getNowISO()
 
     // 创建默认账本
@@ -30,11 +37,29 @@ export const LedgerService = {
       updatedAt: now,
     }
 
-    // 保存到存储
+    // 保存到本地存储
     StorageService.saveLedgers([ledger])
     StorageService.saveUserProfile(userProfile)
 
-    return { userProfile, ledger }
+    // 尝试注册到服务器
+    let registered = false
+    if (serverUrl) {
+      try {
+        // 连接服务器
+        const connected = await syncService.discoverServer(serverUrl)
+        if (connected) {
+          // 注册用户
+          const result = await apiClient.register(nickname)
+          apiClient.setToken(result.accessToken)
+          registered = true
+          console.log('[LedgerService] 用户注册成功:', result.user)
+        }
+      } catch (error) {
+        console.error('[LedgerService] 注册失败，将使用离线模式:', error)
+      }
+    }
+
+    return { userProfile, ledger, registered }
   },
 
   /**

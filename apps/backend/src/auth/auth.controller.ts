@@ -58,12 +58,12 @@ export class AuthController {
     }
   }
 
-  // 开发环境专用接口
+  // 开发环境专用接口（也用于 Web/小程序注册登录）
   @Post('dev/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '开发环境模拟登录（仅开发环境可用）' })
+  @ApiOperation({ summary: '开发环境登录/注册（仅开发环境可用）' })
   @ApiResponse({ status: 200, type: TokenResponseDto })
   async devLogin(@Body() dto: DevLoginDto): Promise<TokenResponseDto> {
-    return this.authService.devLogin(dto.openid)
+    return this.authService.devLogin(dto.openid, dto.nickname)
   }
 }

@@ -203,9 +203,9 @@ class SyncService {
     }
   }
 
-  async devLogin(identifier: string): Promise<boolean> {
+  async devLogin(identifier: string, nickname?: string): Promise<boolean> {
     try {
-      const result = await apiClient.devLogin(identifier)
+      const result = await apiClient.devLogin(identifier, nickname)
       apiClient.setToken(result.accessToken)
       return true
     } catch {

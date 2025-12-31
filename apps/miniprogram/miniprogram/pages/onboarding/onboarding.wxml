@@ -64,6 +64,24 @@
             </view>
           </view>
         </view>
+
+        <!-- 同步设置 -->
+        <view class="sync-section">
+          <view class="sync-header">
+            <text class="sync-label">启用云同步</text>
+            <switch checked="{{enableSync}}" bindchange="onSyncSwitchChange" color="#6366F1" />
+          </view>
+          <view class="sync-input-wrapper" wx:if="{{enableSync}}">
+            <text class="input-label">服务器地址</text>
+            <input 
+              class="server-input" 
+              placeholder="http://127.0.0.1:3000" 
+              value="{{serverUrl}}"
+              bindinput="onServerUrlInput"
+            />
+            <text class="input-hint">数据将同步到此服务器</text>
+          </view>
+        </view>
       </view>
       
       <view class="btn-group">

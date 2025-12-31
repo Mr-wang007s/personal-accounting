@@ -97,8 +97,8 @@ export class AuthService {
     return user
   }
 
-  // 开发环境模拟登录
-  async devLogin(openid: string): Promise<TokenResponseDto> {
+  // 开发环境模拟登录（也用于 Web/小程序注册登录）
+  async devLogin(openid: string, nickname?: string): Promise<TokenResponseDto> {
     if (process.env.NODE_ENV === 'production') {
       throw new UnauthorizedException('Dev login not allowed in production')
     }
@@ -108,9 +108,13 @@ export class AuthService {
     if (!user) {
       user = await this.usersService.create({
         openid,
-        nickname: `Dev User ${openid.slice(-4)}`,
+        nickname: nickname || `User ${openid.slice(-4)}`,
       })
     }
+    //  else if (nickname && user.nickname !== nickname) {
+    //   // 更新昵称
+    //   user = await this.usersService.update(user.id, { nickname })
+    // }
 
     const payload: JwtPayload = {
       sub: user.id,

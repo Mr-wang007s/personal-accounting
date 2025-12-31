@@ -3,6 +3,9 @@
  */
 import { LedgerService } from '../../services/ledger'
 
+// 默认服务器地址
+const DEFAULT_SERVER_URL = 'http://127.0.0.1:3000'
+
 Page({
   data: {
     step: 1,
@@ -10,6 +13,8 @@ Page({
     ledgerName: '',
     ledgerIcon: '📒',
     ledgerIcons: ['📒', '💰', '🏠', '🚗', '✈️', '🎮', '🛒', '💼', '🎓', '❤️', '🌟', '📱'],
+    serverUrl: DEFAULT_SERVER_URL,
+    enableSync: true,
   },
 
   onLoad() {
@@ -30,6 +35,16 @@ Page({
   // 输入账本名称
   onLedgerNameInput(e: WechatMiniprogram.Input) {
     this.setData({ ledgerName: e.detail.value })
+  },
+
+  // 输入服务器地址
+  onServerUrlInput(e: WechatMiniprogram.Input) {
+    this.setData({ serverUrl: e.detail.value })
+  },
+
+  // 切换同步开关
+  onSyncSwitchChange(e: WechatMiniprogram.SwitchChange) {
+    this.setData({ enableSync: e.detail.value })
   },
 
   // 选择图标
@@ -54,7 +69,7 @@ Page({
 
   // 完成引导
   async complete() {
-    const { nickname, ledgerName, ledgerIcon } = this.data
+    const { nickname, ledgerName, ledgerIcon, serverUrl, enableSync } = this.data
 
     if (!nickname.trim()) {
       wx.showToast({ title: '请输入昵称', icon: 'none' })
@@ -70,7 +85,13 @@ Page({
       wx.showLoading({ title: '正在初始化...' })
 
       const app = getApp<IAppOption>()
-      await app.completeOnboarding(nickname.trim(), ledgerName.trim())
+      
+      // 传入服务器地址（如果启用同步）
+      const result = await app.completeOnboarding(
+        nickname.trim(), 
+        ledgerName.trim(),
+        enableSync ? serverUrl.trim() : undefined
+      )
 
       // 更新账本图标
       if (ledgerIcon !== '📒') {
@@ -83,8 +104,10 @@ Page({
 
       wx.hideLoading()
 
+      // 显示注册结果
+      const message = result.registered ? '注册成功！' : '欢迎使用！'
       wx.showToast({
-        title: '欢迎使用！',
+        title: message,
         icon: 'success',
         duration: 1500,
       })

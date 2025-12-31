@@ -43,11 +43,13 @@ interface IAppOption {
     ledgers: Ledger[]
     records: Record[]
     isInitialized: boolean
+    isLoggedIn: boolean
   }
   initializeApp(): Promise<void>
-  completeOnboarding(nickname: string, ledgerName: string): Promise<{
+  completeOnboarding(nickname: string, ledgerName: string, serverUrl?: string): Promise<{
     userProfile: UserProfile
     ledger: Ledger
+    registered: boolean
   }>
   refreshData(): void
 }

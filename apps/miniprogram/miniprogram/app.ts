@@ -3,6 +3,8 @@
  */
 import { StorageService } from './services/storage'
 import { LedgerService } from './services/ledger'
+import { apiClient } from './services/apiClient'
+import { syncService } from './services/sync'
 
 App<IAppOption>({
   globalData: {
@@ -10,7 +12,8 @@ App<IAppOption>({
     currentLedger: null,
     ledgers: [],
     records: [],
-    isInitialized: false
+    isInitialized: false,
+    isLoggedIn: false,
   },
 
   onLaunch() {
@@ -31,6 +34,17 @@ App<IAppOption>({
         this.globalData.currentLedger = ledgers.find(l => l.id === userProfile.currentLedgerId) || ledgers[0]
         this.globalData.records = StorageService.getRecords()
         this.globalData.isInitialized = true
+
+        // 检查是否已登录（有 token）
+        const token = apiClient.getToken()
+        if (token) {
+          this.globalData.isLoggedIn = true
+          // 恢复服务器连接
+          const syncMeta = syncService.getSyncMeta()
+          if (syncMeta.serverUrl) {
+            apiClient.setBaseUrl(syncMeta.serverUrl)
+          }
+        }
       }
     } catch (error) {
       console.error('初始化失败:', error)
@@ -38,13 +52,14 @@ App<IAppOption>({
   },
 
   // 完成引导后初始化
-  async completeOnboarding(nickname: string, ledgerName: string) {
-    const result = LedgerService.initializeUser(nickname, ledgerName)
+  async completeOnboarding(nickname: string, ledgerName: string, serverUrl?: string) {
+    const result = await LedgerService.initializeUser(nickname, ledgerName, serverUrl)
     this.globalData.userProfile = result.userProfile
     this.globalData.ledgers = [result.ledger]
     this.globalData.currentLedger = result.ledger
     this.globalData.records = []
     this.globalData.isInitialized = true
+    this.globalData.isLoggedIn = result.registered
     return result
   },
 

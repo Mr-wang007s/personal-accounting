@@ -20,7 +20,7 @@ interface SyncContextType {
   
   // 操作
   discoverServer: (url: string) => Promise<boolean>
-  login: (identifier: string) => Promise<boolean>
+  login: (identifier: string, nickname?: string) => Promise<boolean>
   sync: () => Promise<SyncResult>
   fullSync: () => Promise<SyncResult>
   checkConnection: () => Promise<void>
@@ -239,7 +239,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // 登录
   const login = useCallback(async (identifier: string): Promise<boolean> => {
     
-    const success = await syncService.devLogin(identifier)
+    const success = await syncService.devLogin(identifier, identifier)
     setIsAuthenticated(success)
     
     // 登录成功后，如果有待同步数据，自动同步

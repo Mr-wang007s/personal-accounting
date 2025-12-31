@@ -188,10 +188,10 @@ class ApiClient {
   }
 
   // 开发环境登录
-  async devLogin(identifier: string): Promise<{ accessToken: string; user: unknown }> {
+  async devLogin(identifier: string, nickname?: string): Promise<{ accessToken: string; user: unknown }> {
     return this.request('/api/auth/dev/login', {
       method: 'POST',
-      body: JSON.stringify({ openid: identifier }),
+      body: JSON.stringify({ openid: identifier, nickname }),
     })
   }
 
