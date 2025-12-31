@@ -1,8 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { RedisService } from '../redis/redis.service'
+import { CacheService } from '../cache/cache.service'
 import { RecordsService } from '../records/records.service'
-import { SyncPushDto, SyncRecordDto } from './dto/sync-push.dto'
+import { SyncPushDto } from './dto/sync-push.dto'
 import { RecordType } from '@prisma/client'
 
 export interface SyncResult {
@@ -24,7 +24,7 @@ export interface SyncConflict {
 export class SyncService {
   constructor(
     private prisma: PrismaService,
-    private redis: RedisService,
+    private cache: CacheService,
     private recordsService: RecordsService,
   ) {}
 
@@ -270,7 +270,7 @@ export class SyncService {
     })
 
     // 清除缓存
-    await this.redis.del(RedisService.keys.userRecords(userId))
+    this.cache.del(CacheService.keys.userRecords(userId))
 
     return {
       serverVersion,

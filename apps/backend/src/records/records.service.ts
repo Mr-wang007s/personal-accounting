@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { RedisService } from '../redis/redis.service'
+import { CacheService } from '../cache/cache.service'
 import { Record, RecordType, Prisma } from '@prisma/client'
 import { CreateRecordDto } from './dto/create-record.dto'
 import { UpdateRecordDto } from './dto/update-record.dto'
@@ -42,7 +42,7 @@ export interface MonthlyTrend {
 export class RecordsService {
   constructor(
     private prisma: PrismaService,
-    private redis: RedisService,
+    private cache: CacheService,
   ) {}
 
   // 创建记录
@@ -60,7 +60,7 @@ export class RecordsService {
     })
 
     // 清除缓存
-    await this.invalidateUserCache(userId)
+    this.invalidateUserCache(userId)
 
     return record
   }
@@ -82,7 +82,7 @@ export class RecordsService {
       })),
     })
 
-    await this.invalidateUserCache(userId)
+    this.invalidateUserCache(userId)
 
     return result.count
   }
@@ -173,7 +173,7 @@ export class RecordsService {
       },
     })
 
-    await this.invalidateUserCache(userId)
+    this.invalidateUserCache(userId)
 
     return record
   }
@@ -190,7 +190,7 @@ export class RecordsService {
       },
     })
 
-    await this.invalidateUserCache(userId)
+    this.invalidateUserCache(userId)
   }
 
   // 批量删除记录
@@ -207,7 +207,7 @@ export class RecordsService {
       },
     })
 
-    await this.invalidateUserCache(userId)
+    this.invalidateUserCache(userId)
 
     return result.count
   }
@@ -218,11 +218,11 @@ export class RecordsService {
     startDate: string,
     endDate: string,
   ): Promise<Statistics> {
-    const cacheKey = RedisService.keys.userStats(
+    const cacheKey = CacheService.keys.userStats(
       userId,
       `${startDate}_${endDate}`,
     )
-    const cached = await this.redis.getJson<Statistics>(cacheKey)
+    const cached = this.cache.get<Statistics>(cacheKey)
 
     if (cached) {
       return cached
@@ -243,7 +243,7 @@ export class RecordsService {
     const stats = this.calculateStatistics(formattedRecords)
 
     // 缓存 5 分钟
-    await this.redis.setJson(cacheKey, stats, 300)
+    this.cache.set(cacheKey, stats, 300)
 
     return stats
   }
@@ -391,8 +391,9 @@ export class RecordsService {
   }
 
   // 清除用户缓存
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.redis.del(RedisService.keys.userRecords(userId))
-    // 统计缓存会在下次请求时自动刷新
+  private invalidateUserCache(userId: string): void {
+    this.cache.del(CacheService.keys.userRecords(userId))
+    // 清除所有统计缓存
+    this.cache.delByPrefix(`user:${userId}:stats:`)
   }
 }

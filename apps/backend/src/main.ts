@@ -50,9 +50,11 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document)
 
   const port = process.env.PORT || 3000
-  await app.listen(port)
+  await app.listen(port, '0.0.0.0') // 监听所有网络接口
+  
   console.log(`🚀 Application is running on: http://localhost:${port}`)
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`)
+  console.log(`🔍 Service discovery: http://localhost:${port}/api/discovery/info`)
 }
 
 bootstrap()

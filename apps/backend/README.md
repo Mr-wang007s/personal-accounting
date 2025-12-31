@@ -1,15 +1,16 @@
 # @personal-accounting/backend
 
-个人记账应用后端服务。
+个人记账应用后端服务，支持局域网部署和离线同步。
 
 ## 技术栈
 
 - **框架**: Nest.js 10
 - **ORM**: Prisma 6
-- **数据库**: SQLite
-- **缓存**: Redis (ioredis)
+- **数据库**: SQLite（零配置，文件数据库）
+- **缓存**: 内存缓存（无需 Redis）
 - **认证**: JWT + Passport
 - **文档**: Swagger/OpenAPI
+- **服务发现**: UDP 广播（局域网自动发现）
 
 ## 功能模块
 
@@ -19,13 +20,13 @@
 | Users | `/api/users` | 用户信息管理、统计 |
 | Records | `/api/records` | 记账记录 CRUD、统计分析 |
 | Sync | `/api/sync` | 多设备数据同步 |
+| Discovery | `/api/discovery` | 局域网服务发现 |
 
 ## 开发环境
 
 ### 前置要求
 
 - Node.js 18+
-- Redis 6+
 - pnpm 8+
 
 ### 环境配置
@@ -83,9 +84,13 @@ src/
 ├── prisma/                 # Prisma 服务
 │   ├── prisma.module.ts
 │   └── prisma.service.ts
-├── redis/                  # Redis 服务
-│   ├── redis.module.ts
-│   └── redis.service.ts
+├── cache/                  # 内存缓存服务
+│   ├── cache.module.ts
+│   └── cache.service.ts
+├── discovery/              # 局域网服务发现
+│   ├── discovery.module.ts
+│   ├── discovery.controller.ts
+│   └── discovery.service.ts
 ├── auth/                   # 认证模块
 │   ├── auth.module.ts
 │   ├── auth.controller.ts
@@ -187,17 +192,53 @@ POST /api/sync/push    - 推送本地变更
 GET  /api/sync/full    - 全量同步
 ```
 
+### 服务发现
+
+```
+GET /api/discovery/info  - 获取服务信息（无需认证）
+GET /api/discovery/ping  - 健康检查（无需认证）
+```
+
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | DATABASE_URL | SQLite 文件路径 | file:./dev.db |
-| REDIS_HOST | Redis 主机 | localhost |
-| REDIS_PORT | Redis 端口 | 6379 |
-| REDIS_PASSWORD | Redis 密码 | - |
 | JWT_SECRET | JWT 密钥 | - |
 | JWT_EXPIRES_IN | JWT 过期时间 | 7d |
 | WECHAT_APP_ID | 微信小程序 AppID | - |
 | WECHAT_APP_SECRET | 微信小程序 Secret | - |
 | PORT | 服务端口 | 3000 |
 | NODE_ENV | 环境 | development |
+| ENABLE_DISCOVERY | 启用局域网服务发现 | true |
+
+## 局域网部署
+
+### 架构说明
+
+```
+┌─────────────────┐         ┌─────────────────────┐
+│  手机/小程序     │  WiFi   │  家庭服务器 (NAS等)  │
+│  (离线优先)     │ ◄─────► │  后端 + SQLite      │
+│  IndexedDB/本地 │  同步   │  :3000              │
+└─────────────────┘         └─────────────────────┘
+```
+
+### 服务发现机制
+
+后端启动后会通过 UDP 广播（端口 41234）在局域网内广播服务信息，客户端可以：
+
+1. **监听 UDP 广播** - 自动发现服务器 IP
+2. **调用 `/api/discovery/ping`** - 验证服务器可用性
+
+### 部署步骤
+
+```bash
+# 1. 构建
+pnpm build
+
+# 2. 启动（确保监听所有网络接口）
+pnpm start:prod
+
+# 服务将在所有网络接口上监听，局域网内设备可通过 IP 访问
+```

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { Record, Statistics, DateRange } from '@personal-accounting/shared/types'
 import { storageService } from '@/services/storageService'
+import { syncService } from '@/services/syncService'
 
 interface RecordsContextType {
   records: Record[]
@@ -33,20 +34,35 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refreshData()
+    
+    // 监听 storage 变化（用于同步后刷新）
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'pa_records') {
+        refreshData()
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
   const addRecord = (data: Omit<Record, 'id' | 'createdAt'>) => {
-    storageService.addRecord(data)
+    const newRecord = storageService.addRecord(data)
+    // 追踪变更用于同步
+    syncService.trackCreate(newRecord)
     refreshData()
   }
 
   const updateRecord = (id: string, data: Partial<Record>) => {
     storageService.updateRecord(id, data)
+    // 追踪变更用于同步
+    syncService.trackUpdate(id, data)
     refreshData()
   }
 
   const deleteRecord = (id: string) => {
     storageService.deleteRecord(id)
+    // 追踪变更用于同步
+    syncService.trackDelete(id)
     refreshData()
   }
 

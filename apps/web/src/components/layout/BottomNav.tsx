@@ -1,4 +1,4 @@
-import { Home, PlusCircle, List, PieChart } from 'lucide-react'
+import { Home, PlusCircle, List, PieChart, Cloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface BottomNavProps {
@@ -11,6 +11,7 @@ const navItems = [
   { id: 'record', label: '记账', icon: PlusCircle },
   { id: 'records', label: '账单', icon: List },
   { id: 'statistics', label: '统计', icon: PieChart },
+  { id: 'sync', label: '同步', icon: Cloud },
 ]
 
 export function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
