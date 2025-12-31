@@ -9,6 +9,7 @@ export interface Record {
   date: string
   note?: string
   createdAt: string
+  ledgerId?: string // 所属账本 ID
 }
 
 export interface Category {
@@ -42,6 +43,25 @@ export interface Statistics {
 export interface DateRange {
   start: string
   end: string
+}
+
+// 账本类型
+export interface Ledger {
+  id: string
+  name: string
+  icon?: string
+  color?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// 用户配置
+export interface UserProfile {
+  id: string // GUID
+  nickname: string
+  currentLedgerId: string
+  createdAt: string
+  updatedAt: string
 }
 
 // API 相关类型

@@ -1,4 +1,4 @@
-import { Home, PlusCircle, List, PieChart, Cloud } from 'lucide-react'
+import { Home, PlusCircle, FileText, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface BottomNavProps {
@@ -9,15 +9,14 @@ interface BottomNavProps {
 const navItems = [
   { id: 'home', label: '首页', icon: Home },
   { id: 'record', label: '记账', icon: PlusCircle },
-  { id: 'records', label: '账单', icon: List },
-  { id: 'statistics', label: '统计', icon: PieChart },
-  { id: 'sync', label: '同步', icon: Cloud },
+  { id: 'records', label: '账单', icon: FileText },
+  { id: 'profile', label: '我的', icon: User },
 ]
 
 export function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 safe-area-inset-bottom">
-      <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/50 safe-area-inset-bottom">
+      <div className="max-w-lg mx-auto flex items-center justify-around h-14 px-1">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = currentPage === item.id
@@ -27,14 +26,14 @@ export function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
               onClick={() => onNavigate(item.id)}
               className={cn(
                 'flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200',
-                'hover:bg-slate-100/50 rounded-xl mx-1',
+                'active:bg-slate-100/50 rounded-lg',
                 isActive ? 'text-primary' : 'text-slate-500'
               )}
             >
               <div
                 className={cn(
-                  'p-1.5 rounded-xl transition-all duration-300',
-                  isActive && 'bg-primary/10 scale-110'
+                  'p-1 rounded-lg transition-all duration-300',
+                  isActive && 'bg-primary/10'
                 )}
               >
                 <Icon

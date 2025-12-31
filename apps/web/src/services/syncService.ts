@@ -358,11 +358,14 @@ class SyncService {
     }
 
     // 收集待推送的本地变更
+    console.log('[Sync] 收集待推送变更, pendingChanges:', [...this.pendingChanges.entries()])
     for (const [id, change] of this.pendingChanges) {
       const version = this.recordVersions.get(id)
+      console.log(`[Sync] 检查变更: id=${id}, action=${change.action}, version=`, version)
       
       if (change.action === 'create' && version?.isLocalOnly) {
         const record = mergedMap.get(id)
+        console.log(`[Sync] create 变更, record=`, record)
         if (record) {
           toCreate.push(record)
         }
@@ -422,15 +425,30 @@ class SyncService {
     }
 
     try {
+      console.log('[Sync] 开始同步...')
+      console.log('[Sync] pendingChanges:', [...this.pendingChanges.entries()])
+      console.log('[Sync] recordVersions:', [...this.recordVersions.entries()])
+      
       // 1. 拉取服务器变更
       const pullResult = await apiClient.pull(this.syncMeta.lastSyncVersion)
+      console.log('[Sync] Pull 结果:', pullResult)
       
       // 2. Diff 合并
       const localRecords = this.getLocalRecords()
       const localMap = new Map(localRecords.map(r => [r.id, r]))
+      console.log('[Sync] 本地记录数:', localRecords.length)
       
       const { mergedRecords, toCreate, toUpdate, toDelete, conflicts, mergedCount } = 
         this.diffAndMerge(localMap, pullResult.changes)
+      
+      console.log('[Sync] Diff 结果:', { 
+        toCreate: toCreate.length, 
+        toUpdate: toUpdate.length, 
+        toDelete: toDelete.length,
+        conflicts: conflicts.length,
+        mergedCount 
+      })
+      console.log('[Sync] toCreate 详情:', toCreate)
       
       result.conflicts = conflicts.length
       result.conflictRecords = conflicts
@@ -459,7 +477,10 @@ class SyncService {
           deleted: toDelete,
         }
 
+        console.log('[Sync] Push payload:', pushPayload)
         const pushResult = await apiClient.push(pushPayload)
+        console.log('[Sync] Push 结果:', pushResult)
+        
         result.pushed = pushResult.created + pushResult.updated + pushResult.deleted
 
         // 清除已同步的变更
@@ -491,6 +512,7 @@ class SyncService {
 
         this.syncMeta.lastSyncVersion = pushResult.serverVersion
       } else {
+        console.log('[Sync] 无需推送')
         this.syncMeta.lastSyncVersion = pullResult.serverVersion
       }
 
@@ -499,7 +521,9 @@ class SyncService {
       this.saveSyncMeta()
 
       result.success = true
+      console.log('[Sync] 同步完成:', result)
     } catch (error) {
+      console.error('[Sync] 同步失败:', error)
       result.error = error instanceof Error ? error.message : 'Unknown error'
     }
 

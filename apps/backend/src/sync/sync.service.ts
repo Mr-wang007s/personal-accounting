@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
 import { RecordsService } from '../records/records.service'
@@ -22,6 +22,8 @@ export interface SyncConflict {
 
 @Injectable()
 export class SyncService {
+  private readonly logger = new Logger(SyncService.name)
+  
   constructor(
     private prisma: PrismaService,
     private cache: CacheService,
@@ -54,6 +56,8 @@ export class SyncService {
 
   // 拉取增量数据
   async pull(userId: string, deviceId: string, lastSyncVersion: number) {
+    this.logger.log(`[Pull] userId=${userId}, deviceId=${deviceId}, lastSyncVersion=${lastSyncVersion}`)
+    
     // 获取自上次同步以来的所有变更
     const changes = await this.prisma.record.findMany({
       where: {
@@ -63,6 +67,8 @@ export class SyncService {
       orderBy: { syncVersion: 'asc' },
     })
 
+    this.logger.log(`[Pull] 找到 ${changes.length} 条变更记录`)
+
     // 获取当前服务器版本
     const latestRecord = await this.prisma.record.findFirst({
       where: { userId },
@@ -71,6 +77,7 @@ export class SyncService {
     })
 
     const serverVersion = latestRecord?.syncVersion || 0
+    this.logger.log(`[Pull] serverVersion=${serverVersion}`)
 
     // 更新设备同步版本
     await this.prisma.syncVersion.upsert({
@@ -113,6 +120,10 @@ export class SyncService {
     deviceId: string,
     dto: SyncPushDto,
   ): Promise<SyncResult> {
+    this.logger.log(`[Push] userId=${userId}, deviceId=${deviceId}`)
+    this.logger.log(`[Push] 收到: created=${dto.created?.length || 0}, updated=${dto.updated?.length || 0}, deleted=${dto.deleted?.length || 0}`)
+    this.logger.log(`[Push] created 详情:`, JSON.stringify(dto.created))
+    
     const conflicts: SyncConflict[] = []
     let created = 0
     let updated = 0
@@ -123,12 +134,15 @@ export class SyncService {
       // 处理新建记录
       for (const record of dto.created || []) {
         try {
+          this.logger.log(`[Push] 创建记录: clientId=${record.clientId}, type=${record.type}, amount=${record.amount}`)
+          
           // 检查是否已存在（通过 clientId）
           const existing = await tx.record.findFirst({
             where: { userId, clientId: record.clientId },
           })
 
           if (existing) {
+            this.logger.warn(`[Push] 记录已存在: clientId=${record.clientId}`)
             conflicts.push({
               clientId: record.clientId || '',
               serverId: existing.id,
@@ -138,7 +152,7 @@ export class SyncService {
             continue
           }
 
-          await tx.record.create({
+          const newRecord = await tx.record.create({
             data: {
               userId,
               type: record.type as RecordType,
@@ -149,8 +163,10 @@ export class SyncService {
               clientId: record.clientId,
             },
           })
+          this.logger.log(`[Push] 创建成功: id=${newRecord.id}`)
           created++
-        } catch {
+        } catch (error) {
+          this.logger.error(`[Push] 创建失败: clientId=${record.clientId}`, error)
           conflicts.push({
             clientId: record.clientId || '',
             serverId: '',
@@ -271,6 +287,8 @@ export class SyncService {
 
     // 清除缓存
     this.cache.del(CacheService.keys.userRecords(userId))
+
+    this.logger.log(`[Push] 结果: created=${created}, updated=${updated}, deleted=${deleted}, conflicts=${conflicts.length}`)
 
     return {
       serverVersion,

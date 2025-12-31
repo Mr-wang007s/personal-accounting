@@ -1,6 +1,7 @@
 import type { Record, Statistics, DateRange, CategoryStat, MonthlyData } from '@personal-accounting/shared/types'
 import { STORAGE_KEY, getCategoryById } from '@personal-accounting/shared/constants'
 import { generateId, getNowISO, dayjs } from '@personal-accounting/shared/utils'
+import { ledgerService } from './ledgerService'
 
 class StorageService {
   private getStorageData(): Record[] {
@@ -13,7 +14,38 @@ class StorageService {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
   }
 
+  /**
+   * 获取当前账本的记录
+   */
   getRecords(): Record[] {
+    const currentLedger = ledgerService.getCurrentLedger()
+    const allRecords = this.getStorageData()
+    
+    // 如果没有当前账本，返回所有无 ledgerId 的记录（兼容旧数据）
+    if (!currentLedger) {
+      return allRecords
+        .filter(r => !r.ledgerId)
+        .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
+    }
+    
+    return allRecords
+      .filter(r => r.ledgerId === currentLedger.id || (!r.ledgerId && currentLedger))
+      .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
+  }
+
+  /**
+   * 获取指定账本的记录
+   */
+  getRecordsByLedger(ledgerId: string): Record[] {
+    return this.getStorageData()
+      .filter(r => r.ledgerId === ledgerId)
+      .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
+  }
+
+  /**
+   * 获取所有记录（不过滤账本）
+   */
+  getAllRecords(): Record[] {
     return this.getStorageData().sort(
       (a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf()
     )
@@ -24,17 +56,19 @@ class StorageService {
     const start = dateRange.start
     const end = dateRange.end
     return records.filter(record => {
-      // 直接字符串比较，YYYY-MM-DD 格式可以正确排序
       return record.date >= start && record.date <= end
     })
   }
 
   addRecord(data: Omit<Record, 'id' | 'createdAt'>): Record {
     const records = this.getStorageData()
+    const currentLedger = ledgerService.getCurrentLedger()
+    
     const newRecord: Record = {
       ...data,
       id: generateId(),
       createdAt: getNowISO(),
+      ledgerId: currentLedger?.id,
     }
     records.push(newRecord)
     this.setStorageData(records)
@@ -54,6 +88,34 @@ class StorageService {
     const records = this.getStorageData()
     const filtered = records.filter(r => r.id !== id)
     this.setStorageData(filtered)
+  }
+
+  /**
+   * 删除指定账本的所有记录
+   */
+  deleteRecordsByLedger(ledgerId: string): void {
+    const records = this.getStorageData()
+    const filtered = records.filter(r => r.ledgerId !== ledgerId)
+    this.setStorageData(filtered)
+  }
+
+  /**
+   * 迁移旧数据到指定账本
+   */
+  migrateOldRecords(ledgerId: string): number {
+    const records = this.getStorageData()
+    let migratedCount = 0
+    
+    const updated = records.map(r => {
+      if (!r.ledgerId) {
+        migratedCount++
+        return { ...r, ledgerId }
+      }
+      return r
+    })
+    
+    this.setStorageData(updated)
+    return migratedCount
   }
 
   getStatistics(dateRange?: DateRange): Statistics {
@@ -122,6 +184,23 @@ class StorageService {
 
   getRecentRecords(limit: number = 5): Record[] {
     return this.getRecords().slice(0, limit)
+  }
+
+  /**
+   * 清除当前账本数据
+   */
+  clearCurrentLedgerData(): void {
+    const currentLedger = ledgerService.getCurrentLedger()
+    if (currentLedger) {
+      this.deleteRecordsByLedger(currentLedger.id)
+    }
+  }
+
+  /**
+   * 清除所有数据
+   */
+  clearAllData(): void {
+    localStorage.removeItem(STORAGE_KEY)
   }
 }
 

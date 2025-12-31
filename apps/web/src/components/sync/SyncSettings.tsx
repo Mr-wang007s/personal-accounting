@@ -27,7 +27,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     setAutoSyncEnabled,
   } = useSync()
 
-  const [inputUrl, setInputUrl] = useState(serverUrl || 'http://192.168.1.100:3000')
+  const [inputUrl, setInputUrl] = useState(serverUrl || 'http://127.0.0.1:3000')
   const [inputIdentifier, setInputIdentifier] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -121,7 +121,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
             <Input
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="http://192.168.1.100:3000"
+              placeholder="http://127.0.0.1:3000"
               disabled={isConnected || loading}
             />
             {!isConnected ? (

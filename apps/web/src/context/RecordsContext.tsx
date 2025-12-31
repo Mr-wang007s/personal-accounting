@@ -9,6 +9,7 @@ interface RecordsContextType {
   addRecord: (data: Omit<Record, 'id' | 'createdAt'>) => void
   updateRecord: (id: string, data: Partial<Record>) => void
   deleteRecord: (id: string) => void
+  clearAllData: () => void
   refreshData: () => void
   getRecordsByDateRange: (dateRange: DateRange) => Record[]
   getStatistics: (dateRange?: DateRange) => Statistics
@@ -66,6 +67,11 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     refreshData()
   }
 
+  const clearAllData = () => {
+    storageService.clearCurrentLedgerData()
+    refreshData()
+  }
+
   const getRecordsByDateRange = (dateRange: DateRange) => {
     return storageService.getRecordsByDateRange(dateRange)
   }
@@ -82,6 +88,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         addRecord,
         updateRecord,
         deleteRecord,
+        clearAllData,
         refreshData,
         getRecordsByDateRange,
         getStatistics,

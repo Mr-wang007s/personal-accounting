@@ -1,4 +1,5 @@
 // Prisma Schema for Personal Accounting App
+// 注意：此 schema 需与 packages/shared/src/types/index.ts 保持同步
 
 generator client {
   provider = "prisma-client-js"
@@ -9,7 +10,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 用户表
+// 用户表 - 对应 shared/types User 接口
 model User {
   id        String   @id @default(cuid())
   openid    String   @unique // 微信 openid
@@ -21,12 +22,37 @@ model User {
 
   // 关联
   records      Record[]
+  ledgers      Ledger[]
   syncVersions SyncVersion[]
 
   @@map("users")
 }
 
-// 记账记录表
+// 账本表 - 对应 shared/types Ledger 接口
+model Ledger {
+  id        String    @id @default(cuid())
+  name      String
+  icon      String?
+  color     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at") // 软删除
+
+  // 同步相关
+  syncVersion Int     @default(0) @map("sync_version")
+  clientId    String? @map("client_id") // 客户端生成的 ID
+
+  // 关联
+  userId  String   @map("user_id")
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  records Record[]
+
+  @@index([userId])
+  @@index([userId, deletedAt])
+  @@map("ledgers")
+}
+
+// 记账记录表 - 对应 shared/types Record 接口
 model Record {
   id        String     @id @default(cuid())
   type      RecordType
@@ -39,16 +65,19 @@ model Record {
   deletedAt DateTime?  @map("deleted_at") // 软删除
 
   // 同步相关
-  syncVersion Int      @default(0) @map("sync_version")
-  clientId    String?  @map("client_id") // 客户端生成的 ID，用于冲突检测
+  syncVersion Int     @default(0) @map("sync_version")
+  clientId    String? @map("client_id") // 客户端生成的 ID，用于冲突检测
 
   // 关联
-  userId String @map("user_id")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String  @map("user_id")
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerId String? @map("ledger_id") // 所属账本（可选，兼容旧数据）
+  ledger   Ledger? @relation(fields: [ledgerId], references: [id], onDelete: SetNull)
 
   @@index([userId, date])
   @@index([userId, deletedAt])
   @@index([userId, syncVersion])
+  @@index([ledgerId])
   @@map("records")
 }
 
