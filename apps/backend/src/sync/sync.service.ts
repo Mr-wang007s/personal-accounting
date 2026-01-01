@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
-import { BackupDto, BackupLedgersDto, DeleteCloudRecordsDto } from './dto/sync-push.dto'
+import { BackupDto, BackupLedgersDto, DeleteCloudRecordsDto, DeleteCloudLedgerDto } from './dto/sync-push.dto'
 import { RecordType } from '@prisma/client'
 
 // 云端账本响应
@@ -296,5 +296,54 @@ export class SyncService {
     this.cache.del(CacheService.keys.userRecords(userPhone))
 
     return { deleted }
+  }
+
+  /**
+   * 删除云端账本及其所有记录
+   * @param userPhone 用户手机号（稳定标识）
+   */
+  async deleteCloudLedger(userPhone: string, dto: DeleteCloudLedgerDto): Promise<{ deleted: boolean; recordsDeleted: number }> {
+    this.logger.log(`[DeleteLedger] userPhone=${userPhone}, clientId=${dto.clientId}`)
+
+    try {
+      // 查找账本
+      const ledger = await this.prisma.ledger.findFirst({
+        where: { 
+          userPhone, 
+          OR: [
+            { clientId: dto.clientId },
+            { id: dto.clientId },
+          ],
+          deletedAt: null,
+        },
+      })
+
+      if (!ledger) {
+        this.logger.warn(`[DeleteLedger] 账本不存在: clientId=${dto.clientId}`)
+        return { deleted: false, recordsDeleted: 0 }
+      }
+
+      // 软删除该账本下的所有记录
+      const recordsResult = await this.prisma.record.updateMany({
+        where: { ledgerId: ledger.id, userPhone, deletedAt: null },
+        data: { deletedAt: new Date() },
+      })
+
+      // 软删除账本
+      await this.prisma.ledger.update({
+        where: { id: ledger.id },
+        data: { deletedAt: new Date() },
+      })
+
+      this.logger.log(`[DeleteLedger] 成功: clientId=${dto.clientId}, recordsDeleted=${recordsResult.count}`)
+
+      // 清除缓存
+      this.cache.del(CacheService.keys.userRecords(userPhone))
+
+      return { deleted: true, recordsDeleted: recordsResult.count }
+    } catch (error) {
+      this.logger.error(`[DeleteLedger] 失败: clientId=${dto.clientId}`, error)
+      return { deleted: false, recordsDeleted: 0 }
+    }
   }
 }

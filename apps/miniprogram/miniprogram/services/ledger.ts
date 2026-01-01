@@ -108,7 +108,7 @@ export const LedgerService = {
   /**
    * 删除账本
    */
-  deleteLedger(ledgerId: string): boolean {
+  async deleteLedger(ledgerId: string): Promise<boolean> {
     const ledgers = StorageService.getLedgers()
     if (ledgers.length <= 1) {
       return false // 至少保留一个账本
@@ -126,6 +126,13 @@ export const LedgerService = {
       userProfile.currentLedgerId = filtered[0].id
       userProfile.updatedAt = getNowISO()
       StorageService.saveUserProfile(userProfile)
+    }
+
+    // 同步删除云端账本
+    try {
+      await syncService.deleteLedger(ledgerId)
+    } catch (error) {
+      console.error('[LedgerService] 删除云端账本失败:', error)
     }
 
     return true

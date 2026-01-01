@@ -103,3 +103,10 @@ export class DeleteCloudRecordsDto {
   @IsString({ each: true })
   serverIds: string[]
 }
+
+// 删除云端账本请求
+export class DeleteCloudLedgerDto {
+  @ApiProperty({ description: '要删除的账本客户端 ID' })
+  @IsString()
+  clientId: string
+}

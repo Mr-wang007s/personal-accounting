@@ -353,6 +353,16 @@ class ApiClient {
       data: { serverIds },
     })
   }
+
+  /**
+   * 删除云端账本及其所有记录
+   */
+  async deleteCloudLedger(clientId: string): Promise<{ deleted: boolean; recordsDeleted: number }> {
+    return this.request('/api/sync/delete-ledger', {
+      method: 'POST',
+      data: { clientId },
+    })
+  }
 }
 
 export const apiClient = new ApiClient()

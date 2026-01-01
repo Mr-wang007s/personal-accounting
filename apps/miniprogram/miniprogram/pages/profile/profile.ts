@@ -131,9 +131,11 @@ Page({
       title: '确认删除',
       content: `删除账本"${name}"后，该账本下的所有记录都将被删除，确定要删除吗？`,
       confirmColor: '#EF4444',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
-          const success = LedgerService.deleteLedger(id)
+          wx.showLoading({ title: '删除中...' })
+          const success = await LedgerService.deleteLedger(id)
+          wx.hideLoading()
           if (success) {
             const app = getApp<IAppOption>()
             app.refreshData()

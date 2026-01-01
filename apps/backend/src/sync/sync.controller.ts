@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { SyncService } from './sync.service'
-import { BackupDto, BackupLedgersDto, DeleteCloudRecordsDto } from './dto/sync-push.dto'
+import { BackupDto, BackupLedgersDto, DeleteCloudRecordsDto, DeleteCloudLedgerDto } from './dto/sync-push.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { User } from '@prisma/client'
@@ -52,5 +52,14 @@ export class SyncController {
     @Body() dto: DeleteCloudRecordsDto,
   ) {
     return this.syncService.deleteCloudRecords(user.phone, dto)
+  }
+
+  @Post('delete-ledger')
+  @ApiOperation({ summary: '删除云端账本及其所有记录' })
+  async deleteCloudLedger(
+    @CurrentUser() user: User,
+    @Body() dto: DeleteCloudLedgerDto,
+  ) {
+    return this.syncService.deleteCloudLedger(user.phone, dto)
   }
 }
