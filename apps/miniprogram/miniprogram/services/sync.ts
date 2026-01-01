@@ -184,18 +184,17 @@ class SyncService {
   }
 
   /**
-   * 微信云托管自动登录
-   * 登录流程：
-   * 1. 先尝试云托管自动注入的 openid
-   * 2. 如果失败，调用 wx.login 获取 code，通过 code2Session 换取 openid
+   * 微信小程序登录
+   * 登录流程：wx.login 获取 code → 后端 code2Session 换取 openid
    * @param nickname 用户昵称（可选，从微信获取）
    * @param avatar 用户头像（可选，从微信获取）
    * @returns 登录结果，包含用户信息
    */
   async autoLogin(nickname?: string, avatar?: string): Promise<{ success: boolean; user?: { id: string; phone: string; nickname?: string; avatar?: string; openid?: string }; isNewUser?: boolean }> {
     try {
-      // 先尝试不带 code 登录（依赖云托管自动注入 openid）
-      let result = await apiClient.wxCloudLogin(nickname, avatar)
+      // 使用 wx.login 获取 code，后端通过 code2Session 换取 openid
+      const code = await this.getWxLoginCode()
+      const result = await apiClient.wechatLogin(code, nickname, avatar)
       apiClient.setToken(result.accessToken)
       
       // 保存用户信息
@@ -208,27 +207,8 @@ class SyncService {
 
       return { success: true, user: result.user, isNewUser: result.isNewUser }
     } catch (error) {
-      console.warn('[Sync] 云托管自动登录失败，尝试使用 wx.login:', error)
-      
-      // 云托管未注入 openid，使用 wx.login 获取 code
-      try {
-        const code = await this.getWxLoginCode()
-        const result = await apiClient.wxCloudLogin(nickname, avatar, code)
-        apiClient.setToken(result.accessToken)
-        
-        // 保存用户信息
-        this.syncMeta.openid = result.user.openid || null
-        this.syncMeta.userPhone = result.user.phone || null
-        this.saveSyncMeta()
-
-        // 将用户信息保存到用户配置
-        this.saveUserProfileToStorage(result.user)
-
-        return { success: true, user: result.user, isNewUser: result.isNewUser }
-      } catch (loginError) {
-        console.error('[Sync] wx.login 登录失败:', loginError)
-        return { success: false }
-      }
+      console.error('[Sync] 微信登录失败:', error)
+      return { success: false }
     }
   }
 
