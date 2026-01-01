@@ -1,5 +1,6 @@
 /**
  * 记录服务 - 记账记录相关操作
+ * 本地 + 云端双存储：CRUD 操作时自动备份到云端
  */
 import type { Record, RecordType, GroupedRecords, Statistics } from '../shared/types'
 import { generateId, getNowISO, getDateLabel } from '../shared/utils'
@@ -11,7 +12,7 @@ import { syncService } from './sync'
 
 export const RecordService = {
   /**
-   * 添加记录
+   * 添加记录（本地 + 云端）
    */
   addRecord(data: {
     type: RecordType
@@ -30,31 +31,41 @@ export const RecordService = {
       note: data.note,
       createdAt: getNowISO(),
       ledgerId: data.ledgerId,
+      syncStatus: 'local',
     }
 
+    // 1. 先保存到本地
     StorageService.addRecord(record)
     
-    // 新记录默认 syncStatus = 'local'，会在下次同步时自动上传
+    // 2. 自动触发云端同步
+    syncService.triggerAutoSync()
     
     return record
   },
 
   /**
-   * 更新记录
+   * 更新记录（本地 + 云端）
    */
   updateRecord(id: string, updates: Partial<Record>): void {
+    // 1. 更新本地
     StorageService.updateRecord(id, updates)
     
-    // 更新后记录会被标记为需要同步
+    // 2. 标记需要重新同步
+    syncService.markRecordForSync(id)
+    
+    // 3. 自动触发云端同步
+    syncService.triggerAutoSync()
   },
 
   /**
-   * 删除记录
+   * 删除记录（本地 + 云端）
    */
   deleteRecord(id: string): void {
-    StorageService.deleteRecord(id)
+    // 检查是否已同步到云端
+    const isSynced = syncService.isRecordSynced(id)
     
-    // 删除本地记录，同步时会处理云端删除
+    // 使用 syncService 删除（会同时处理云端）
+    syncService.deleteRecord(id, isSynced)
   },
 
   /**
