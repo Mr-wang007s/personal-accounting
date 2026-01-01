@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RecordsProvider, useRecords } from '@/context/RecordsContext'
 import { SyncProvider, useSync } from '@/context/SyncContext'
 import { LedgerProvider, useLedger } from '@/context/LedgerContext'
@@ -31,9 +31,11 @@ function AppContent() {
   }
 
   // 同步成功后刷新数据
-  if (syncState === 'success') {
-    refreshData()
-  }
+  useEffect(() => {
+    if (syncState === 'success') {
+      refreshData()
+    }
+  }, [syncState, refreshData])
 
   // 首次使用引导
   if (!isInitialized) {

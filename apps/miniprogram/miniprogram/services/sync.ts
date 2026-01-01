@@ -294,7 +294,7 @@ class SyncService {
       const localRecords = this.getLocalRecords()
       const localMap = new Map(localRecords.map(r => [r.id, r]))
 
-      // 1. 上传本地未同步的记录
+      // 2. 上传本地未同步的记录
       const toBackup = localRecords.filter(r => r.syncStatus !== 'synced')
       if (toBackup.length > 0) {
         const backupRecords: BackupRecord[] = toBackup.map(r => ({
@@ -322,7 +322,7 @@ class SyncService {
         }
       }
 
-      // 2. 从云端下载记录
+      // 3. 从云端下载记录
       const restoreResult = await apiClient.restore()
       const cloudRecords = restoreResult.records
 

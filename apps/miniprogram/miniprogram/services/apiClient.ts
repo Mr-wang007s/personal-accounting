@@ -134,7 +134,7 @@ class ApiClient {
   private getOrCreateDeviceId(): string {
     let deviceId = wx.getStorageSync(DEVICE_ID_KEY)
     if (!deviceId) {
-      deviceId = `miniprogram_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      deviceId = `mp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
       wx.setStorageSync(DEVICE_ID_KEY, deviceId)
     }
     return deviceId
