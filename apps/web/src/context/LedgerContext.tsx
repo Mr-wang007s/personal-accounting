@@ -14,7 +14,7 @@ interface LedgerContextType {
   initialize: (nickname: string, ledgerName?: string) => void
   createLedger: (name: string, icon?: string, color?: string) => Ledger
   updateLedger: (id: string, data: Partial<Omit<Ledger, 'id' | 'createdAt'>>) => void
-  deleteLedger: (id: string) => boolean
+  deleteLedger: (id: string) => Promise<boolean>
   switchLedger: (ledgerId: string) => void
   updateNickname: (nickname: string) => void
   refreshData: () => void
@@ -72,11 +72,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshData])
 
-  const deleteLedger = useCallback((id: string): boolean => {
+  const deleteLedger = useCallback(async (id: string): Promise<boolean> => {
     // 不能删除最后一个账本
     if (ledgers.length <= 1) return false
     
-    const success = ledgerService.deleteLedger(id)
+    const success = await ledgerService.deleteLedger(id)
     if (success) {
       // 如果删除的是当前账本，切换到第一个
       if (currentLedger?.id === id) {

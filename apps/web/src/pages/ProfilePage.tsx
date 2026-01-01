@@ -53,13 +53,13 @@ export function ProfilePage(_props: ProfilePageProps) {
     setShowNewLedger(false)
   }
 
-  const handleDeleteLedger = (id: string, name: string) => {
+  const handleDeleteLedger = async (id: string, name: string) => {
     if (ledgers.length <= 1) {
       alert('至少保留一个账本')
       return
     }
     if (confirm(`确定要删除账本"${name}"吗？该账本下的所有记录也将被删除！`)) {
-      deleteLedger(id)
+      await deleteLedger(id)
     }
   }
 

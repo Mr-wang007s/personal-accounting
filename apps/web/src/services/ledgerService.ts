@@ -5,6 +5,7 @@
 import type { Ledger, UserProfile } from '@personal-accounting/shared/types'
 import { LEDGERS_KEY, USER_PROFILE_KEY } from '@personal-accounting/shared/constants'
 import { generateId, getNowISO } from '@personal-accounting/shared/utils'
+import { syncService } from './syncService'
 
 // 默认账本颜色
 const DEFAULT_COLORS = [
@@ -105,13 +106,21 @@ class LedgerService {
     return ledgers[index]
   }
 
-  deleteLedger(id: string): boolean {
+  async deleteLedger(id: string): Promise<boolean> {
     const ledgers = this.getLedgers()
     const filtered = ledgers.filter(l => l.id !== id)
     
     if (filtered.length === ledgers.length) return false
     
     this.saveLedgers(filtered)
+
+    // 同步删除云端账本
+    try {
+      await syncService.deleteLedger(id)
+    } catch (error) {
+      console.error('[LedgerService] 删除云端账本失败:', error)
+    }
+
     return true
   }
 

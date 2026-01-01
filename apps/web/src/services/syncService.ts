@@ -478,6 +478,24 @@ class SyncService {
       this.syncTimer = null
     }, 3000)
   }
+
+  /**
+   * 删除云端账本及其所有记录
+   */
+  async deleteLedger(ledgerId: string): Promise<boolean> {
+    if (!this.isConnected()) {
+      return false
+    }
+
+    try {
+      const result = await apiClient.deleteCloudLedger(ledgerId)
+      console.log('[Sync] 删除云端账本成功:', result)
+      return result.deleted
+    } catch (error) {
+      console.error('[Sync] 删除云端账本失败:', error)
+      return false
+    }
+  }
 }
 
 export const syncService = new SyncService()
