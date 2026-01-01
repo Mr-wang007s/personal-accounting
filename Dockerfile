@@ -59,13 +59,14 @@ COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 # Set environment
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DATABASE_URL="file:./data/accounting.db"
+ENV JWT_SECRET="cloudbase-pa-secret-key-2026"
+ENV JWT_EXPIRES_IN="7d"
+ENV ENABLE_DISCOVERY=true
+# DATABASE_URL will be set via CloudRun environment variables
 
 WORKDIR /app/apps/backend
 
-# Create data directory and initialize SQLite database
-RUN mkdir -p data && npx prisma db push
-
 EXPOSE 3000
 
+# Start the application
 CMD ["node", "dist/main.js"]
