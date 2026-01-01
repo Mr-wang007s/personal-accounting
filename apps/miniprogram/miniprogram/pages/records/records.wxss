@@ -437,6 +437,20 @@
   padding: 16rpx 0;
 }
 
+/* 图表滚动容器 */
+.chart-scroll {
+  width: 100%;
+}
+
+.chart-scroll.scrollable {
+  overflow-x: scroll;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chart-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .chart-bars {
   display: flex;
   justify-content: space-between;
@@ -444,6 +458,20 @@
   height: 240rpx;
   padding: 0 16rpx;
   margin-bottom: 16rpx;
+}
+
+/* 滚动模式下的柱状图容器 */
+.chart-bars-scroll {
+  display: inline-flex;
+  justify-content: flex-start;
+  min-width: 100%;
+  padding: 0 16rpx;
+}
+
+.chart-bars-scroll .bar-group {
+  flex: 0 0 auto;
+  width: 100rpx;
+  min-width: 100rpx;
 }
 
 .bar-group {

@@ -56,15 +56,26 @@ export class UsersService {
 
   // 删除用户（软删除相关数据）
   async delete(id: string): Promise<void> {
-    // 先软删除所有记录
+    // 先获取用户手机号
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { phone: true },
+    })
+    
+    if (!user) {
+      return
+    }
+
+    // 先软删除所有记录（通过 userPhone 关联）
     await this.prisma.record.updateMany({
-      where: { userId: id },
+      where: { userPhone: user.phone },
       data: { deletedAt: new Date() },
     })
 
-    // 删除账本
-    await this.prisma.ledger.deleteMany({
-      where: { userId: id },
+    // 软删除账本（通过 userPhone 关联）
+    await this.prisma.ledger.updateMany({
+      where: { userPhone: user.phone },
+      data: { deletedAt: new Date() },
     })
 
     // 删除用户
@@ -74,17 +85,17 @@ export class UsersService {
   }
 
   // 获取用户统计信息
-  async getUserStats(userId: string) {
+  async getUserStats(userPhone: string) {
     const [recordCount, totalIncome, totalExpense] = await Promise.all([
       this.prisma.record.count({
-        where: { userId, deletedAt: null },
+        where: { userPhone, deletedAt: null },
       }),
       this.prisma.record.aggregate({
-        where: { userId, type: 'income', deletedAt: null },
+        where: { userPhone, type: 'income', deletedAt: null },
         _sum: { amount: true },
       }),
       this.prisma.record.aggregate({
-        where: { userId, type: 'expense', deletedAt: null },
+        where: { userPhone, type: 'expense', deletedAt: null },
         _sum: { amount: true },
       }),
     ])

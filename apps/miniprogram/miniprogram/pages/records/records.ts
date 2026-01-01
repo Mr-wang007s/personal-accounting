@@ -86,6 +86,10 @@ Page({
       expense: '0.00',
       balance: '0.00',
     },
+    
+    // 图表滚动
+    needScroll: false,
+    scrollToView: '',
   },
 
   onLoad() {
@@ -198,11 +202,17 @@ Page({
       percentDisplay: c.percentage.toFixed(1),
     }))
 
+    // 判断是否需要滚动
+    const needScroll = this.isNeedScroll(selectedTimeRange)
+    
     this.setData({
       totalIncomeDisplay: formatAmount(stats.totalIncome),
       totalExpenseDisplay: formatAmount(stats.totalExpense),
       monthlyTrend: trendDisplay,
       categoryBreakdown,
+      needScroll,
+      // 滚动到最新月份（最右侧）
+      scrollToView: needScroll && trendDisplay.length > 0 ? `bar-${trendDisplay.length - 1}` : '',
     })
   },
 
@@ -241,9 +251,14 @@ Page({
       case '3months': return 3
       case '6months': return 6
       case 'year': return 12
-      case 'all': return 12
+      case 'all': return 24  // 全部显示更多月份
       default: return 6
     }
+  },
+
+  // 是否需要滚动（超过6个月时启用滚动）
+  isNeedScroll(range: TimeRange): boolean {
+    return range === 'year' || range === 'all'
   },
 
   // 切换时间范围

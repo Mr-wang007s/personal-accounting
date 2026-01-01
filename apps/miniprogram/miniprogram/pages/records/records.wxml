@@ -115,28 +115,38 @@
     <view class="stats-section">
       <view class="section-header">
         <text class="section-title">收支趋势</text>
-        <text class="section-hint">点击柱状图查看详情</text>
+        <text class="section-hint">{{needScroll ? '左右滑动查看更多 · ' : ''}}点击柱状图查看详情</text>
       </view>
       <view class="trend-chart">
-        <view class="chart-bars">
-          <view 
-            class="bar-group {{item.isSelected ? 'selected' : ''}}" 
-            wx:for="{{monthlyTrend}}" 
-            wx:key="month"
-            bindtap="onBarTap"
-            data-index="{{index}}"
-          >
-            <view class="bar-wrapper">
-              <view class="bar income-bar" style="height: {{item.incomeHeight}}rpx;">
-                <view class="bar-tooltip" wx:if="{{item.isSelected}}">{{item.incomeDisplay}}</view>
+        <scroll-view 
+          class="chart-scroll {{needScroll ? 'scrollable' : ''}}" 
+          scroll-x="{{needScroll}}" 
+          enhanced="{{true}}"
+          show-scrollbar="{{false}}"
+          scroll-into-view="{{scrollToView}}"
+          scroll-with-animation="{{true}}"
+        >
+          <view class="chart-bars {{needScroll ? 'chart-bars-scroll' : ''}}">
+            <view 
+              class="bar-group {{item.isSelected ? 'selected' : ''}}" 
+              id="bar-{{index}}"
+              wx:for="{{monthlyTrend}}" 
+              wx:key="month"
+              bindtap="onBarTap"
+              data-index="{{index}}"
+            >
+              <view class="bar-wrapper">
+                <view class="bar income-bar" style="height: {{item.incomeHeight}}rpx;">
+                  <view class="bar-tooltip" wx:if="{{item.isSelected}}">{{item.incomeDisplay}}</view>
+                </view>
+                <view class="bar expense-bar" style="height: {{item.expenseHeight}}rpx;">
+                  <view class="bar-tooltip expense" wx:if="{{item.isSelected}}">{{item.expenseDisplay}}</view>
+                </view>
               </view>
-              <view class="bar expense-bar" style="height: {{item.expenseHeight}}rpx;">
-                <view class="bar-tooltip expense" wx:if="{{item.isSelected}}">{{item.expenseDisplay}}</view>
-              </view>
+              <text class="bar-label">{{item.month}}</text>
             </view>
-            <text class="bar-label">{{item.month}}</text>
           </view>
-        </view>
+        </scroll-view>
         <view class="chart-legend">
           <view class="legend-item">
             <view class="legend-dot income"></view>

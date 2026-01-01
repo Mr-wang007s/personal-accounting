@@ -62,15 +62,15 @@ export interface Ledger {
   updatedAt: string
 }
 
-// 用户配置
+// 用户配置（小程序本地存储使用）
 export interface UserProfile {
   id: string // GUID
   nickname: string
   currentLedgerId: string
   createdAt: string
   updatedAt: string
-  phone?: string
-  serverUrl?: string // 同步服务器地址
+  phone?: string // 用户手机号（用于同步）
+  serverUrl?: string // 同步服务器地址（云托管模式为 cloudrun）
 }
 
 // API 相关类型
@@ -88,13 +88,15 @@ export interface PaginatedResponse<T> {
   pageSize: number
 }
 
-// 用户类型（后续后端使用）
+// 用户类型（与 Prisma schema 保持一致）
 export interface User {
   id: string
-  openid: string
-  unionid?: string
+  phone: string // 手机号（主要标识，用于数据关联）
+  openid?: string // 微信 openid（可选）
+  unionid?: string // 微信 unionid（可选）
   nickname?: string
   avatar?: string
+  password?: string // 密码（可选，Web 端使用）
   createdAt: string
   updatedAt: string
 }
