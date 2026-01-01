@@ -62,6 +62,8 @@ ENV PORT=3000
 ENV JWT_SECRET="cloudbase-pa-secret-key-2026"
 ENV JWT_EXPIRES_IN="7d"
 ENV ENABLE_DISCOVERY=true
+# 禁用 SSL 证书验证（云托管网络代理使用自签名证书）
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 # DATABASE_URL will be set via CloudRun environment variables
 
 WORKDIR /app/apps/backend
