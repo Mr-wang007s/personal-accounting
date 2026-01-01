@@ -59,11 +59,12 @@ COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 # Set environment
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV DATABASE_URL="file:./data/accounting.db"
 
 WORKDIR /app/apps/backend
 
-# Initialize SQLite database
-RUN npx prisma db push
+# Create data directory and initialize SQLite database
+RUN mkdir -p data && npx prisma db push
 
 EXPOSE 3000
 
