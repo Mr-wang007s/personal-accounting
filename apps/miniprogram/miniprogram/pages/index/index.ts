@@ -34,6 +34,10 @@ Page({
     if (app.globalData.isInitialized) {
       this.loadData()
     }
+    // 设置自定义 tabBar 选中状态
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selected: 0 })
+    }
   },
 
   // 检查是否已初始化

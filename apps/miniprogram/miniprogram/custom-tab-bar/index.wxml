@@ -1,0 +1,25 @@
+<!--自定义 TabBar-->
+<view class="tab-bar">
+  <view 
+    wx:for="{{tabs}}" 
+    wx:key="pagePath" 
+    class="tab-item {{selected === index ? 'active' : ''}}"
+    data-index="{{index}}"
+    bindtap="switchTab"
+  >
+    <!-- 选中指示器 -->
+    <view class="indicator {{selected === index ? 'show' : ''}}"></view>
+    
+    <!-- 图标容器 -->
+    <view class="icon-wrapper {{selected === index ? 'active' : ''}}">
+      <image 
+        class="tab-icon" 
+        src="{{selected === index ? item.selectedIconPath : item.iconPath}}"
+        mode="aspectFit"
+      />
+    </view>
+    
+    <!-- 文字标签 -->
+    <text class="tab-text {{selected === index ? 'active' : ''}}">{{item.text}}</text>
+  </view>
+</view>

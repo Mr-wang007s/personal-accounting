@@ -1,0 +1,95 @@
+/* 自定义 TabBar 样式 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 110rpx;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2rpx 20rpx rgba(0, 0, 0, 0.06);
+  z-index: 999;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+/* 选中指示器 */
+.indicator {
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 6rpx;
+  background: linear-gradient(90deg, #6366F1, #818CF8);
+  border-radius: 0 0 6rpx 6rpx;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.indicator.show {
+  width: 40rpx;
+  opacity: 1;
+}
+
+/* 图标容器 */
+.icon-wrapper {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4rpx;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 14rpx;
+  background: transparent;
+}
+
+.icon-wrapper.active {
+  background: rgba(99, 102, 241, 0.12);
+  transform: scale(1.08);
+}
+
+/* 图标 */
+.tab-icon {
+  width: 44rpx;
+  height: 44rpx;
+  transition: all 0.25s ease;
+}
+
+/* 文字标签 */
+.tab-text {
+  font-size: 22rpx;
+  color: #94A3B8;
+  transition: all 0.25s ease;
+  font-weight: 400;
+  margin-top: 2rpx;
+}
+
+.tab-text.active {
+  color: #6366F1;
+  font-weight: 600;
+}
+
+/* 点击反馈效果 */
+.tab-item:active {
+  opacity: 0.8;
+}
+
+.tab-item:active .icon-wrapper {
+  transform: scale(0.92);
+}
+
+.tab-item.active:active .icon-wrapper {
+  transform: scale(1.02);
+}

@@ -15,31 +15,33 @@
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
-    "color": "#CBD5E1",
+    "custom": true,
+    "color": "#94A3B8",
     "selectedColor": "#6366F1",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "",
-        "iconPath": "assets/icons/home.png",
-        "selectedIconPath": "assets/icons/home-active.png"
+        "text": "首页",
+        "iconPath": "assets/icons/tabbar/house.png",
+        "selectedIconPath": "assets/icons/tabbar/house-active.png"
       },
       {
         "pagePath": "pages/records/records",
-        "text": "",
-        "iconPath": "assets/icons/list.png",
-        "selectedIconPath": "assets/icons/list-active.png"
+        "text": "账单",
+        "iconPath": "assets/icons/tabbar/records.png",
+        "selectedIconPath": "assets/icons/tabbar/records-active.png"
       },
       {
         "pagePath": "pages/profile/profile",
-        "text": "",
-        "iconPath": "assets/icons/user.png",
-        "selectedIconPath": "assets/icons/user-active.png"
+        "text": "我的",
+        "iconPath": "assets/icons/tabbar/profile.png",
+        "selectedIconPath": "assets/icons/tabbar/profile-active.png"
       }
     ]
   },
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {}
 }
