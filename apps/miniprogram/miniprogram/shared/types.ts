@@ -82,6 +82,7 @@ export interface UserProfile {
   createdAt: string
   updatedAt: string
   phone?: string // 手机号
+  avatar?: string // 头像 URL
   serverUrl?: string // 同步服务器地址
 }
 

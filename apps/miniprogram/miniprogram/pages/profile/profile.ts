@@ -1,5 +1,6 @@
 /**
  * 个人中心页
+ * 云托管版本 - 自动登录
  */
 import type { Ledger, UserProfile } from '../../shared/types'
 import { LedgerService } from '../../services/ledger'
@@ -25,14 +26,11 @@ Page({
     newLedgerIcon: '📒',
     ledgerIcons: ['📒', '💰', '🏠', '🚗', '✈️', '🎮', '🛒', '💼', '🎓', '❤️', '🌟', '📱'],
 
-    // 同步相关（简化版）
+    // 同步相关（云托管版 - 自动登录）
     showSyncModal: false,
     syncState: 'idle' as SyncState,
     isConnected: false,
     isAuthenticated: false,
-    serverUrl: '',
-    inputServerUrl: 'http://192.168.1.100:3000',
-    inputPhone: '', // 手机号
     lastSyncAt: '',
     pendingBackupCount: 0, // 待备份数量
     autoSyncEnabled: true,
@@ -207,18 +205,14 @@ Page({
     })
   },
 
-  // ==================== 同步功能（简化版 OneDrive 模式）====================
+  // ==================== 同步功能（云托管版 - 自动登录）====================
 
   // 加载同步状态
   loadSyncStatus() {
     const meta = syncService.getSyncMeta()
     const isConnected = syncService.isConnected()
-    const { userProfile } = this.data
 
     this.setData({
-      serverUrl: meta.serverUrl || '',
-      inputServerUrl: meta.serverUrl || userProfile?.serverUrl || 'http://192.168.1.100:3000',
-      inputPhone: userProfile?.phone || '',
       lastSyncAt: meta.lastSyncAt || '',
       pendingBackupCount: syncService.getPendingBackupCount(),
       isConnected: isConnected,
@@ -226,19 +220,29 @@ Page({
       autoSyncEnabled: syncService.isAutoSyncEnabled(),
     })
 
-    // 检查连接状态
-    if (meta.serverUrl) {
-      this.checkConnection()
-    }
+    // 检查连接状态，如果未登录则自动登录
+    this.checkAndAutoLogin()
   },
 
-  // 检查连接
-  async checkConnection() {
+  // 检查连接并自动登录
+  async checkAndAutoLogin() {
     const connected = await syncService.checkConnection()
     this.setData({
       isConnected: connected,
       syncState: connected ? 'idle' : 'offline',
     })
+
+    // 如果连接正常但未登录，自动登录
+    if (connected && !apiClient.isAuthenticated()) {
+      const { userProfile } = this.data
+      const loginResult = await syncService.autoLogin(userProfile?.nickname, userProfile?.avatar)
+      if (loginResult.success) {
+        this.setData({
+          isAuthenticated: true,
+        })
+        console.log('[Profile] 自动登录成功')
+      }
+    }
   },
 
   // 显示同步设置弹窗
@@ -254,62 +258,37 @@ Page({
     this.setData({ showSyncModal: false })
   },
 
-  // 输入服务器地址
-  onServerUrlInput(e: WechatMiniprogram.Input) {
-    this.setData({ inputServerUrl: e.detail.value })
-  },
-
-  // 输入手机号
-  onPhoneInput(e: WechatMiniprogram.Input) {
-    this.setData({ inputPhone: e.detail.value })
-  },
-
-  // 连接服务器（连接成功后使用手机号登录）
-  async connectServer() {
-    const { inputServerUrl, inputPhone } = this.data
-    
-    if (!inputServerUrl.trim()) {
-      this.setData({ syncError: '请输入服务器地址' })
-      return
-    }
-
-    if (!inputPhone.trim()) {
-      this.setData({ syncError: '请输入手机号' })
-      return
-    }
-
+  // 重新登录（云托管模式）
+  async reconnect() {
     this.setData({ syncState: 'syncing', syncError: '' })
 
     try {
-      const success = await syncService.discoverServer(inputServerUrl)
-      if (success) {
-        // 连接成功后使用手机号登录
-        const loginSuccess = await syncService.login(inputPhone.trim())
-        if (loginSuccess) {
+      const connected = await syncService.checkConnection()
+      if (connected) {
+        const { userProfile } = this.data
+        const loginResult = await syncService.autoLogin(userProfile?.nickname, userProfile?.avatar)
+        if (loginResult.success) {
           this.setData({
             isConnected: true,
             isAuthenticated: true,
-            serverUrl: inputServerUrl,
             syncState: 'idle',
-            inputPhone: inputPhone.trim(), // 保存手机号
           })
           wx.showToast({ title: '连接成功', icon: 'success' })
           
-          // 连接成功后自动同步
+          // 登录成功后自动同步
           if (this.data.autoSyncEnabled) {
             this.manualSync()
           }
         } else {
           this.setData({
             isConnected: true,
-            serverUrl: inputServerUrl,
             syncError: '登录失败',
             syncState: 'error',
           })
         }
       } else {
         this.setData({
-          syncError: '无法连接到服务器，请检查地址',
+          syncError: '云服务连接失败，请稍后重试',
           syncState: 'error',
         })
       }
@@ -324,8 +303,8 @@ Page({
   // 断开连接
   disconnectServer() {
     wx.showModal({
-      title: '确认断开',
-      content: '断开连接后，数据将仅保存在本地。确定继续？',
+      title: '确认退出登录',
+      content: '退出登录后，数据将仅保存在本地。确定继续？',
       confirmColor: '#EF4444',
       success: (res) => {
         if (res.confirm) {
@@ -333,12 +312,11 @@ Page({
           this.setData({
             isConnected: false,
             isAuthenticated: false,
-            serverUrl: '',
             lastSyncAt: '',
             pendingBackupCount: 0,
             syncState: 'idle',
           })
-          wx.showToast({ title: '已断开连接', icon: 'success' })
+          wx.showToast({ title: '已退出登录', icon: 'success' })
         }
       }
     })

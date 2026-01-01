@@ -1,5 +1,5 @@
 /**
- * 同步服务 - 简化版（OneDrive/iCloud 模式）
+ * 同步服务 - 微信云托管版本
  * 
  * 核心逻辑：
  * 1. 每条数据标记 syncStatus: 'local' | 'synced'
@@ -12,7 +12,7 @@
 declare function setTimeout(callback: () => void, ms: number): number
 declare function clearTimeout(id: number): void
 
-import { apiClient, BackupRecord, BackupLedger, LoginResponse } from './apiClient'
+import { apiClient, BackupRecord, BackupLedger } from './apiClient'
 import type { Record, Ledger, SyncStatus } from '../shared/types'
 import { STORAGE_KEY, LEDGERS_KEY, USER_PROFILE_KEY } from '../shared/constants'
 
@@ -20,10 +20,11 @@ import { STORAGE_KEY, LEDGERS_KEY, USER_PROFILE_KEY } from '../shared/constants'
 const SYNC_META_KEY = 'pa_sync_meta'
 
 interface SyncMeta {
-  serverUrl: string | null
+  serverUrl: string | null  // 云托管模式下为 'cloudrun' 标识
   lastSyncAt: string | null
   autoSync: boolean
-  userPhone: string | null // 保存登录的手机号
+  userPhone: string | null // 保存登录的手机号（兼容旧版）
+  openid: string | null // 微信 openid
 }
 
 export type SyncState = 'idle' | 'syncing' | 'success' | 'error' | 'offline'
@@ -44,18 +45,19 @@ class SyncService {
 
   constructor() {
     this.syncMeta = this.loadSyncMeta()
-    // 恢复服务器地址
-    if (this.syncMeta.serverUrl) {
-      apiClient.setBaseUrl(this.syncMeta.serverUrl)
+    // 云托管模式下自动标记为已连接
+    if (!this.syncMeta.serverUrl) {
+      this.syncMeta.serverUrl = 'cloudrun'
+      this.saveSyncMeta()
     }
   }
 
   private loadSyncMeta(): SyncMeta {
     try {
       const data = wx.getStorageSync(SYNC_META_KEY)
-      return data || { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null }
+      return data || { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null, openid: null }
     } catch {
-      return { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null }
+      return { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null, openid: null }
     }
   }
 
@@ -120,40 +122,15 @@ class SyncService {
 
   // ==================== 服务器连接 ====================
 
-  async discoverServer(url: string): Promise<boolean> {
+  /**
+   * 发现服务器 - 云托管模式下直接返回成功
+   */
+  async discoverServer(_url?: string): Promise<boolean> {
     try {
-      const normalizedUrl = url.replace(/\/$/, '')
-      const pingResult = await apiClient.ping(normalizedUrl)
-      if (pingResult.status === 'ok') {
-        this.syncMeta.serverUrl = normalizedUrl
-        this.saveSyncMeta()
-        apiClient.setBaseUrl(normalizedUrl)
-        
-        // 将服务地址保存到用户配置（pa_user_profile）
-        try {
-          const existingProfile = wx.getStorageSync(USER_PROFILE_KEY)
-          if (existingProfile) {
-            existingProfile.serverUrl = normalizedUrl
-            existingProfile.updatedAt = new Date().toISOString()
-            wx.setStorageSync(USER_PROFILE_KEY, existingProfile)
-          }
-        } catch (e) {
-          console.error('[Sync] 保存服务地址到用户配置失败:', e)
-        }
-        
-        return true
-      }
-      return false
-    } catch {
-      return false
-    }
-  }
-
-  async checkConnection(): Promise<boolean> {
-    if (!this.syncMeta.serverUrl) return false
-    try {
-      apiClient.setBaseUrl(this.syncMeta.serverUrl)
-      await apiClient.ping(this.syncMeta.serverUrl)
+      // 云托管模式下，通过 ping 检查服务是否可用
+      await apiClient.ping()
+      this.syncMeta.serverUrl = 'cloudrun'
+      this.saveSyncMeta()
       return true
     } catch {
       return false
@@ -161,12 +138,68 @@ class SyncService {
   }
 
   /**
-   * 手机号登录
+   * 检查连接 - 云托管模式
+   */
+  async checkConnection(): Promise<boolean> {
+    try {
+      await apiClient.ping()
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 微信云托管自动登录
+   * 云托管会自动识别用户身份，无需手动输入
+   * @param nickname 用户昵称（可选，从微信获取）
+   * @param avatar 用户头像（可选，从微信获取）
+   * @returns 登录结果，包含用户信息
+   */
+  async autoLogin(nickname?: string, avatar?: string): Promise<{ success: boolean; user?: { id: string; phone: string; nickname?: string; avatar?: string; openid?: string }; isNewUser?: boolean }> {
+    try {
+      const result = await apiClient.wxCloudLogin(nickname, avatar)
+      apiClient.setToken(result.accessToken)
+      
+      // 保存用户信息
+      this.syncMeta.openid = result.user.openid || null
+      this.syncMeta.userPhone = result.user.phone || null
+      this.saveSyncMeta()
+
+      // 将用户信息保存到用户配置（pa_user_profile）
+      try {
+        const existingProfile = wx.getStorageSync(USER_PROFILE_KEY)
+        if (existingProfile) {
+          if (result.user.phone) {
+            existingProfile.phone = result.user.phone
+          }
+          if (result.user.nickname) {
+            existingProfile.nickname = result.user.nickname
+          }
+          if (result.user.avatar) {
+            existingProfile.avatar = result.user.avatar
+          }
+          existingProfile.updatedAt = new Date().toISOString()
+          wx.setStorageSync(USER_PROFILE_KEY, existingProfile)
+        }
+      } catch (e) {
+        console.error('[Sync] 保存用户信息到配置失败:', e)
+      }
+
+      return { success: true, user: result.user, isNewUser: result.isNewUser }
+    } catch (error) {
+      console.error('[Sync] 自动登录失败:', error)
+      return { success: false }
+    }
+  }
+
+  /**
+   * 手机号登录（保留兼容）
    * @returns 登录结果，包含是否为新用户
    */
   async login(phone: string, nickname?: string): Promise<{ success: boolean; isNewUser: boolean }> {
     try {
-      const result: LoginResponse = await apiClient.phoneLogin(phone, nickname)
+      const result = await apiClient.phoneLogin(phone, nickname)
       apiClient.setToken(result.accessToken)
       this.syncMeta.userPhone = phone
       this.saveSyncMeta()
@@ -190,7 +223,7 @@ class SyncService {
   }
 
   disconnect(): void {
-    this.syncMeta = { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null }
+    this.syncMeta = { serverUrl: 'cloudrun', lastSyncAt: null, autoSync: true, userPhone: null, openid: null }
     this.saveSyncMeta()
     apiClient.clearToken()
     

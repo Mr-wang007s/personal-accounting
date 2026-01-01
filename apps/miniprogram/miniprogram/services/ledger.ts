@@ -4,18 +4,17 @@
 import type { Ledger, UserProfile } from '../shared/types'
 import { generateId, getNowISO } from '../shared/utils'
 import { StorageService } from './storage'
-import { apiClient } from './apiClient'
 import { syncService } from './sync'
 
 export const LedgerService = {
   /**
    * 初始化用户（首次使用）
-   * 同时注册到后端服务器
+   * 云托管模式下自动连接
    */
   async initializeUser(
     nickname: string, 
     ledgerName: string,
-    serverUrl?: string
+    _serverUrl?: string
   ): Promise<{ userProfile: UserProfile; ledger: Ledger; registered: boolean }> {
     const now = getNowISO()
 
@@ -41,22 +40,16 @@ export const LedgerService = {
     StorageService.saveLedgers([ledger])
     StorageService.saveUserProfile(userProfile)
 
-    // 尝试注册到服务器
+    // 云托管模式下检查连接
     let registered = false
-    if (serverUrl) {
-      try {
-        // 连接服务器
-        const connected = await syncService.discoverServer(serverUrl)
-        if (connected) {
-          // 注册用户
-          const result = await apiClient.register(nickname)
-          apiClient.setToken(result.accessToken)
-          registered = true
-          console.log('[LedgerService] 用户注册成功:', result.user)
-        }
-      } catch (error) {
-        console.error('[LedgerService] 注册失败，将使用离线模式:', error)
+    try {
+      const connected = await syncService.checkConnection()
+      if (connected) {
+        registered = true
+        console.log('[LedgerService] 云托管连接成功')
       }
+    } catch (error) {
+      console.error('[LedgerService] 云托管连接检查失败:', error)
     }
 
     return { userProfile, ledger, registered }

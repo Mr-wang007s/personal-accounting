@@ -1,7 +1,15 @@
 /**
  * API 客户端 - 用于与后端通信
- * 微信小程序版本 - 简化版（OneDrive 模式）
+ * 微信云托管版本 - 使用 wx.cloud.callContainer
  */
+
+/// <reference path="../typings/wx.d.ts" />
+
+// 云托管配置
+const CLOUD_CONFIG = {
+  env: 'prod-5gqmub7sd1872233',
+  service: 'express-g8es',
+}
 
 export interface ApiResponse<T> {
   code: number
@@ -110,25 +118,49 @@ export interface LoginResponse {
   isNewUser: boolean
 }
 
+// 微信云托管用户信息（从请求头自动获取）
+export interface WxCloudUserInfo {
+  openid: string
+  unionid?: string
+  nickname?: string
+  phone?: string
+}
+
 // 存储键
 const DEVICE_ID_KEY = 'pa_device_id'
 const TOKEN_KEY = 'pa_token'
 
-// 请求选项（不含 url，由 request 方法内部拼接）
-interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  data?: unknown
-  header?: Record<string, string>
+// callContainer 返回结果类型
+interface CallContainerResult<T> {
+  data: ApiResponse<T> | T
+  statusCode: number
+  header: Record<string, string>
+  callID: string
 }
 
 class ApiClient {
-  private baseUrl: string | null = null
   private token: string | null = null
   private deviceId: string
+  private cloudInitialized = false
 
   constructor() {
     this.deviceId = this.getOrCreateDeviceId()
     this.token = wx.getStorageSync(TOKEN_KEY) || null
+    this.initCloud()
+  }
+
+  private initCloud(): void {
+    if (this.cloudInitialized) return
+    try {
+      wx.cloud.init({
+        env: CLOUD_CONFIG.env,
+        traceUser: true,
+      })
+      this.cloudInitialized = true
+      console.log('[ApiClient] 云开发初始化成功')
+    } catch (error) {
+      console.error('[ApiClient] 云开发初始化失败:', error)
+    }
   }
 
   private getOrCreateDeviceId(): string {
@@ -144,12 +176,15 @@ class ApiClient {
     return this.deviceId
   }
 
-  setBaseUrl(url: string): void {
-    this.baseUrl = url.replace(/\/$/, '')
+  // 兼容旧代码，但云托管不需要设置 baseUrl
+  setBaseUrl(_url: string): void {
+    // 云托管模式下不需要设置 baseUrl
+    console.log('[ApiClient] 云托管模式，忽略 setBaseUrl')
   }
 
   getBaseUrl(): string | null {
-    return this.baseUrl
+    // 返回云托管标识
+    return `cloudrun://${CLOUD_CONFIG.service}`
   }
 
   setToken(token: string): void {
@@ -166,23 +201,27 @@ class ApiClient {
     wx.removeStorageSync(TOKEN_KEY)
   }
 
+  // 云托管模式始终已配置
   isConfigured(): boolean {
-    return this.baseUrl !== null
+    return true
   }
 
   isAuthenticated(): boolean {
     return this.token !== null
   }
 
-  private request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  /**
+   * 通用请求方法 - 使用 wx.cloud.callContainer
+   */
+  private request<T>(path: string, options: {
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+    data?: unknown
+    header?: Record<string, string>
+  } = {}): Promise<T> {
     return new Promise((resolve, reject) => {
-      if (!this.baseUrl) {
-        reject(new Error('API base URL not configured'))
-        return
-      }
-
       const header: Record<string, string> = {
-        'Content-Type': 'application/json',
+        'X-WX-SERVICE': CLOUD_CONFIG.service,
+        'content-type': 'application/json',
         'X-Device-Id': this.deviceId,
         ...(options.header || {}),
       }
@@ -191,50 +230,70 @@ class ApiClient {
         header['Authorization'] = `Bearer ${this.token}`
       }
 
-      wx.request({
-        url: `${this.baseUrl}${endpoint}`,
+      wx.cloud.callContainer({
+        config: {
+          env: CLOUD_CONFIG.env,
+        },
+        path,
         method: options.method || 'GET',
-        data: options.data as string | object | ArrayBuffer | undefined,
         header,
-        success: (res) => {
+        data: options.data || '',
+        success: (res: CallContainerResult<T>) => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            const result = res.data as ApiResponse<T>
-            resolve(result.data)
+            // 检查返回数据格式
+            const responseData = res.data
+            if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+              // 标准 ApiResponse 格式
+              resolve((responseData as ApiResponse<T>).data)
+            } else {
+              // 直接返回数据
+              resolve(responseData as T)
+            }
           } else {
             const error = res.data as { message?: string }
-            reject(new Error(error.message || `HTTP ${res.statusCode}`))
+            reject(new Error(error?.message || `HTTP ${res.statusCode}`))
           }
         },
-        fail: (err) => {
-          reject(new Error(err.errMsg || '网络请求失败'))
+        fail: (err: { errMsg?: string; errCode?: number }) => {
+          console.error('[ApiClient] callContainer 失败:', err)
+          reject(new Error(err.errMsg || '云托管请求失败'))
         },
       })
     })
   }
 
-  // 服务发现 - ping 检查
-  ping(url: string): Promise<PingResponse> {
-    return new Promise((resolve, reject) => {
-      wx.request({
-        url: `${url}/api/discovery/ping`,
-        method: 'GET',
-        header: { 'Content-Type': 'application/json' },
-        success: (res) => {
-          if (res.statusCode === 200) {
-            const result = res.data as ApiResponse<PingResponse>
-            resolve(result.data)
-          } else {
-            reject(new Error(`Server not reachable: ${res.statusCode}`))
-          }
-        },
-        fail: (err) => {
-          reject(new Error(err.errMsg || '无法连接服务器'))
-        },
-      })
+  // 服务发现 - ping 检查（云托管模式）
+  ping(_url?: string): Promise<PingResponse> {
+    return this.request<PingResponse>('/api/discovery/ping', {
+      method: 'GET',
     })
   }
 
-  // 手机号登录
+  /**
+   * 微信云托管自动登录
+   * 云托管会自动在请求头中注入用户的 openid 等信息
+   * 后端根据 openid 自动创建或获取用户
+   * @param nickname 用户昵称（从微信获取）
+   * @param avatar 用户头像（从微信获取）
+   */
+  async wxCloudLogin(nickname?: string, avatar?: string): Promise<LoginResponse> {
+    return this.request('/api/auth/wx-cloud/login', {
+      method: 'POST',
+      data: { nickname, avatar },
+    })
+  }
+
+  /**
+   * 获取当前用户信息（云托管模式）
+   * 后端根据请求头中的 openid 返回用户信息
+   */
+  async getCurrentUser(): Promise<LoginResponse['user']> {
+    return this.request('/api/auth/me', {
+      method: 'GET',
+    })
+  }
+
+  // 手机号登录（保留兼容）
   async phoneLogin(phone: string, nickname?: string): Promise<LoginResponse> {
     return this.request('/api/auth/phone/login', {
       method: 'POST',

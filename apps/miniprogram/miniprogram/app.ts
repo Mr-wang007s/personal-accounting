@@ -35,19 +35,34 @@ App<IAppOption>({
         this.globalData.records = StorageService.getRecords()
         this.globalData.isInitialized = true
 
-        // 检查是否已登录（有 token）
+        // 云托管模式下自动登录
         const token = apiClient.getToken()
         if (token) {
           this.globalData.isLoggedIn = true
-          // 恢复服务器连接
-          const syncMeta = syncService.getSyncMeta()
-          if (syncMeta.serverUrl) {
-            apiClient.setBaseUrl(syncMeta.serverUrl)
-          }
+        } else {
+          // 尝试自动登录（传入昵称和头像）
+          this.tryAutoLogin(userProfile.nickname, userProfile.avatar)
         }
       }
     } catch (error) {
       console.error('初始化失败:', error)
+    }
+  },
+
+  // 尝试自动登录（云托管模式）
+  async tryAutoLogin(nickname?: string, avatar?: string) {
+    try {
+      const result = await syncService.autoLogin(nickname, avatar)
+      if (result.success) {
+        this.globalData.isLoggedIn = true
+        console.log('[App] 自动登录成功')
+        // 自动同步数据
+        if (syncService.isAutoSyncEnabled()) {
+          syncService.sync()
+        }
+      }
+    } catch (error) {
+      console.error('[App] 自动登录失败:', error)
     }
   },
 

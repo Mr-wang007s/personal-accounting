@@ -1,4 +1,4 @@
-/* 引导页样式 */
+/* 引导页样式 - 微信授权版 */
 .page-container {
   min-height: 100vh;
   background: linear-gradient(180deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
@@ -10,110 +10,157 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 80rpx 48rpx;
+  padding: 60rpx 48rpx 80rpx;
 }
 
-/* 步骤指示器 */
-.steps-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 80rpx;
-}
-
-.step {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.step.active {
-  background-color: #FFFFFF;
-  color: var(--primary-color);
-}
-
-.step-line {
-  width: 80rpx;
-  height: 4rpx;
-  background-color: rgba(255, 255, 255, 0.3);
-  margin: 0 16rpx;
-  transition: all 0.3s;
-}
-
-.step-line.active {
-  background-color: #FFFFFF;
-}
-
-/* 步骤内容 */
-.step-content {
-  flex: 1;
+/* 欢迎区域 */
+.welcome-section {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-bottom: 48rpx;
 }
 
-.step-icon {
-  width: 160rpx;
-  height: 160rpx;
+.welcome-icon {
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 50%;
   background-color: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 48rpx;
+  margin-bottom: 24rpx;
 }
 
-.step-icon text {
-  font-size: 80rpx;
+.welcome-icon text {
+  font-size: 60rpx;
 }
 
-.step-title {
+.welcome-title {
   font-size: 40rpx;
   font-weight: 700;
   color: #FFFFFF;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
 }
 
-.step-desc {
+.welcome-desc {
   font-size: 28rpx;
   color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 64rpx;
 }
 
-/* 表单区域 */
-.form-section {
-  width: 100%;
+/* 用户信息区域 */
+.user-info-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-bottom: 48rpx;
+  padding: 40rpx;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 24rpx;
 }
 
-.nickname-input,
-.ledger-input {
-  width: 100%;
-  line-height: 160rpx;
+/* 头像选择按钮 */
+.avatar-btn {
+  width: 160rpx;
   height: 160rpx;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  position: relative;
+}
+
+.avatar-btn::after {
+  display: none;
+}
+
+.avatar-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 6rpx solid rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.avatar-edit-icon {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
   background-color: #FFFFFF;
-  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+}
+
+.avatar-edit-icon text {
+  font-size: 24rpx;
+}
+
+.avatar-hint {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 16rpx;
+}
+
+/* 昵称输入 */
+.nickname-section {
+  width: 100%;
+  margin-top: 32rpx;
+}
+
+.nickname-input {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
   font-size: 32rpx;
   text-align: center;
   box-sizing: border-box;
 }
 
-.nickname-input::placeholder,
+.nickname-input::placeholder {
+  color: #9CA3AF;
+}
+
+/* 账本设置区域 */
+.ledger-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 24rpx;
+  text-align: center;
+}
+
+.ledger-input {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  text-align: center;
+  box-sizing: border-box;
+  margin-bottom: 24rpx;
+}
+
 .ledger-input::placeholder {
-  color: var(--text-muted);
+  color: #9CA3AF;
 }
 
 /* 图标选择 */
 .icon-section {
-  margin-top: 32rpx;
+  margin-bottom: 24rpx;
 }
 
 .icon-label {
@@ -136,7 +183,7 @@
   align-items: center;
   justify-content: center;
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-md);
+  border-radius: 12rpx;
   border: 3rpx solid transparent;
   transition: all 0.2s;
 }
@@ -150,98 +197,32 @@
   font-size: 40rpx;
 }
 
-/* 同步设置 */
-.sync-section {
-  margin-top: 40rpx;
-  background-color: rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-lg);
-  padding: 24rpx;
+/* 云同步提示 */
+.sync-hint {
+  text-align: center;
+  padding: 20rpx 0;
 }
 
-.sync-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sync-label {
-  font-size: 28rpx;
-  color: #FFFFFF;
-  font-weight: 500;
-}
-
-.sync-input-wrapper {
-  margin-top: 24rpx;
-  padding-top: 24rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.2);
-}
-
-.input-label {
-  font-size: 24rpx;
+.hint-text {
+  font-size: 26rpx;
   color: rgba(255, 255, 255, 0.8);
-  display: block;
-  margin-bottom: 12rpx;
 }
 
-.server-input {
-  width: 100%;
-  height: 80rpx;
-  line-height: 80rpx;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: var(--radius-md);
-  font-size: 28rpx;
-  padding: 0 24rpx;
-  box-sizing: border-box;
-  color: var(--text-primary);
-}
-
-.server-input::placeholder {
-  color: var(--text-muted);
-}
-
-.input-hint {
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.6);
-  display: block;
-  margin-top: 8rpx;
-}
-
-/* 按钮 */
-.next-btn,
+/* 开始按钮 */
 .start-btn {
   width: 100%;
   padding: 32rpx;
   background-color: #FFFFFF;
-  border-radius: var(--radius-lg);
-  font-size: 32rpx;
+  border-radius: 16rpx;
+  font-size: 34rpx;
   font-weight: 600;
-  color: var(--primary-color);
+  color: #6366F1;
   border: none;
+  margin-top: auto;
 }
 
-.next-btn[disabled],
+.start-btn.disabled,
 .start-btn[disabled] {
   background-color: rgba(255, 255, 255, 0.5);
   color: rgba(99, 102, 241, 0.5);
-}
-
-.btn-group {
-  display: flex;
-  gap: 24rpx;
-  width: 100%;
-}
-
-.back-btn {
-  flex: 1;
-  padding: 32rpx;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-lg);
-  font-size: 32rpx;
-  font-weight: 500;
-  color: #FFFFFF;
-  border: none;
-}
-
-.start-btn {
-  flex: 2;
 }
