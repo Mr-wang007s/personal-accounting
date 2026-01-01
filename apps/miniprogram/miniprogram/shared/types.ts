@@ -6,6 +6,9 @@
 // 记录类型
 export type RecordType = 'income' | 'expense'
 
+// 同步状态：local = 仅本地，synced = 已同步到云端
+export type SyncStatus = 'local' | 'synced'
+
 // 记账记录
 export interface Record {
   id: string
@@ -16,6 +19,10 @@ export interface Record {
   note?: string
   createdAt: string
   ledgerId?: string
+  // 简化的同步状态
+  syncStatus?: SyncStatus // 默认 'local'
+  serverId?: string // 云端 ID（同步后获得）
+  updatedAt?: string // 更新时间
 }
 
 // 分类

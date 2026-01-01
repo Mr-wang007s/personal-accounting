@@ -169,7 +169,6 @@ export class RecordsService {
         category: dto.category,
         date: dto.date ? new Date(dto.date) : undefined,
         note: dto.note,
-        syncVersion: { increment: 1 },
       },
     })
 
@@ -186,7 +185,6 @@ export class RecordsService {
       where: { id },
       data: {
         deletedAt: new Date(),
-        syncVersion: { increment: 1 },
       },
     })
 
@@ -203,7 +201,6 @@ export class RecordsService {
       },
       data: {
         deletedAt: new Date(),
-        syncVersion: { increment: 1 },
       },
     })
 

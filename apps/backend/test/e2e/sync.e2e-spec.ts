@@ -5,15 +5,15 @@ import {
   createTestApp,
   getPrismaService,
   cleanDatabase,
-  createTestUser,
-  MOCK_USER,
+  TEST_USER,
 } from '../helpers/test-utils'
 import { PrismaService } from '../../src/prisma/prisma.service'
 
 describe('Sync E2E Tests', () => {
   let app: INestApplication
   let prisma: PrismaService
-  const deviceId = 'test-device-001'
+  let authToken: string
+  let userId: string
 
   beforeAll(async () => {
     app = await createTestApp()
@@ -27,79 +27,21 @@ describe('Sync E2E Tests', () => {
 
   beforeEach(async () => {
     await cleanDatabase(prisma)
-    await createTestUser(prisma)
+    // 登录获取 token
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/dev/login')
+      .send({ openid: TEST_USER.openid, nickname: TEST_USER.nickname })
+    authToken = loginResponse.body.accessToken
+    userId = loginResponse.body.user.id
   })
 
-  describe('GET /sync/status', () => {
-    it('should return sync status', async () => {
+  describe('POST /sync/backup', () => {
+    it('should backup records to cloud', async () => {
       const response = await request(app.getHttpServer())
-        .get('/sync/status')
-        .set('X-Device-Id', deviceId)
-        .expect(200)
-
-      expect(response.body).toHaveProperty('serverVersion')
-      expect(response.body).toHaveProperty('deviceId')
-      expect(response.body).toHaveProperty('needsSync')
-    })
-  })
-
-  describe('GET /sync/pull', () => {
-    beforeEach(async () => {
-      // 创建一些测试记录
-      await prisma.record.createMany({
-        data: [
-          {
-            userId: MOCK_USER.id,
-            type: 'expense',
-            amount: 100,
-            category: 'food',
-            date: new Date('2024-01-15'),
-            syncVersion: 1,
-          },
-          {
-            userId: MOCK_USER.id,
-            type: 'income',
-            amount: 5000,
-            category: 'salary',
-            date: new Date('2024-01-01'),
-            syncVersion: 2,
-          },
-        ],
-      })
-    })
-
-    it('should pull changes since last sync version', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/sync/pull')
-        .set('X-Device-Id', deviceId)
-        .query({ lastSyncVersion: 0 })
-        .expect(200)
-
-      expect(response.body).toHaveProperty('changes')
-      expect(response.body).toHaveProperty('serverVersion')
-      expect(response.body.changes).toBeInstanceOf(Array)
-      expect(response.body.changes.length).toBe(2)
-    })
-
-    it('should return only new changes', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/sync/pull')
-        .set('X-Device-Id', deviceId)
-        .query({ lastSyncVersion: 1 })
-        .expect(200)
-
-      expect(response.body.changes.length).toBe(1)
-      expect(response.body.changes[0].syncVersion).toBe(2)
-    })
-  })
-
-  describe('POST /sync/push', () => {
-    it('should push new records', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/sync/push')
-        .set('X-Device-Id', deviceId)
+        .post('/sync/backup')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
-          created: [
+          records: [
             {
               clientId: 'client-record-001',
               type: 'expense',
@@ -107,124 +49,187 @@ describe('Sync E2E Tests', () => {
               category: 'food',
               date: '2024-01-15',
               note: '午餐',
+              createdAt: new Date().toISOString(),
             },
-          ],
-          updated: [],
-          deleted: [],
-        })
-        .expect(201)
-
-      expect(response.body).toHaveProperty('serverVersion')
-      expect(response.body).toHaveProperty('created')
-      expect(response.body.created).toBe(1)
-    })
-
-    it('should handle update operations', async () => {
-      // 先创建一条记录
-      const record = await prisma.record.create({
-        data: {
-          userId: MOCK_USER.id,
-          type: 'expense',
-          amount: 100,
-          category: 'food',
-          date: new Date('2024-01-15'),
-          clientId: 'client-record-002',
-          syncVersion: 1,
-        },
-      })
-
-      const response = await request(app.getHttpServer())
-        .post('/sync/push')
-        .set('X-Device-Id', deviceId)
-        .send({
-          created: [],
-          updated: [
             {
-              id: record.id,
               clientId: 'client-record-002',
-              amount: 200,
-              note: '更新后',
-              syncVersion: 1,
+              type: 'income',
+              amount: 5000,
+              category: 'salary',
+              date: '2024-01-01',
+              note: '工资',
+              createdAt: new Date().toISOString(),
             },
           ],
-          deleted: [],
         })
         .expect(201)
 
-      expect(response.body.updated).toBe(1)
-
-      // 验证更新
-      const updatedRecord = await prisma.record.findUnique({
-        where: { id: record.id },
-      })
-      expect(Number(updatedRecord?.amount)).toBe(200)
+      expect(response.body.success).toBe(true)
+      expect(response.body.uploaded).toBe(2)
+      expect(response.body.records).toHaveLength(2)
+      expect(response.body.records[0]).toHaveProperty('clientId')
+      expect(response.body.records[0]).toHaveProperty('serverId')
     })
 
-    it('should handle delete operations', async () => {
-      const record = await prisma.record.create({
-        data: {
-          userId: MOCK_USER.id,
-          type: 'expense',
-          amount: 100,
-          category: 'food',
-          date: new Date('2024-01-15'),
-          clientId: 'client-record-003',
-          syncVersion: 1,
-        },
-      })
-
-      const response = await request(app.getHttpServer())
-        .post('/sync/push')
-        .set('X-Device-Id', deviceId)
+    it('should update existing record if clientId exists', async () => {
+      // 第一次备份
+      await request(app.getHttpServer())
+        .post('/sync/backup')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
-          created: [],
-          updated: [],
-          deleted: [record.id],
+          records: [
+            {
+              clientId: 'client-record-003',
+              type: 'expense',
+              amount: 100,
+              category: 'food',
+              date: '2024-01-15',
+              createdAt: new Date().toISOString(),
+            },
+          ],
         })
         .expect(201)
 
-      expect(response.body.deleted).toBe(1)
+      // 第二次备份（更新）
+      const response = await request(app.getHttpServer())
+        .post('/sync/backup')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          records: [
+            {
+              clientId: 'client-record-003',
+              type: 'expense',
+              amount: 200, // 更新金额
+              category: 'food',
+              date: '2024-01-15',
+              note: '更新后',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        })
+        .expect(201)
 
-      // 验证软删除
-      const deletedRecord = await prisma.record.findUnique({
-        where: { id: record.id },
+      expect(response.body.uploaded).toBe(1)
+
+      // 验证数据库中只有一条记录
+      const records = await prisma.record.findMany({
+        where: { userId, clientId: 'client-record-003' },
       })
-      expect(deletedRecord?.deletedAt).not.toBeNull()
+      expect(records).toHaveLength(1)
+      expect(Number(records[0].amount)).toBe(200)
+      expect(records[0].note).toBe('更新后')
+    })
+
+    it('should return 401 without token', async () => {
+      await request(app.getHttpServer())
+        .post('/sync/backup')
+        .send({ records: [] })
+        .expect(401)
     })
   })
 
-  describe('GET /sync/full', () => {
+  describe('GET /sync/restore', () => {
     beforeEach(async () => {
+      // 创建测试数据
       await prisma.record.createMany({
         data: [
           {
-            userId: MOCK_USER.id,
+            userId,
+            clientId: 'client-001',
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
+            note: '午餐',
           },
           {
-            userId: MOCK_USER.id,
+            userId,
+            clientId: 'client-002',
             type: 'income',
             amount: 5000,
             category: 'salary',
             date: new Date('2024-01-01'),
+            note: '工资',
           },
         ],
       })
     })
 
-    it('should return full sync data', async () => {
+    it('should restore all records from cloud', async () => {
       const response = await request(app.getHttpServer())
-        .get('/sync/full')
-        .set('X-Device-Id', deviceId)
+        .get('/sync/restore')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
 
-      expect(response.body).toHaveProperty('records')
-      expect(response.body).toHaveProperty('serverVersion')
-      expect(response.body.records).toBeInstanceOf(Array)
-      expect(response.body.records.length).toBe(2)
+      expect(response.body.success).toBe(true)
+      expect(response.body.records).toHaveLength(2)
+      
+      const record = response.body.records.find((r: any) => r.clientId === 'client-001')
+      expect(record).toBeDefined()
+      expect(record.serverId).toBeDefined()
+      expect(record.type).toBe('expense')
+      expect(record.amount).toBe(100)
+      expect(record.category).toBe('food')
+    })
+
+    it('should not return deleted records', async () => {
+      // 软删除一条记录
+      await prisma.record.updateMany({
+        where: { userId, clientId: 'client-001' },
+        data: { deletedAt: new Date() },
+      })
+
+      const response = await request(app.getHttpServer())
+        .get('/sync/restore')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+
+      expect(response.body.records).toHaveLength(1)
+      expect(response.body.records[0].clientId).toBe('client-002')
+    })
+  })
+
+  describe('POST /sync/delete-cloud', () => {
+    let serverId: string
+
+    beforeEach(async () => {
+      const record = await prisma.record.create({
+        data: {
+          userId,
+          clientId: 'client-to-delete',
+          type: 'expense',
+          amount: 100,
+          category: 'food',
+          date: new Date('2024-01-15'),
+        },
+      })
+      serverId = record.id
+    })
+
+    it('should delete cloud records', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/sync/delete-cloud')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ serverIds: [serverId] })
+        .expect(201)
+
+      expect(response.body.deleted).toBe(1)
+
+      // 验证软删除
+      const record = await prisma.record.findUnique({
+        where: { id: serverId },
+      })
+      expect(record?.deletedAt).not.toBeNull()
+    })
+
+    it('should handle non-existent ids gracefully', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/sync/delete-cloud')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ serverIds: ['non-existent-id'] })
+        .expect(201)
+
+      expect(response.body.deleted).toBe(0)
     })
   })
 })

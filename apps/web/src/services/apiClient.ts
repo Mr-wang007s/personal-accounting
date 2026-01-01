@@ -1,5 +1,6 @@
 /**
  * API 客户端 - 用于与后端通信
+ * 简化版（OneDrive 模式）
  */
 
 export interface ApiResponse<T> {
@@ -7,13 +8,6 @@ export interface ApiResponse<T> {
   message: string
   data: T
   timestamp: string
-}
-
-export interface ServiceInfo {
-  name: string
-  host: string
-  port: number
-  addresses: string[]
 }
 
 export interface PingResponse {
@@ -25,66 +19,47 @@ export interface PingResponse {
   addresses: string[]
 }
 
-export interface SyncStatus {
-  deviceId: string
-  lastSyncAt: string | null
-  clientVersion: number
-  serverVersion: number
-  needsSync: boolean
-}
-
-export interface SyncRecord {
-  id: string
-  clientId: string | null
+// 云端记录
+export interface CloudRecord {
+  serverId: string
+  clientId: string
   type: 'income' | 'expense'
   amount: number
   category: string
   date: string
-  note: string | null
+  note?: string
   createdAt: string
   updatedAt: string
-  deletedAt: string | null
-  syncVersion: number
+  ledgerId?: string
 }
 
-export interface PullResponse {
-  serverVersion: number
-  changes: SyncRecord[]
+// 备份请求
+export interface BackupRecord {
+  clientId: string
+  type: 'income' | 'expense'
+  amount: number
+  category: string
+  date: string
+  note?: string
+  createdAt: string
+  updatedAt?: string
+  ledgerId?: string
 }
 
-export interface PushPayload {
-  created: Array<{
-    clientId: string
-    type: 'income' | 'expense'
-    amount: number
-    category: string
-    date: string
-    note?: string
-  }>
-  updated: Array<{
-    id: string
-    clientId?: string
-    type?: 'income' | 'expense'
-    amount?: number
-    category?: string
-    date?: string
-    note?: string
-    syncVersion?: number
-  }>
-  deleted: string[]
-}
-
-export interface PushResponse {
-  serverVersion: number
-  created: number
-  updated: number
-  deleted: number
-  conflicts: Array<{
+// 备份响应
+export interface BackupResponse {
+  success: boolean
+  uploaded: number
+  records: Array<{
     clientId: string
     serverId: string
-    type: 'create' | 'update' | 'delete'
-    reason: string
   }>
+}
+
+// 恢复响应
+export interface RestoreResponse {
+  success: boolean
+  records: CloudRecord[]
 }
 
 class ApiClient {
@@ -93,8 +68,8 @@ class ApiClient {
   private deviceId: string
 
   constructor() {
-    // 生成或获取设备 ID
     this.deviceId = this.getOrCreateDeviceId()
+    this.token = localStorage.getItem('pa_token')
   }
 
   private getOrCreateDeviceId(): string {
@@ -138,6 +113,10 @@ class ApiClient {
 
   isConfigured(): boolean {
     return this.baseUrl !== null
+  }
+
+  isAuthenticated(): boolean {
+    return this.getToken() !== null
   }
 
   private async request<T>(
@@ -195,27 +174,33 @@ class ApiClient {
     })
   }
 
-  // 获取同步状态
-  async getSyncStatus(): Promise<SyncStatus> {
-    return this.request('/api/sync/status')
-  }
+  // ==================== 新版简化 API ====================
 
-  // 拉取增量数据
-  async pull(lastSyncVersion: number = 0): Promise<PullResponse> {
-    return this.request(`/api/sync/pull?lastSyncVersion=${lastSyncVersion}`)
-  }
-
-  // 推送本地变更
-  async push(payload: PushPayload): Promise<PushResponse> {
-    return this.request('/api/sync/push', {
+  /**
+   * 备份：上传本地记录到云端
+   */
+  async backup(records: BackupRecord[]): Promise<BackupResponse> {
+    return this.request('/api/sync/backup', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ records }),
     })
   }
 
-  // 全量同步
-  async fullSync(): Promise<{ serverVersion: number; records: SyncRecord[] }> {
-    return this.request('/api/sync/full')
+  /**
+   * 恢复：从云端下载所有记录
+   */
+  async restore(): Promise<RestoreResponse> {
+    return this.request('/api/sync/restore')
+  }
+
+  /**
+   * 删除云端记录
+   */
+  async deleteCloudRecords(serverIds: string[]): Promise<{ deleted: number }> {
+    return this.request('/api/sync/delete-cloud', {
+      method: 'POST',
+      body: JSON.stringify({ serverIds }),
+    })
   }
 }
 

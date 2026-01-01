@@ -22,9 +22,8 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // 关联
-  records      Record[]
-  ledgers      Ledger[]
-  syncVersions SyncVersion[]
+  records Record[]
+  ledgers Ledger[]
 
   @@map("users")
 }
@@ -39,9 +38,8 @@ model Ledger {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at") // 软删除
 
-  // 同步相关
-  syncVersion Int     @default(0) @map("sync_version")
-  clientId    String? @map("client_id") // 客户端生成的 ID
+  // 客户端 ID（用于备份/恢复时匹配）
+  clientId String? @map("client_id")
 
   // 关联
   userId  String   @map("user_id")
@@ -65,35 +63,20 @@ model Record {
   updatedAt DateTime   @updatedAt @map("updated_at")
   deletedAt DateTime?  @map("deleted_at") // 软删除
 
-  // 同步相关
-  syncVersion Int     @default(0) @map("sync_version")
-  clientId    String? @map("client_id") // 客户端生成的 ID，用于冲突检测
+  // 客户端 ID（用于备份/恢复时匹配本地记录）
+  clientId String? @map("client_id")
 
   // 关联
   userId   String  @map("user_id")
   user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ledgerId String? @map("ledger_id") // 所属账本（可选，兼容旧数据）
+  ledgerId String? @map("ledger_id") // 所属账本（可选）
   ledger   Ledger? @relation(fields: [ledgerId], references: [id], onDelete: SetNull)
 
   @@index([userId, date])
   @@index([userId, deletedAt])
-  @@index([userId, syncVersion])
+  @@index([userId, clientId]) // 用于备份时按 clientId 查找
   @@index([ledgerId])
   @@map("records")
-}
-
-// 同步版本表（用于增量同步）
-model SyncVersion {
-  id            String   @id @default(cuid())
-  userId        String   @map("user_id")
-  deviceId      String   @map("device_id")
-  lastSyncAt    DateTime @default(now()) @map("last_sync_at")
-  serverVersion Int      @default(0) @map("server_version")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, deviceId])
-  @@map("sync_versions")
 }
 
 // 记录类型枚举

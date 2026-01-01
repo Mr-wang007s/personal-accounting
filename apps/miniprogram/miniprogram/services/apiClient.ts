@@ -1,6 +1,6 @@
 /**
  * API 客户端 - 用于与后端通信
- * 微信小程序版本
+ * 微信小程序版本 - 简化版（OneDrive 模式）
  */
 
 export interface ApiResponse<T> {
@@ -19,71 +19,59 @@ export interface PingResponse {
   addresses: string[]
 }
 
-export interface SyncStatus {
-  deviceId: string
-  lastSyncAt: string | null
-  clientVersion: number
-  serverVersion: number
-  needsSync: boolean
-}
-
-export interface SyncRecord {
-  id: string
-  clientId: string | null
+// 云端记录
+export interface CloudRecord {
+  serverId: string
+  clientId: string
   type: 'income' | 'expense'
   amount: number
   category: string
   date: string
-  note: string | null
+  note?: string
   createdAt: string
   updatedAt: string
-  deletedAt: string | null
-  syncVersion: number
+  ledgerId?: string
 }
 
-export interface PullResponse {
-  serverVersion: number
-  changes: SyncRecord[]
+// 备份请求
+export interface BackupRecord {
+  clientId: string
+  type: 'income' | 'expense'
+  amount: number
+  category: string
+  date: string
+  note?: string
+  createdAt: string
+  updatedAt?: string
+  ledgerId?: string
 }
 
-export interface PushPayload {
-  created: Array<{
-    clientId: string
-    type: 'income' | 'expense'
-    amount: number
-    category: string
-    date: string
-    note?: string
-  }>
-  updated: Array<{
-    id: string
-    clientId?: string
-    type?: 'income' | 'expense'
-    amount?: number
-    category?: string
-    date?: string
-    note?: string
-    syncVersion?: number
-  }>
-  deleted: string[]
-}
-
-export interface PushResponse {
-  serverVersion: number
-  created: number
-  updated: number
-  deleted: number
-  conflicts: Array<{
+// 备份响应
+export interface BackupResponse {
+  success: boolean
+  uploaded: number
+  records: Array<{
     clientId: string
     serverId: string
-    type: 'create' | 'update' | 'delete'
-    reason: string
   }>
+}
+
+// 恢复响应
+export interface RestoreResponse {
+  success: boolean
+  records: CloudRecord[]
 }
 
 // 存储键
 const DEVICE_ID_KEY = 'pa_device_id'
 const TOKEN_KEY = 'pa_token'
+
+// 请求选项（不含 url，由 request 方法内部拼接）
+interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  data?: unknown
+  header?: Record<string, string>
+}
 
 class ApiClient {
   private baseUrl: string | null = null
@@ -134,7 +122,11 @@ class ApiClient {
     return this.baseUrl !== null
   }
 
-  private request<T>(endpoint: string, options: WechatMiniprogram.RequestOption = {}): Promise<T> {
+  isAuthenticated(): boolean {
+    return this.token !== null
+  }
+
+  private request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     return new Promise((resolve, reject) => {
       if (!this.baseUrl) {
         reject(new Error('API base URL not configured'))
@@ -144,7 +136,7 @@ class ApiClient {
       const header: Record<string, string> = {
         'Content-Type': 'application/json',
         'X-Device-Id': this.deviceId,
-        ...((options.header as Record<string, string>) || {}),
+        ...(options.header || {}),
       }
 
       if (this.token) {
@@ -153,8 +145,8 @@ class ApiClient {
 
       wx.request({
         url: `${this.baseUrl}${endpoint}`,
-        method: (options.method as 'GET' | 'POST') || 'GET',
-        data: options.data,
+        method: options.method || 'GET',
+        data: options.data as string | object | ArrayBuffer | undefined,
         header,
         success: (res) => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -196,7 +188,6 @@ class ApiClient {
 
   // 用户注册/登录（开发环境）
   async register(nickname: string): Promise<{ accessToken: string; user: { id: string; openid: string; nickname: string; avatar: string | null } }> {
-    // 使用 deviceId 作为唯一标识
     return this.request('/api/auth/dev/login', {
       method: 'POST',
       data: { 
@@ -206,7 +197,7 @@ class ApiClient {
     })
   }
 
-  // 开发环境登录（兼容旧接口）
+  // 开发环境登录
   async devLogin(identifier: string, nickname?: string): Promise<{ accessToken: string; user: { id: string; openid: string; nickname: string; avatar: string | null } }> {
     return this.request('/api/auth/dev/login', {
       method: 'POST',
@@ -214,27 +205,33 @@ class ApiClient {
     })
   }
 
-  // 获取同步状态
-  async getSyncStatus(): Promise<SyncStatus> {
-    return this.request('/api/sync/status')
-  }
+  // ==================== 新版简化 API ====================
 
-  // 拉取增量数据
-  async pull(lastSyncVersion: number = 0): Promise<PullResponse> {
-    return this.request(`/api/sync/pull?lastSyncVersion=${lastSyncVersion}`)
-  }
-
-  // 推送本地变更
-  async push(payload: PushPayload): Promise<PushResponse> {
-    return this.request('/api/sync/push', {
+  /**
+   * 备份：上传本地记录到云端
+   */
+  async backup(records: BackupRecord[]): Promise<BackupResponse> {
+    return this.request('/api/sync/backup', {
       method: 'POST',
-      data: payload,
+      data: { records },
     })
   }
 
-  // 全量同步
-  async fullSync(): Promise<{ serverVersion: number; records: SyncRecord[] }> {
-    return this.request('/api/sync/full')
+  /**
+   * 恢复：从云端下载所有记录
+   */
+  async restore(): Promise<RestoreResponse> {
+    return this.request('/api/sync/restore')
+  }
+
+  /**
+   * 删除云端记录
+   */
+  async deleteCloudRecords(serverIds: string[]): Promise<{ deleted: number }> {
+    return this.request('/api/sync/delete-cloud', {
+      method: 'POST',
+      data: { serverIds },
+    })
   }
 }
 

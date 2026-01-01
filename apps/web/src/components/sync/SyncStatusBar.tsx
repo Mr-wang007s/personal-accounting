@@ -6,7 +6,7 @@ export function SyncStatusBar() {
     syncState, 
     isConnected, 
     isAuthenticated, 
-    pendingCount,
+    pendingBackupCount,
     lastSyncAt,
     sync 
   } = useSync()
@@ -31,13 +31,6 @@ export function SyncStatusBar() {
     }
 
     switch (syncState) {
-      case 'checking':
-        return {
-          icon: '◐',
-          text: '检查中...',
-          color: 'text-blue-600',
-          bgColor: 'bg-blue-50',
-        }
       case 'syncing':
         return {
           icon: '↻',
@@ -67,17 +60,17 @@ export function SyncStatusBar() {
           bgColor: 'bg-gray-100',
         }
       default:
-        if (pendingCount > 0) {
+        if (pendingBackupCount > 0) {
           return {
             icon: '●',
-            text: `${pendingCount} 条待同步`,
+            text: `${pendingBackupCount} 条待备份`,
             color: 'text-orange-600',
             bgColor: 'bg-orange-50',
           }
         }
         return {
           icon: '●',
-          text: '已连接',
+          text: '已同步',
           color: 'text-green-600',
           bgColor: 'bg-green-50',
         }
@@ -127,7 +120,7 @@ export function SyncStatusBar() {
         </span>
       )}
       
-      {canSync && pendingCount > 0 && (
+      {canSync && pendingBackupCount > 0 && (
         <span className="text-blue-600 font-medium">点击同步</span>
       )}
     </div>

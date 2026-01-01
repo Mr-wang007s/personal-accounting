@@ -285,7 +285,9 @@
 
 .form-input {
   width: 100%;
-  padding: 20rpx 24rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 24rpx;
   background-color: var(--bg-tertiary);
   border-radius: var(--radius-md);
   font-size: 28rpx;

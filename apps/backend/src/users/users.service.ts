@@ -54,8 +54,8 @@ export class UsersService {
       data: { deletedAt: new Date() },
     })
 
-    // 删除同步版本
-    await this.prisma.syncVersion.deleteMany({
+    // 删除账本
+    await this.prisma.ledger.deleteMany({
       where: { userId: id },
     })
 

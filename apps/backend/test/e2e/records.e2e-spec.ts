@@ -5,15 +5,15 @@ import {
   createTestApp,
   getPrismaService,
   cleanDatabase,
-  createTestUser,
-  mockRecordData,
-  MOCK_USER,
+  TEST_USER,
 } from '../helpers/test-utils'
 import { PrismaService } from '../../src/prisma/prisma.service'
 
 describe('Records E2E Tests', () => {
   let app: INestApplication
   let prisma: PrismaService
+  let authToken: string
+  let userId: string
 
   beforeAll(async () => {
     app = await createTestApp()
@@ -27,13 +27,19 @@ describe('Records E2E Tests', () => {
 
   beforeEach(async () => {
     await cleanDatabase(prisma)
-    await createTestUser(prisma)
+    // 登录获取 token
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/dev/login')
+      .send({ openid: TEST_USER.openid, nickname: TEST_USER.nickname })
+    authToken = loginResponse.body.accessToken
+    userId = loginResponse.body.user.id
   })
 
   describe('POST /records', () => {
     it('should create an expense record', async () => {
       const response = await request(app.getHttpServer())
         .post('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           type: 'expense',
           amount: 100.5,
@@ -56,6 +62,7 @@ describe('Records E2E Tests', () => {
     it('should create an income record', async () => {
       const response = await request(app.getHttpServer())
         .post('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           type: 'income',
           amount: 5000,
@@ -76,6 +83,7 @@ describe('Records E2E Tests', () => {
     it('should validate required fields', async () => {
       const response = await request(app.getHttpServer())
         .post('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           type: 'expense',
           // missing amount, category, date
@@ -88,6 +96,7 @@ describe('Records E2E Tests', () => {
     it('should reject invalid type', async () => {
       const response = await request(app.getHttpServer())
         .post('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           type: 'invalid',
           amount: 100,
@@ -98,6 +107,18 @@ describe('Records E2E Tests', () => {
 
       expect(response.body.message).toBeInstanceOf(Array)
     })
+
+    it('should return 401 without token', async () => {
+      await request(app.getHttpServer())
+        .post('/records')
+        .send({
+          type: 'expense',
+          amount: 100,
+          category: 'food',
+          date: '2024-01-15',
+        })
+        .expect(401)
+    })
   })
 
   describe('GET /records', () => {
@@ -106,7 +127,7 @@ describe('Records E2E Tests', () => {
       await prisma.record.createMany({
         data: [
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 100,
             category: 'food',
@@ -114,7 +135,7 @@ describe('Records E2E Tests', () => {
             note: '午餐',
           },
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 50,
             category: 'transport',
@@ -122,7 +143,7 @@ describe('Records E2E Tests', () => {
             note: '打车',
           },
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'income',
             amount: 5000,
             category: 'salary',
@@ -136,6 +157,7 @@ describe('Records E2E Tests', () => {
     it('should return all records', async () => {
       const response = await request(app.getHttpServer())
         .get('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
 
       expect(response.body.records).toHaveLength(3)
@@ -145,6 +167,7 @@ describe('Records E2E Tests', () => {
     it('should filter by type', async () => {
       const response = await request(app.getHttpServer())
         .get('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .query({ type: 'expense' })
         .expect(200)
 
@@ -157,6 +180,7 @@ describe('Records E2E Tests', () => {
     it('should filter by date range', async () => {
       const response = await request(app.getHttpServer())
         .get('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .query({
           startDate: '2024-01-15',
           endDate: '2024-01-16',
@@ -169,6 +193,7 @@ describe('Records E2E Tests', () => {
     it('should support pagination', async () => {
       const response = await request(app.getHttpServer())
         .get('/records')
+        .set('Authorization', `Bearer ${authToken}`)
         .query({ page: 1, pageSize: 2 })
         .expect(200)
 
@@ -183,7 +208,7 @@ describe('Records E2E Tests', () => {
     beforeEach(async () => {
       const record = await prisma.record.create({
         data: {
-          userId: MOCK_USER.id,
+          userId,
           type: 'expense',
           amount: 100,
           category: 'food',
@@ -197,6 +222,7 @@ describe('Records E2E Tests', () => {
     it('should return a single record', async () => {
       const response = await request(app.getHttpServer())
         .get(`/records/${recordId}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
 
       expect(response.body).toMatchObject({
@@ -211,6 +237,7 @@ describe('Records E2E Tests', () => {
     it('should return 404 for non-existent record', async () => {
       await request(app.getHttpServer())
         .get('/records/non-existent-id')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(404)
     })
   })
@@ -221,7 +248,7 @@ describe('Records E2E Tests', () => {
     beforeEach(async () => {
       const record = await prisma.record.create({
         data: {
-          userId: MOCK_USER.id,
+          userId,
           type: 'expense',
           amount: 100,
           category: 'food',
@@ -235,6 +262,7 @@ describe('Records E2E Tests', () => {
     it('should update a record', async () => {
       const response = await request(app.getHttpServer())
         .put(`/records/${recordId}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .send({
           amount: 200,
           note: '更新后的备注',
@@ -252,6 +280,7 @@ describe('Records E2E Tests', () => {
     it('should return 404 for non-existent record', async () => {
       await request(app.getHttpServer())
         .put('/records/non-existent-id')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ amount: 200 })
         .expect(404)
     })
@@ -263,7 +292,7 @@ describe('Records E2E Tests', () => {
     beforeEach(async () => {
       const record = await prisma.record.create({
         data: {
-          userId: MOCK_USER.id,
+          userId,
           type: 'expense',
           amount: 100,
           category: 'food',
@@ -276,6 +305,7 @@ describe('Records E2E Tests', () => {
     it('should delete a record (soft delete)', async () => {
       await request(app.getHttpServer())
         .delete(`/records/${recordId}`)
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(204)
 
       // 验证记录被软删除
@@ -293,7 +323,7 @@ describe('Records E2E Tests', () => {
       const records = await Promise.all([
         prisma.record.create({
           data: {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 100,
             category: 'food',
@@ -302,7 +332,7 @@ describe('Records E2E Tests', () => {
         }),
         prisma.record.create({
           data: {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 200,
             category: 'transport',
@@ -316,6 +346,7 @@ describe('Records E2E Tests', () => {
     it('should batch delete records', async () => {
       const response = await request(app.getHttpServer())
         .post('/records/batch-delete')
+        .set('Authorization', `Bearer ${authToken}`)
         .send({ ids: recordIds })
         .expect(200)
 
@@ -328,21 +359,21 @@ describe('Records E2E Tests', () => {
       await prisma.record.createMany({
         data: [
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
           },
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 200,
             category: 'transport',
             date: new Date('2024-01-16'),
           },
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'income',
             amount: 5000,
             category: 'salary',
@@ -355,6 +386,7 @@ describe('Records E2E Tests', () => {
     it('should return statistics', async () => {
       const response = await request(app.getHttpServer())
         .get('/records/statistics')
+        .set('Authorization', `Bearer ${authToken}`)
         .query({
           startDate: '2024-01-01',
           endDate: '2024-01-31',
@@ -372,6 +404,7 @@ describe('Records E2E Tests', () => {
     it('should return monthly trend data', async () => {
       const response = await request(app.getHttpServer())
         .get('/records/monthly-trend')
+        .set('Authorization', `Bearer ${authToken}`)
         .query({ year: 2024 })
         .expect(200)
 
@@ -385,21 +418,21 @@ describe('Records E2E Tests', () => {
       await prisma.record.createMany({
         data: [
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
           },
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 200,
             category: 'food',
             date: new Date('2024-01-16'),
           },
           {
-            userId: MOCK_USER.id,
+            userId,
             type: 'expense',
             amount: 50,
             category: 'transport',
@@ -412,6 +445,7 @@ describe('Records E2E Tests', () => {
     it('should return category breakdown', async () => {
       const response = await request(app.getHttpServer())
         .get('/records/category-breakdown')
+        .set('Authorization', `Bearer ${authToken}`)
         .query({
           type: 'expense',
           startDate: '2024-01-01',

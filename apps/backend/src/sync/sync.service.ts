@@ -1,23 +1,37 @@
 import { Injectable, Logger, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
-import { RecordsService } from '../records/records.service'
-import { SyncPushDto } from './dto/sync-push.dto'
+import { BackupDto, DeleteCloudRecordsDto } from './dto/sync-push.dto'
 import { RecordType } from '@prisma/client'
 
-export interface SyncResult {
-  serverVersion: number
-  created: number
-  updated: number
-  deleted: number
-  conflicts: SyncConflict[]
+// 云端记录响应
+export interface CloudRecord {
+  serverId: string
+  clientId: string
+  type: 'income' | 'expense'
+  amount: number
+  category: string
+  date: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+  ledgerId?: string
 }
 
-export interface SyncConflict {
-  clientId: string
-  serverId: string
-  type: 'create' | 'update' | 'delete'
-  reason: string
+// 备份结果
+export interface BackupResult {
+  success: boolean
+  uploaded: number
+  records: Array<{
+    clientId: string
+    serverId: string
+  }>
+}
+
+// 恢复结果
+export interface RestoreResult {
+  success: boolean
+  records: CloudRecord[]
 }
 
 @Injectable()
@@ -27,339 +41,129 @@ export class SyncService {
   constructor(
     @Inject(PrismaService) private prisma: PrismaService,
     @Inject(CacheService) private cache: CacheService,
-    @Inject(RecordsService) private recordsService: RecordsService,
   ) {}
 
-  // 获取同步状态
-  async getSyncStatus(userId: string, deviceId: string) {
-    const syncVersion = await this.prisma.syncVersion.findUnique({
-      where: {
-        userId_deviceId: { userId, deviceId },
-      },
-    })
-
-    // 获取服务器最新版本
-    const latestRecord = await this.prisma.record.findFirst({
-      where: { userId },
-      orderBy: { syncVersion: 'desc' },
-      select: { syncVersion: true },
-    })
-
-    return {
-      deviceId,
-      lastSyncAt: syncVersion?.lastSyncAt || null,
-      clientVersion: syncVersion?.serverVersion || 0,
-      serverVersion: latestRecord?.syncVersion || 0,
-      needsSync: (latestRecord?.syncVersion || 0) > (syncVersion?.serverVersion || 0),
-    }
-  }
-
-  // 拉取增量数据
-  async pull(userId: string, deviceId: string, lastSyncVersion: number) {
-    this.logger.log(`[Pull] userId=${userId}, deviceId=${deviceId}, lastSyncVersion=${lastSyncVersion}`)
+  /**
+   * 备份：将本地记录上传到云端
+   * - 如果 clientId 已存在，更新云端记录
+   * - 如果 clientId 不存在，创建新记录
+   */
+  async backup(userId: string, dto: BackupDto): Promise<BackupResult> {
+    this.logger.log(`[Backup] userId=${userId}, records=${dto.records.length}`)
     
-    // 验证用户存在
-    const user = await this.prisma.user.findUnique({ where: { id: userId } })
-    if (!user) {
-      this.logger.error(`[Pull] 用户不存在: ${userId}`)
-      throw new Error(`User not found: ${userId}`)
-    }
-    
-    // 获取自上次同步以来的所有变更
-    const changes = await this.prisma.record.findMany({
-      where: {
-        userId,
-        syncVersion: { gt: lastSyncVersion },
-      },
-      orderBy: { syncVersion: 'asc' },
-    })
+    const results: Array<{ clientId: string; serverId: string }> = []
+    let uploaded = 0
 
-    this.logger.log(`[Pull] 找到 ${changes.length} 条变更记录`)
+    for (const record of dto.records) {
+      try {
+        // 检查是否已存在
+        const existing = await this.prisma.record.findFirst({
+          where: { userId, clientId: record.clientId, deletedAt: null },
+        })
 
-    // 获取当前服务器版本
-    const latestRecord = await this.prisma.record.findFirst({
-      where: { userId },
-      orderBy: { syncVersion: 'desc' },
-      select: { syncVersion: true },
-    })
-
-    const serverVersion = latestRecord?.syncVersion || 0
-    this.logger.log(`[Pull] serverVersion=${serverVersion}`)
-
-    // 更新设备同步版本
-    await this.prisma.syncVersion.upsert({
-      where: {
-        userId_deviceId: { userId, deviceId },
-      },
-      create: {
-        user: { connect: { id: userId } },
-        deviceId,
-        serverVersion,
-        lastSyncAt: new Date(),
-      },
-      update: {
-        serverVersion,
-        lastSyncAt: new Date(),
-      },
-    })
-
-    return {
-      serverVersion,
-      changes: changes.map((record) => ({
-        id: record.id,
-        clientId: record.clientId,
-        type: record.type,
-        amount: Number(record.amount),
-        category: record.category,
-        date: record.date.toISOString().split('T')[0],
-        note: record.note,
-        createdAt: record.createdAt.toISOString(),
-        updatedAt: record.updatedAt.toISOString(),
-        deletedAt: record.deletedAt?.toISOString() || null,
-        syncVersion: record.syncVersion,
-      })),
-    }
-  }
-
-  // 推送本地变更
-  async push(
-    userId: string,
-    deviceId: string,
-    dto: SyncPushDto,
-  ): Promise<SyncResult> {
-    this.logger.log(`[Push] userId=${userId}, deviceId=${deviceId}`)
-    this.logger.log(`[Push] 收到: created=${dto.created?.length || 0}, updated=${dto.updated?.length || 0}, deleted=${dto.deleted?.length || 0}`)
-    this.logger.log(`[Push] created 详情:`, JSON.stringify(dto.created))
-    
-    const conflicts: SyncConflict[] = []
-    let created = 0
-    let updated = 0
-    let deleted = 0
-
-    // 使用事务处理所有变更
-    await this.prisma.$transaction(async (tx) => {
-      // 处理新建记录
-      for (const record of dto.created || []) {
-        try {
-          this.logger.log(`[Push] 创建记录: clientId=${record.clientId}, type=${record.type}, amount=${record.amount}`)
-          
-          // 检查是否已存在（通过 clientId）
-          const existing = await tx.record.findFirst({
-            where: { userId, clientId: record.clientId },
+        if (existing) {
+          // 更新已有记录
+          const updated = await this.prisma.record.update({
+            where: { id: existing.id },
+            data: {
+              type: record.type as RecordType,
+              amount: record.amount,
+              category: record.category,
+              date: new Date(record.date),
+              note: record.note,
+              ledgerId: record.ledgerId,
+            },
           })
-
-          if (existing) {
-            this.logger.warn(`[Push] 记录已存在: clientId=${record.clientId}`)
-            conflicts.push({
-              clientId: record.clientId || '',
-              serverId: existing.id,
-              type: 'create',
-              reason: 'Record already exists',
-            })
-            continue
-          }
-
-          const newRecord = await tx.record.create({
+          results.push({ clientId: record.clientId, serverId: updated.id })
+          this.logger.log(`[Backup] 更新: clientId=${record.clientId}, serverId=${updated.id}`)
+        } else {
+          // 创建新记录
+          const created = await this.prisma.record.create({
             data: {
               userId,
               type: record.type as RecordType,
-              amount: record.amount || 0,
-              category: record.category || '',
-              date: new Date(record.date || new Date()),
-              note: record.note,
-              clientId: record.clientId,
-              syncVersion: 1, // 新创建的记录版本为 1
-            },
-          })
-          this.logger.log(`[Push] 创建成功: id=${newRecord.id}`)
-          created++
-        } catch (error) {
-          this.logger.error(`[Push] 创建失败: clientId=${record.clientId}`, error)
-          conflicts.push({
-            clientId: record.clientId || '',
-            serverId: '',
-            type: 'create',
-            reason: 'Failed to create record',
-          })
-        }
-      }
-
-      // 处理更新记录
-      for (const record of dto.updated || []) {
-        try {
-          const existing = await tx.record.findFirst({
-            where: { id: record.id, userId },
-          })
-
-          if (!existing) {
-            conflicts.push({
-              clientId: record.clientId || '',
-              serverId: record.id || '',
-              type: 'update',
-              reason: 'Record not found',
-            })
-            continue
-          }
-
-          // 检查版本冲突
-          if (
-            record.syncVersion !== undefined &&
-            existing.syncVersion > record.syncVersion
-          ) {
-            conflicts.push({
-              clientId: record.clientId || '',
-              serverId: record.id || '',
-              type: 'update',
-              reason: 'Version conflict - server has newer version',
-            })
-            continue
-          }
-
-          await tx.record.update({
-            where: { id: record.id },
-            data: {
-              type: record.type as RecordType | undefined,
               amount: record.amount,
               category: record.category,
-              date: record.date ? new Date(record.date) : undefined,
+              date: new Date(record.date),
               note: record.note,
-              syncVersion: { increment: 1 },
+              clientId: record.clientId,
+              ledgerId: record.ledgerId,
+              createdAt: new Date(record.createdAt),
             },
           })
-          updated++
-        } catch {
-          conflicts.push({
-            clientId: record.clientId || '',
-            serverId: record.id || '',
-            type: 'update',
-            reason: 'Failed to update record',
-          })
+          results.push({ clientId: record.clientId, serverId: created.id })
+          this.logger.log(`[Backup] 创建: clientId=${record.clientId}, serverId=${created.id}`)
         }
+        uploaded++
+      } catch (error) {
+        this.logger.error(`[Backup] 失败: clientId=${record.clientId}`, error)
       }
-
-      // 处理删除记录
-      for (const id of dto.deleted || []) {
-        try {
-          const existing = await tx.record.findFirst({
-            where: { id, userId, deletedAt: null },
-          })
-
-          if (!existing) {
-            continue // 已删除或不存在，跳过
-          }
-
-          await tx.record.update({
-            where: { id },
-            data: {
-              deletedAt: new Date(),
-              syncVersion: { increment: 1 },
-            },
-          })
-          deleted++
-        } catch {
-          conflicts.push({
-            clientId: '',
-            serverId: id,
-            type: 'delete',
-            reason: 'Failed to delete record',
-          })
-        }
-      }
-    })
-
-    // 获取最新服务器版本
-    const latestRecord = await this.prisma.record.findFirst({
-      where: { userId },
-      orderBy: { syncVersion: 'desc' },
-      select: { syncVersion: true },
-    })
-
-    const serverVersion = latestRecord?.syncVersion || 0
-
-    // 更新设备同步版本
-    await this.prisma.syncVersion.upsert({
-      where: {
-        userId_deviceId: { userId, deviceId },
-      },
-      create: {
-        user: { connect: { id: userId } },
-        deviceId,
-        serverVersion,
-        lastSyncAt: new Date(),
-      },
-      update: {
-        serverVersion,
-        lastSyncAt: new Date(),
-      },
-    })
+    }
 
     // 清除缓存
     this.cache.del(CacheService.keys.userRecords(userId))
 
-    this.logger.log(`[Push] 结果: created=${created}, updated=${updated}, deleted=${deleted}, conflicts=${conflicts.length}`)
-
     return {
-      serverVersion,
-      created,
-      updated,
-      deleted,
-      conflicts,
+      success: true,
+      uploaded,
+      records: results,
     }
   }
 
-  // 全量同步（用于首次同步或数据恢复）
-  async fullSync(userId: string, deviceId: string) {
-    // 验证用户存在
-    const user = await this.prisma.user.findUnique({ where: { id: userId } })
-    if (!user) {
-      this.logger.error(`[FullSync] 用户不存在: ${userId}`)
-      throw new Error(`User not found: ${userId}`)
-    }
+  /**
+   * 恢复：从云端下载所有记录到本地
+   */
+  async restore(userId: string): Promise<RestoreResult> {
+    this.logger.log(`[Restore] userId=${userId}`)
 
     const records = await this.prisma.record.findMany({
       where: { userId, deletedAt: null },
       orderBy: { date: 'desc' },
     })
 
-    const latestRecord = await this.prisma.record.findFirst({
-      where: { userId },
-      orderBy: { syncVersion: 'desc' },
-      select: { syncVersion: true },
-    })
+    const cloudRecords: CloudRecord[] = records.map((r) => ({
+      serverId: r.id,
+      clientId: r.clientId || r.id,
+      type: r.type as 'income' | 'expense',
+      amount: Number(r.amount),
+      category: r.category,
+      date: r.date.toISOString().split('T')[0],
+      note: r.note || undefined,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      ledgerId: r.ledgerId || undefined,
+    }))
 
-    const serverVersion = latestRecord?.syncVersion || 0
-
-    // 更新设备同步版本
-    await this.prisma.syncVersion.upsert({
-      where: {
-        userId_deviceId: { userId, deviceId },
-      },
-      create: {
-        user: { connect: { id: userId } },
-        deviceId,
-        serverVersion,
-        lastSyncAt: new Date(),
-      },
-      update: {
-        serverVersion,
-        lastSyncAt: new Date(),
-      },
-    })
+    this.logger.log(`[Restore] 返回 ${cloudRecords.length} 条记录`)
 
     return {
-      serverVersion,
-      records: records.map((record) => ({
-        id: record.id,
-        clientId: record.clientId,
-        type: record.type,
-        amount: Number(record.amount),
-        category: record.category,
-        date: record.date.toISOString().split('T')[0],
-        note: record.note,
-        createdAt: record.createdAt.toISOString(),
-        updatedAt: record.updatedAt.toISOString(),
-        syncVersion: record.syncVersion,
-      })),
+      success: true,
+      records: cloudRecords,
     }
+  }
+
+  /**
+   * 删除云端记录
+   */
+  async deleteCloudRecords(userId: string, dto: DeleteCloudRecordsDto): Promise<{ deleted: number }> {
+    this.logger.log(`[DeleteCloud] userId=${userId}, ids=${dto.serverIds.length}`)
+
+    let deleted = 0
+    for (const serverId of dto.serverIds) {
+      try {
+        await this.prisma.record.update({
+          where: { id: serverId, userId },
+          data: { deletedAt: new Date() },
+        })
+        deleted++
+      } catch (error) {
+        this.logger.error(`[DeleteCloud] 删除失败: serverId=${serverId}`, error)
+      }
+    }
+
+    // 清除缓存
+    this.cache.del(CacheService.keys.userRecords(userId))
+
+    return { deleted }
   }
 }

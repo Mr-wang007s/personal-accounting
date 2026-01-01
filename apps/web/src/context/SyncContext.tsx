@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
-import { syncService, SyncState, SyncResult, ConflictRecord } from '@/services/syncService'
+import { syncService, SyncState, SyncResult } from '@/services/syncService'
 import { apiClient } from '@/services/apiClient'
 
 // 自动同步配置
@@ -14,7 +14,7 @@ interface SyncContextType {
   isAuthenticated: boolean
   serverUrl: string | null
   lastSyncAt: string | null
-  pendingCount: number
+  pendingBackupCount: number // 待备份数量
   autoSyncEnabled: boolean
   lastSyncResult: SyncResult | null
   
@@ -22,18 +22,16 @@ interface SyncContextType {
   discoverServer: (url: string) => Promise<boolean>
   login: (identifier: string, nickname?: string) => Promise<boolean>
   sync: () => Promise<SyncResult>
-  fullSync: () => Promise<SyncResult>
   checkConnection: () => Promise<void>
   disconnect: () => void
   setAutoSyncEnabled: (enabled: boolean) => void
   
-  // 同步追踪（供 RecordsContext 调用）
-  trackCreate: (record: unknown) => void
-  trackUpdate: (id: string, data: unknown) => void
-  trackDelete: (id: string) => void
+  // 记录操作（简化版）
+  markRecordForSync: (id: string) => void
+  deleteRecord: (id: string, deleteFromCloud: boolean) => Promise<boolean>
+  isRecordSynced: (id: string) => boolean
+  triggerAutoSync: () => void
 }
-
-export type { ConflictRecord }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined)
 
@@ -43,7 +41,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [serverUrl, setServerUrl] = useState<string | null>(null)
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
-  const [pendingCount, setPendingCount] = useState(0)
+  const [pendingBackupCount, setPendingBackupCount] = useState(0)
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const [autoSyncEnabled, setAutoSyncEnabledState] = useState(() => {
     const saved = localStorage.getItem('pa_auto_sync')
@@ -55,12 +53,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const isSyncingRef = useRef(false)
   const wasOfflineRef = useRef(false)
   
-  // 使用 ref 存储最新状态，避免 useEffect 依赖问题
+  // 使用 ref 存储最新状态
   const stateRef = useRef({ isConnected, isAuthenticated, autoSyncEnabled })
   stateRef.current = { isConnected, isAuthenticated, autoSyncEnabled }
 
-  // 执行自动同步（内部使用）- 使用 ref 获取最新状态
-  const performAutoSync = useCallback(async () => {
+  // 更新待备份数量
+  const updatePendingCount = useCallback(() => {
+    setPendingBackupCount(syncService.getPendingBackupCount())
+  }, [])
+
+  // 执行同步
+  const performSync = useCallback(async () => {
     const { isConnected: connected, isAuthenticated: authenticated, autoSyncEnabled: autoSync } = stateRef.current
     
     if (isSyncingRef.current || !connected || !authenticated || !autoSync) {
@@ -77,7 +80,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (result.success) {
         setSyncState('success')
         setLastSyncAt(syncService.getSyncMeta().lastSyncAt)
-        setPendingCount(syncService.getPendingCount())
+        updatePendingCount()
         setTimeout(() => setSyncState('idle'), 2000)
       } else {
         setSyncState('error')
@@ -89,7 +92,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } finally {
       isSyncingRef.current = false
     }
-  }, [])
+  }, [updatePendingCount])
 
   // 触发延迟自动同步（防抖）
   const triggerAutoSync = useCallback(() => {
@@ -99,39 +102,36 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // 清除之前的定时器
     if (autoSyncTimerRef.current) {
       clearTimeout(autoSyncTimerRef.current)
     }
 
-    // 设置新的延迟同步
     autoSyncTimerRef.current = setTimeout(() => {
-      performAutoSync()
+      performSync()
     }, AUTO_SYNC_DELAY)
-  }, [performAutoSync])
+  }, [performSync])
 
   // 设置自动同步开关
   const setAutoSyncEnabled = useCallback((enabled: boolean) => {
     setAutoSyncEnabledState(enabled)
     localStorage.setItem('pa_auto_sync', String(enabled))
+    syncService.setAutoSync(enabled)
   }, [])
 
-  // 初始化：检查已保存的服务器连接
+  // 初始化
   useEffect(() => {
     const init = async () => {
       const meta = syncService.getSyncMeta()
       setLastSyncAt(meta.lastSyncAt)
-      setPendingCount(syncService.getPendingCount())
+      updatePendingCount()
 
       if (meta.serverUrl) {
         setServerUrl(meta.serverUrl)
         apiClient.setBaseUrl(meta.serverUrl)
         
-        // 检查连接
         const connected = await syncService.checkConnection()
         setIsConnected(connected)
         
-        // 检查 token
         const token = apiClient.getToken()
         setIsAuthenticated(!!token && connected)
         
@@ -142,7 +142,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
 
     init()
-  }, [])
+  }, [updatePendingCount])
 
   // 定期检查连接状态
   useEffect(() => {
@@ -159,12 +159,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         wasOfflineRef.current = true
       } else {
         if (wasOffline && stateRef.current.isAuthenticated && stateRef.current.autoSyncEnabled) {
-          // 网络恢复，自动同步
           wasOfflineRef.current = false
           setSyncState('idle')
           setTimeout(() => {
-            if (syncService.getPendingCount() > 0) {
-              performAutoSync()
+            if (syncService.getPendingBackupCount() > 0) {
+              performSync()
             }
           }, RECONNECT_SYNC_DELAY)
         } else if (syncState === 'offline') {
@@ -174,21 +173,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }, CONNECTION_CHECK_INTERVAL)
 
     return () => clearInterval(interval)
-  }, [serverUrl, syncState, performAutoSync])
+  }, [serverUrl, syncState, performSync])
 
   // 监听网络状态变化
   useEffect(() => {
     const handleOnline = async () => {
       if (serverUrl && stateRef.current.isAuthenticated && stateRef.current.autoSyncEnabled) {
-        // 网络恢复，检查连接并同步
         const connected = await syncService.checkConnection()
         setIsConnected(connected)
         
         if (connected) {
           setSyncState('idle')
           setTimeout(() => {
-            if (syncService.getPendingCount() > 0) {
-              performAutoSync()
+            if (syncService.getPendingBackupCount() > 0) {
+              performSync()
             }
           }, RECONNECT_SYNC_DELAY)
         }
@@ -208,7 +206,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [serverUrl, performAutoSync])
+  }, [serverUrl, performSync])
 
   // 清理定时器
   useEffect(() => {
@@ -221,7 +219,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // 发现并连接服务器
   const discoverServer = useCallback(async (url: string): Promise<boolean> => {
-    setSyncState('checking')
+    setSyncState('syncing')
     
     const success = await syncService.discoverServer(url)
     
@@ -237,23 +235,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // 登录
-  const login = useCallback(async (identifier: string): Promise<boolean> => {
-    
-    const success = await syncService.devLogin(identifier, identifier)
+  const login = useCallback(async (identifier: string, nickname?: string): Promise<boolean> => {
+    const success = await syncService.login(identifier, nickname)
     setIsAuthenticated(success)
     
-    // 登录成功后，如果有待同步数据，自动同步
-    if (success && stateRef.current.autoSyncEnabled && syncService.getPendingCount() > 0) {
-      setTimeout(() => performAutoSync(), RECONNECT_SYNC_DELAY)
+    if (success && stateRef.current.autoSyncEnabled && syncService.getPendingBackupCount() > 0) {
+      setTimeout(() => performSync(), RECONNECT_SYNC_DELAY)
     }
     
     return success
-  }, [performAutoSync])
+  }, [performSync])
 
-  // 执行同步
+  // 手动同步
   const sync = useCallback(async (): Promise<SyncResult> => {
     if (!stateRef.current.isConnected || !stateRef.current.isAuthenticated) {
-      return { success: false, pulled: 0, pushed: 0, conflicts: 0, merged: 0, error: 'Not connected or authenticated' }
+      return { success: false, uploaded: 0, downloaded: 0, error: '未连接或未登录' }
     }
 
     setSyncState('syncing')
@@ -264,45 +260,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (result.success) {
       setSyncState('success')
       setLastSyncAt(syncService.getSyncMeta().lastSyncAt)
-      setPendingCount(syncService.getPendingCount())
-      
-      // 3 秒后恢复 idle 状态
+      updatePendingCount()
       setTimeout(() => setSyncState('idle'), 3000)
     } else {
       setSyncState('error')
     }
     
     return result
-  }, [])
-
-  // 全量同步
-  const fullSync = useCallback(async (): Promise<SyncResult> => {
-    if (!stateRef.current.isConnected || !stateRef.current.isAuthenticated) {
-      return { success: false, pulled: 0, pushed: 0, conflicts: 0, merged: 0, error: 'Not connected or authenticated' }
-    }
-
-    setSyncState('syncing')
-    
-    const result = await syncService.fullSync()
-    setLastSyncResult(result)
-    
-    if (result.success) {
-      setSyncState('success')
-      setLastSyncAt(syncService.getSyncMeta().lastSyncAt)
-      setPendingCount(0)
-      setTimeout(() => setSyncState('idle'), 3000)
-    } else {
-      setSyncState('error')
-    }
-    
-    return result
-  }, [])
+  }, [updatePendingCount])
 
   // 检查连接
   const checkConnection = useCallback(async () => {
     if (!serverUrl) return
     
-    setSyncState('checking')
+    setSyncState('syncing')
     const connected = await syncService.checkConnection()
     setIsConnected(connected)
     setSyncState(connected ? 'idle' : 'offline')
@@ -310,36 +281,35 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // 断开连接
   const disconnect = useCallback(() => {
-    syncService.clearSyncData()
+    syncService.disconnect()
     setServerUrl(null)
     setIsConnected(false)
     setIsAuthenticated(false)
     setLastSyncAt(null)
-    setPendingCount(0)
+    setPendingBackupCount(0)
     setSyncState('idle')
   }, [])
 
-  // 追踪变更
-  const trackCreate = useCallback((record: unknown) => {
-    syncService.trackCreate(record as Parameters<typeof syncService.trackCreate>[0])
-    setPendingCount(syncService.getPendingCount())
-    // 触发自动同步
+  // 标记记录需要重新同步
+  const markRecordForSync = useCallback((id: string) => {
+    syncService.markRecordForSync(id)
+    updatePendingCount()
     triggerAutoSync()
-  }, [triggerAutoSync])
+  }, [updatePendingCount, triggerAutoSync])
 
-  const trackUpdate = useCallback((id: string, data: unknown) => {
-    syncService.trackUpdate(id, data as Parameters<typeof syncService.trackUpdate>[1])
-    setPendingCount(syncService.getPendingCount())
-    // 触发自动同步
-    triggerAutoSync()
-  }, [triggerAutoSync])
+  // 删除记录
+  const deleteRecord = useCallback(async (id: string, deleteFromCloud: boolean): Promise<boolean> => {
+    const success = await syncService.deleteRecord(id, deleteFromCloud)
+    if (success) {
+      updatePendingCount()
+    }
+    return success
+  }, [updatePendingCount])
 
-  const trackDelete = useCallback((id: string) => {
-    syncService.trackDelete(id)
-    setPendingCount(syncService.getPendingCount())
-    // 触发自动同步
-    triggerAutoSync()
-  }, [triggerAutoSync])
+  // 检查记录是否已同步
+  const isRecordSynced = useCallback((id: string): boolean => {
+    return syncService.isRecordSynced(id)
+  }, [])
 
   return (
     <SyncContext.Provider
@@ -349,19 +319,19 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         serverUrl,
         lastSyncAt,
-        pendingCount,
+        pendingBackupCount,
         autoSyncEnabled,
         lastSyncResult,
         discoverServer,
         login,
         sync,
-        fullSync,
         checkConnection,
         disconnect,
         setAutoSyncEnabled,
-        trackCreate,
-        trackUpdate,
-        trackDelete,
+        markRecordForSync,
+        deleteRecord,
+        isRecordSynced,
+        triggerAutoSync,
       }}
     >
       {children}

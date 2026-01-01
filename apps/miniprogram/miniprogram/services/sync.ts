@@ -1,107 +1,63 @@
 /**
- * 同步服务 - 管理本地数据与服务器的双向同步
- * 微信小程序版本
+ * 同步服务 - 简化版（OneDrive/iCloud 模式）
+ * 
+ * 核心逻辑：
+ * 1. 每条数据标记 syncStatus: 'local' | 'synced'
+ * 2. 联网时自动备份本地数据到云端
+ * 3. 联网时自动下载云端数据到本地
+ * 4. 删除已同步数据时，提示是否删除云端
  */
 
-import { apiClient, SyncRecord, PushPayload } from './apiClient'
-import type { Record } from '../shared/types'
+// 小程序环境的全局定时器声明
+declare function setTimeout(callback: () => void, ms: number): number
+declare function clearTimeout(id: number): void
+
+import { apiClient, BackupRecord } from './apiClient'
+import type { Record, SyncStatus } from '../shared/types'
 import { STORAGE_KEY } from '../shared/constants'
 
 // 存储键
 const SYNC_META_KEY = 'pa_sync_meta'
-const PENDING_CHANGES_KEY = 'pa_pending_changes'
-const RECORD_VERSIONS_KEY = 'pa_record_versions'
 
 interface SyncMeta {
-  lastSyncVersion: number
-  lastSyncAt: string | null
   serverUrl: string | null
+  lastSyncAt: string | null
+  autoSync: boolean
 }
 
-interface RecordVersion {
-  id: string
-  serverId?: string
-  syncVersion: number
-  localUpdatedAt: string
-  serverUpdatedAt?: string
-  isLocalOnly: boolean
-}
-
-interface PendingChange {
-  id: string
-  action: 'create' | 'update' | 'delete'
-  data?: Partial<Record>
-  timestamp: string
-}
-
-export interface ConflictRecord {
-  id: string
-  localRecord?: Record
-  serverRecord?: SyncRecord
-  conflictType: 'update_update' | 'update_delete' | 'delete_update'
-  resolvedBy?: 'local' | 'server' | 'merge'
-}
-
-export type SyncState = 'idle' | 'checking' | 'syncing' | 'success' | 'error' | 'offline'
+export type SyncState = 'idle' | 'syncing' | 'success' | 'error' | 'offline'
 
 export interface SyncResult {
   success: boolean
-  pulled: number
-  pushed: number
-  conflicts: number
-  merged: number
+  uploaded: number   // 上传到云端的数量
+  downloaded: number // 从云端下载的数量
   error?: string
-  conflictRecords?: ConflictRecord[]
 }
 
 class SyncService {
   private syncMeta: SyncMeta
-  private pendingChanges: Map<string, PendingChange>
-  private recordVersions: Map<string, RecordVersion>
+  private syncState: SyncState = 'idle'
+  private syncTimer: number | null = null
 
   constructor() {
     this.syncMeta = this.loadSyncMeta()
-    this.pendingChanges = this.loadPendingChanges()
-    this.recordVersions = this.loadRecordVersions()
+    // 恢复服务器地址
+    if (this.syncMeta.serverUrl) {
+      apiClient.setBaseUrl(this.syncMeta.serverUrl)
+    }
   }
 
   private loadSyncMeta(): SyncMeta {
     try {
       const data = wx.getStorageSync(SYNC_META_KEY)
-      return data || { lastSyncVersion: 0, lastSyncAt: null, serverUrl: null }
+      return data || { serverUrl: null, lastSyncAt: null, autoSync: true }
     } catch {
-      return { lastSyncVersion: 0, lastSyncAt: null, serverUrl: null }
+      return { serverUrl: null, lastSyncAt: null, autoSync: true }
     }
   }
 
   private saveSyncMeta(): void {
     wx.setStorageSync(SYNC_META_KEY, this.syncMeta)
-  }
-
-  private loadPendingChanges(): Map<string, PendingChange> {
-    try {
-      const data = wx.getStorageSync(PENDING_CHANGES_KEY)
-      return data ? new Map(data) : new Map()
-    } catch {
-      return new Map()
-    }
-  }
-
-  private savePendingChanges(): void {
-    wx.setStorageSync(PENDING_CHANGES_KEY, [...this.pendingChanges])
-  }
-
-  private loadRecordVersions(): Map<string, RecordVersion> {
-    try {
-      const data = wx.getStorageSync(RECORD_VERSIONS_KEY)
-      return data ? new Map(data) : new Map()
-    } catch {
-      return new Map()
-    }
-  }
-
-  private saveRecordVersions(): void {
-    wx.setStorageSync(RECORD_VERSIONS_KEY, [...this.recordVersions])
   }
 
   private getLocalRecords(): Record[] {
@@ -116,76 +72,35 @@ class SyncService {
     wx.setStorageSync(STORAGE_KEY, records)
   }
 
+  // ==================== 公共方法 ====================
+
   getSyncMeta(): SyncMeta {
     return { ...this.syncMeta }
   }
 
-  getPendingCount(): number {
-    return this.pendingChanges.size
+  getSyncState(): SyncState {
+    return this.syncState
   }
 
-  // ==================== 变更追踪 ====================
-
-  trackCreate(record: Record): void {
-    const now = new Date().toISOString()
-    this.pendingChanges.set(record.id, {
-      id: record.id,
-      action: 'create',
-      data: record,
-      timestamp: now,
-    })
-    this.recordVersions.set(record.id, {
-      id: record.id,
-      syncVersion: 0,
-      localUpdatedAt: now,
-      isLocalOnly: true,
-    })
-    this.savePendingChanges()
-    this.saveRecordVersions()
+  isConnected(): boolean {
+    return this.syncMeta.serverUrl !== null && apiClient.isAuthenticated()
   }
 
-  trackUpdate(id: string, data: Partial<Record>): void {
-    const now = new Date().toISOString()
-    const existing = this.pendingChanges.get(id)
-
-    if (existing?.action === 'create') {
-      existing.data = { ...existing.data, ...data }
-      existing.timestamp = now
-    } else {
-      this.pendingChanges.set(id, {
-        id,
-        action: 'update',
-        data: existing?.data ? { ...existing.data, ...data } : data,
-        timestamp: now,
-      })
-    }
-
-    const version = this.recordVersions.get(id)
-    if (version) {
-      version.localUpdatedAt = now
-      this.recordVersions.set(id, version)
-    }
-
-    this.savePendingChanges()
-    this.saveRecordVersions()
+  setAutoSync(enabled: boolean): void {
+    this.syncMeta.autoSync = enabled
+    this.saveSyncMeta()
   }
 
-  trackDelete(id: string): void {
-    const existing = this.pendingChanges.get(id)
+  isAutoSyncEnabled(): boolean {
+    return this.syncMeta.autoSync
+  }
 
-    if (existing?.action === 'create') {
-      this.pendingChanges.delete(id)
-      this.recordVersions.delete(id)
-    } else {
-      this.pendingChanges.set(id, {
-        id,
-        action: 'delete',
-        timestamp: new Date().toISOString(),
-      })
-    }
-
-    this.savePendingChanges()
-    this.saveRecordVersions()
+  /**
+   * 获取待备份的记录数量（本地未同步的）
+   */
+  getPendingBackupCount(): number {
+    const records = this.getLocalRecords()
+    return records.filter(r => r.syncStatus !== 'synced').length
   }
 
   // ==================== 服务器连接 ====================
@@ -217,9 +132,9 @@ class SyncService {
     }
   }
 
-  async devLogin(identifier: string): Promise<boolean> {
+  async login(identifier: string, nickname?: string): Promise<boolean> {
     try {
-      const result = await apiClient.devLogin(identifier)
+      const result = await apiClient.devLogin(identifier, nickname)
       apiClient.setToken(result.accessToken)
       return true
     } catch {
@@ -228,383 +143,191 @@ class SyncService {
   }
 
   disconnect(): void {
-    this.syncMeta = { lastSyncVersion: 0, lastSyncAt: null, serverUrl: null }
+    this.syncMeta = { serverUrl: null, lastSyncAt: null, autoSync: true }
     this.saveSyncMeta()
     apiClient.clearToken()
-    // 清除同步相关数据但保留本地记录
-    this.pendingChanges.clear()
-    this.recordVersions.clear()
-    this.savePendingChanges()
-    this.saveRecordVersions()
-  }
-
-  // ==================== Diff 合并算法 ====================
-
-  private diffAndMerge(
-    localMap: Map<string, Record>,
-    serverChanges: SyncRecord[]
-  ): {
-    mergedRecords: Record[]
-    toCreate: Record[]
-    toUpdate: Array<{ id: string; data: Partial<Record>; syncVersion: number }>
-    toDelete: string[]
-    conflicts: ConflictRecord[]
-    mergedCount: number
-  } {
-    const mergedMap = new Map(localMap)
-    const toCreate: Record[] = []
-    const toUpdate: Array<{ id: string; data: Partial<Record>; syncVersion: number }> = []
-    const toDelete: string[] = []
-    const conflicts: ConflictRecord[] = []
-    let mergedCount = 0
-
-    // 建立服务器记录映射
-    const serverMap = new Map<string, SyncRecord>()
-    const serverByClientId = new Map<string, SyncRecord>()
-    for (const sr of serverChanges) {
-      serverMap.set(sr.id, sr)
-      if (sr.clientId) {
-        serverByClientId.set(sr.clientId, sr)
-      }
-    }
-
-    // 处理服务器变更
-    for (const serverRecord of serverChanges) {
-      const localId = serverRecord.clientId || serverRecord.id
-      const localRecord = mergedMap.get(localId) || mergedMap.get(serverRecord.id)
-      const pendingChange = this.pendingChanges.get(localId) || this.pendingChanges.get(serverRecord.id)
-      const version = this.recordVersions.get(localId) || this.recordVersions.get(serverRecord.id)
-
-      if (serverRecord.deletedAt) {
-        // 服务器删除了记录
-        if (localRecord && pendingChange?.action === 'update') {
-          conflicts.push({
-            id: localId,
-            localRecord,
-            serverRecord,
-            conflictType: 'update_delete',
-            resolvedBy: 'server',
-          })
-        }
-        mergedMap.delete(localId)
-        mergedMap.delete(serverRecord.id)
-        this.pendingChanges.delete(localId)
-        this.recordVersions.delete(localId)
-      } else if (!localRecord) {
-        // 服务器有，本地无 -> 添加到本地
-        const newRecord = this.serverToLocal(serverRecord)
-        mergedMap.set(newRecord.id, newRecord)
-        this.recordVersions.set(newRecord.id, {
-          id: newRecord.id,
-          serverId: serverRecord.id,
-          syncVersion: serverRecord.syncVersion,
-          localUpdatedAt: serverRecord.updatedAt,
-          serverUpdatedAt: serverRecord.updatedAt,
-          isLocalOnly: false,
-        })
-        mergedCount++
-      } else if (pendingChange) {
-        // 双方都有修改 -> 冲突检测
-        if (pendingChange.action === 'delete') {
-          conflicts.push({
-            id: localId,
-            localRecord,
-            serverRecord,
-            conflictType: 'delete_update',
-            resolvedBy: 'server',
-          })
-          const restoredRecord = this.serverToLocal(serverRecord)
-          mergedMap.set(restoredRecord.id, restoredRecord)
-          this.pendingChanges.delete(localId)
-        } else {
-          // 双方都更新了 -> 按时间戳合并
-          const localTime = new Date(pendingChange.timestamp).getTime()
-          const serverTime = new Date(serverRecord.updatedAt).getTime()
-
-          if (serverTime > localTime) {
-            const updatedRecord = this.serverToLocal(serverRecord)
-            mergedMap.set(updatedRecord.id, updatedRecord)
-            this.pendingChanges.delete(localId)
-            conflicts.push({
-              id: localId,
-              localRecord,
-              serverRecord,
-              conflictType: 'update_update',
-              resolvedBy: 'server',
-            })
-          } else {
-            conflicts.push({
-              id: localId,
-              localRecord,
-              serverRecord,
-              conflictType: 'update_update',
-              resolvedBy: 'local',
-            })
-          }
-          mergedCount++
-        }
-        this.recordVersions.set(localId, {
-          id: localId,
-          serverId: serverRecord.id,
-          syncVersion: serverRecord.syncVersion,
-          localUpdatedAt: version?.localUpdatedAt || new Date().toISOString(),
-          serverUpdatedAt: serverRecord.updatedAt,
-          isLocalOnly: false,
-        })
-      } else {
-        // 本地无修改，使用服务器版本
-        const updatedRecord = this.serverToLocal(serverRecord)
-        mergedMap.set(updatedRecord.id, updatedRecord)
-        this.recordVersions.set(updatedRecord.id, {
-          id: updatedRecord.id,
-          serverId: serverRecord.id,
-          syncVersion: serverRecord.syncVersion,
-          localUpdatedAt: serverRecord.updatedAt,
-          serverUpdatedAt: serverRecord.updatedAt,
-          isLocalOnly: false,
-        })
-        mergedCount++
-      }
-    }
-
-    // 收集待推送的本地变更
-    for (const [id, change] of this.pendingChanges) {
-      const version = this.recordVersions.get(id)
-
-      if (change.action === 'create' && version?.isLocalOnly) {
-        // 优先从 mergedMap 获取，如果没有则从 pendingChange.data 获取
-        const record = mergedMap.get(id) || (change.data as Record | undefined)
-        if (record && record.id) {
-          toCreate.push(record)
-          console.log(`[Sync] pendingChanges create: ${id}`)
-        }
-      } else if (change.action === 'update') {
-        const serverRecord = serverByClientId.get(id) || serverMap.get(version?.serverId || '')
-        if (!serverRecord || new Date(change.timestamp) > new Date(serverRecord.updatedAt)) {
-          toUpdate.push({
-            id: version?.serverId || id,
-            data: change.data || {},
-            syncVersion: version?.syncVersion || 0,
-          })
-        }
-      } else if (change.action === 'delete') {
-        const serverId = version?.serverId || id
-        if (!version?.isLocalOnly) {
-          toDelete.push(serverId)
-        }
-      }
-    }
-
-    // 检测本地有但服务器没有的记录（首次同步或未被追踪的本地记录）
-    for (const [id, record] of mergedMap) {
-      const version = this.recordVersions.get(id)
-      const hasPendingChange = this.pendingChanges.has(id)
-      const alreadyInToCreate = toCreate.some(r => r.id === id)
-      
-      // 检查是否已存在于服务器
-      const existsOnServer = serverByClientId.has(id) || 
-                             serverMap.has(id) || 
-                             (version?.serverId && serverMap.has(version.serverId)) ||
-                             (version && !version.isLocalOnly && version.serverId)
-      
-      console.log(`[Sync] 检查记录 ${id}: existsOnServer=${existsOnServer}, serverId=${version?.serverId}, isLocalOnly=${version?.isLocalOnly}, hasPendingChange=${hasPendingChange}, alreadyInToCreate=${alreadyInToCreate}`)
-      
-      // 如果记录不在服务器上，且不在待创建列表中
-      if (!existsOnServer && !alreadyInToCreate) {
-        console.log(`[Sync] 添加到 toCreate: ${id}`)
-        toCreate.push(record)
-        // 标记为待同步
-        this.recordVersions.set(id, {
-          id,
-          syncVersion: 0,
-          localUpdatedAt: record.createdAt || new Date().toISOString(),
-          isLocalOnly: true,
-        })
-      }
-    }
-
-    this.saveRecordVersions()
-    this.savePendingChanges()
-
-    return {
-      mergedRecords: Array.from(mergedMap.values()),
-      toCreate,
-      toUpdate,
-      toDelete,
-      conflicts,
-      mergedCount,
-    }
-  }
-
-  private serverToLocal(serverRecord: SyncRecord): Record {
-    return {
-      id: serverRecord.clientId || serverRecord.id,
-      type: serverRecord.type,
-      amount: serverRecord.amount,
-      category: serverRecord.category,
-      date: serverRecord.date,
-      note: serverRecord.note || undefined,
-      createdAt: serverRecord.createdAt,
-    }
+    
+    // 将所有记录标记为本地
+    const records = this.getLocalRecords()
+    const updatedRecords = records.map(r => ({
+      ...r,
+      syncStatus: 'local' as SyncStatus,
+      serverId: undefined,
+    }))
+    this.setLocalRecords(updatedRecords)
   }
 
   // ==================== 同步操作 ====================
 
+  /**
+   * 自动同步（联网时调用）
+   * 1. 上传本地未同步的数据到云端
+   * 2. 下载云端有而本地没有的数据
+   */
   async sync(): Promise<SyncResult> {
-    const result: SyncResult = {
-      success: false,
-      pulled: 0,
-      pushed: 0,
-      conflicts: 0,
-      merged: 0,
-      conflictRecords: [],
+    if (!this.isConnected()) {
+      return { success: false, uploaded: 0, downloaded: 0, error: '未连接服务器' }
     }
 
+    if (this.syncState === 'syncing') {
+      return { success: false, uploaded: 0, downloaded: 0, error: '同步进行中' }
+    }
+
+    this.syncState = 'syncing'
+    const result: SyncResult = { success: false, uploaded: 0, downloaded: 0 }
+
     try {
-      console.log('[Sync] 开始同步...')
-      console.log('[Sync] pendingChanges:', [...this.pendingChanges.entries()])
-      console.log('[Sync] recordVersions:', [...this.recordVersions.entries()])
-
-      // 1. 拉取服务器变更
-      const pullResult = await apiClient.pull(this.syncMeta.lastSyncVersion)
-      console.log('[Sync] Pull 结果:', pullResult)
-
-      // 2. Diff 合并
       const localRecords = this.getLocalRecords()
-      console.log('[Sync] 本地记录:', localRecords)
-      const localMap = new Map(localRecords.map((r) => [r.id, r]))
+      const localMap = new Map(localRecords.map(r => [r.id, r]))
 
-      const { mergedRecords, toCreate, toUpdate, toDelete, conflicts, mergedCount } = this.diffAndMerge(
-        localMap,
-        pullResult.changes
-      )
-      
-      console.log('[Sync] Diff 结果: toCreate=', toCreate.length, 'toUpdate=', toUpdate.length, 'toDelete=', toDelete.length)
+      // 1. 上传本地未同步的记录
+      const toBackup = localRecords.filter(r => r.syncStatus !== 'synced')
+      if (toBackup.length > 0) {
+        const backupRecords: BackupRecord[] = toBackup.map(r => ({
+          clientId: r.id,
+          type: r.type,
+          amount: r.amount,
+          category: r.category,
+          date: r.date,
+          note: r.note,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          ledgerId: r.ledgerId,
+        }))
 
-      result.conflicts = conflicts.length
-      result.conflictRecords = conflicts
-      result.merged = mergedCount
-      result.pulled = pullResult.changes.length
+        const backupResult = await apiClient.backup(backupRecords)
+        result.uploaded = backupResult.uploaded
 
-      // 3. 保存合并后的数据
-      this.setLocalRecords(mergedRecords)
-
-      // 4. 推送本地变更
-      if (toCreate.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
-        const pushPayload: PushPayload = {
-          created: toCreate.map((r) => ({
-            clientId: r.id,
-            type: r.type,
-            amount: r.amount,
-            category: r.category,
-            date: r.date,
-            note: r.note,
-          })),
-          updated: toUpdate.map((u) => ({
-            id: u.id,
-            ...u.data,
-            syncVersion: u.syncVersion,
-          })),
-          deleted: toDelete,
+        // 更新本地记录的同步状态
+        for (const item of backupResult.records) {
+          const record = localMap.get(item.clientId)
+          if (record) {
+            record.syncStatus = 'synced'
+            record.serverId = item.serverId
+          }
         }
-
-        console.log('[Sync] Push payload:', pushPayload)
-        const pushResult = await apiClient.push(pushPayload)
-        console.log('[Sync] Push 结果:', pushResult)
-
-        result.pushed = pushResult.created + pushResult.updated + pushResult.deleted
-
-        // 清除已同步的变更
-        if (pushResult.conflicts.length === 0) {
-          for (const record of toCreate) {
-            const version = this.recordVersions.get(record.id)
-            if (version) {
-              version.isLocalOnly = false
-              version.syncVersion = pushResult.serverVersion
-            }
-            this.pendingChanges.delete(record.id)
-          }
-          for (const update of toUpdate) {
-            this.pendingChanges.delete(update.id)
-          }
-          for (const id of toDelete) {
-            this.pendingChanges.delete(id)
-            this.recordVersions.delete(id)
-          }
-
-          this.saveRecordVersions()
-          this.savePendingChanges()
-        }
-
-        this.syncMeta.lastSyncVersion = pushResult.serverVersion
-      } else {
-        this.syncMeta.lastSyncVersion = pullResult.serverVersion
       }
 
-      // 5. 更新同步元数据
+      // 2. 从云端下载记录
+      const restoreResult = await apiClient.restore()
+      const cloudRecords = restoreResult.records
+
+      // 合并云端记录到本地
+      for (const cloudRecord of cloudRecords) {
+        const localRecord = localMap.get(cloudRecord.clientId)
+        
+        if (!localRecord) {
+          // 云端有，本地没有 -> 下载到本地
+          const newRecord: Record = {
+            id: cloudRecord.clientId,
+            type: cloudRecord.type,
+            amount: cloudRecord.amount,
+            category: cloudRecord.category,
+            date: cloudRecord.date,
+            note: cloudRecord.note,
+            createdAt: cloudRecord.createdAt,
+            updatedAt: cloudRecord.updatedAt,
+            ledgerId: cloudRecord.ledgerId,
+            syncStatus: 'synced',
+            serverId: cloudRecord.serverId,
+          }
+          localMap.set(newRecord.id, newRecord)
+          result.downloaded++
+        } else if (!localRecord.serverId) {
+          // 本地有但没有 serverId，更新 serverId
+          localRecord.serverId = cloudRecord.serverId
+          localRecord.syncStatus = 'synced'
+        }
+      }
+
+      // 保存合并后的记录
+      this.setLocalRecords(Array.from(localMap.values()))
+
+      // 更新同步元数据
       this.syncMeta.lastSyncAt = new Date().toISOString()
       this.saveSyncMeta()
 
       result.success = true
-      console.log('[Sync] 同步完成:', result)
+      this.syncState = 'success'
     } catch (error) {
-      console.error('[Sync] 同步失败:', error)
       result.error = error instanceof Error ? error.message : '同步失败'
+      this.syncState = 'error'
     }
+
+    // 3秒后重置状态
+    setTimeout(() => {
+      if (this.syncState !== 'syncing') {
+        this.syncState = 'idle'
+      }
+    }, 3000)
 
     return result
   }
 
-  // 全量同步
-  async fullSync(): Promise<SyncResult> {
-    const result: SyncResult = {
-      success: false,
-      pulled: 0,
-      pushed: 0,
-      conflicts: 0,
-      merged: 0,
-    }
+  /**
+   * 删除记录（带云端删除确认）
+   * @param id 记录 ID
+   * @param deleteFromCloud 是否同时删除云端
+   */
+  async deleteRecord(id: string, deleteFromCloud: boolean = false): Promise<boolean> {
+    const records = this.getLocalRecords()
+    const record = records.find(r => r.id === id)
+    
+    if (!record) return false
 
-    try {
-      const fullData = await apiClient.fullSync()
-
-      // 使用服务器数据覆盖本地
-      const records = fullData.records
-        .filter((r) => !r.deletedAt)
-        .map((r) => this.serverToLocal(r))
-
-      this.setLocalRecords(records)
-
-      // 重置版本追踪
-      this.recordVersions.clear()
-      for (const r of fullData.records) {
-        if (!r.deletedAt) {
-          this.recordVersions.set(r.clientId || r.id, {
-            id: r.clientId || r.id,
-            serverId: r.id,
-            syncVersion: r.syncVersion,
-            localUpdatedAt: r.updatedAt,
-            serverUpdatedAt: r.updatedAt,
-            isLocalOnly: false,
-          })
-        }
+    // 如果需要删除云端且有 serverId
+    if (deleteFromCloud && record.serverId && this.isConnected()) {
+      try {
+        await apiClient.deleteCloudRecords([record.serverId])
+      } catch (error) {
+        console.error('[Sync] 删除云端记录失败:', error)
+        // 继续删除本地记录
       }
-      this.pendingChanges.clear()
-
-      this.syncMeta.lastSyncVersion = fullData.serverVersion
-      this.syncMeta.lastSyncAt = new Date().toISOString()
-
-      this.saveSyncMeta()
-      this.saveRecordVersions()
-      this.savePendingChanges()
-
-      result.success = true
-      result.pulled = records.length
-    } catch (error) {
-      result.error = error instanceof Error ? error.message : '全量同步失败'
     }
 
-    return result
+    // 删除本地记录
+    const updatedRecords = records.filter(r => r.id !== id)
+    this.setLocalRecords(updatedRecords)
+    
+    return true
+  }
+
+  /**
+   * 检查记录是否已同步到云端
+   */
+  isRecordSynced(id: string): boolean {
+    const records = this.getLocalRecords()
+    const record = records.find(r => r.id === id)
+    return record?.syncStatus === 'synced'
+  }
+
+  /**
+   * 标记记录需要重新同步（编辑后调用）
+   */
+  markRecordForSync(id: string): void {
+    const records = this.getLocalRecords()
+    const record = records.find(r => r.id === id)
+    if (record && record.syncStatus === 'synced') {
+      record.syncStatus = 'local'
+      record.updatedAt = new Date().toISOString()
+      this.setLocalRecords(records)
+    }
+  }
+
+  /**
+   * 触发自动同步（数据变更后调用）
+   */
+  triggerAutoSync(): void {
+    if (!this.syncMeta.autoSync || !this.isConnected()) return
+
+    // 防抖：3秒内只触发一次
+    if (this.syncTimer) {
+      clearTimeout(this.syncTimer)
+    }
+    this.syncTimer = setTimeout(() => {
+      this.sync()
+      this.syncTimer = null
+    }, 3000) as unknown as number
   }
 }
 

@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import {
   IsArray,
@@ -11,67 +11,62 @@ import {
   Min,
 } from 'class-validator'
 
-export class SyncRecordDto {
-  @ApiPropertyOptional({ description: '服务端 ID（更新时必填）' })
+// 备份记录 DTO
+export class BackupRecordDto {
+  @ApiProperty({ description: '客户端 ID（本地唯一标识）' })
   @IsString()
-  @IsOptional()
-  id?: string
+  clientId: string
 
-  @ApiPropertyOptional({ description: '客户端 ID' })
-  @IsString()
-  @IsOptional()
-  clientId?: string
-
-  @ApiPropertyOptional({ enum: ['income', 'expense'] })
+  @ApiProperty({ enum: ['income', 'expense'] })
   @IsEnum(['income', 'expense'])
-  @IsOptional()
-  type?: 'income' | 'expense'
+  type: 'income' | 'expense'
 
-  @ApiPropertyOptional({ minimum: 0.01 })
+  @ApiProperty({ minimum: 0.01 })
   @IsNumber()
   @Min(0.01)
-  @IsOptional()
-  amount?: number
+  amount: number
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsString()
-  @IsOptional()
-  category?: string
+  category: string
 
-  @ApiPropertyOptional()
+  @ApiProperty()
   @IsDateString()
-  @IsOptional()
-  date?: string
+  date: string
 
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   note?: string
 
-  @ApiPropertyOptional({ description: '同步版本号' })
-  @IsNumber()
+  @ApiProperty()
+  @IsDateString()
+  createdAt: string
+
+  @ApiPropertyOptional()
+  @IsDateString()
   @IsOptional()
-  syncVersion?: number
+  updatedAt?: string
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  ledgerId?: string
 }
 
-export class SyncPushDto {
-  @ApiPropertyOptional({ description: '新建的记录', type: [SyncRecordDto] })
+// 批量备份请求
+export class BackupDto {
+  @ApiProperty({ description: '要备份的记录列表', type: [BackupRecordDto] })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SyncRecordDto)
-  @IsOptional()
-  created?: SyncRecordDto[]
+  @Type(() => BackupRecordDto)
+  records: BackupRecordDto[]
+}
 
-  @ApiPropertyOptional({ description: '更新的记录', type: [SyncRecordDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SyncRecordDto)
-  @IsOptional()
-  updated?: SyncRecordDto[]
-
-  @ApiPropertyOptional({ description: '删除的记录 ID', type: [String] })
+// 删除云端记录请求
+export class DeleteCloudRecordsDto {
+  @ApiProperty({ description: '要删除的云端记录 ID 列表', type: [String] })
   @IsArray()
   @IsString({ each: true })
-  @IsOptional()
-  deleted?: string[]
+  serverIds: string[]
 }

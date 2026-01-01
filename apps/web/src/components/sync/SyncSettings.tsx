@@ -19,7 +19,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     serverUrl,
     syncState,
     lastSyncAt,
-    pendingCount,
+    pendingBackupCount,
     autoSyncEnabled,
     lastSyncResult,
     discoverServer,
@@ -78,7 +78,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
   }
 
   const handleDisconnect = () => {
-    if (confirm('断开连接将清除同步数据，确定继续？')) {
+    if (confirm('断开连接后，数据将仅保存在本地。确定继续？')) {
       disconnect()
     }
   }
@@ -87,7 +87,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>数据同步设置</span>
+          <span>云备份设置</span>
           {onClose && (
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
               ✕
@@ -95,7 +95,7 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
           )}
         </CardTitle>
         <CardDescription>
-          连接家庭服务器，双向同步记账数据
+          连接服务器，自动备份数据到云端
         </CardDescription>
       </CardHeader>
       
@@ -137,9 +137,9 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
             {/* 自动同步开关 */}
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
               <div>
-                <Label className="font-medium">自动备份同步</Label>
+                <Label className="font-medium">自动云备份</Label>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  数据变更后自动双向同步
+                  联网时自动备份数据到云端
                 </p>
               </div>
               <Switch
@@ -160,9 +160,9 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">待同步</span>
-                <span className={`font-medium ${pendingCount > 0 ? 'text-orange-500' : 'text-green-600'}`}>
-                  {pendingCount > 0 ? `${pendingCount} 条待上传` : '已同步'}
+                <span className="text-gray-500">待备份</span>
+                <span className={`font-medium ${pendingBackupCount > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                  {pendingBackupCount > 0 ? `${pendingBackupCount} 条待上传` : '已同步'}
                 </span>
               </div>
               {lastSyncAt && (
@@ -180,32 +180,8 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
               <div className="p-3 bg-green-50 rounded-lg text-sm">
                 <div className="font-medium text-green-700 mb-1">同步完成</div>
                 <div className="grid grid-cols-2 gap-1 text-green-600">
-                  <span>↓ 拉取: {lastSyncResult.pulled} 条</span>
-                  <span>↑ 推送: {lastSyncResult.pushed} 条</span>
-                  <span>⚡ 合并: {lastSyncResult.merged} 条</span>
-                  {lastSyncResult.conflicts > 0 && (
-                    <span className="text-yellow-600">⚠ 冲突: {lastSyncResult.conflicts} 条</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 冲突详情 */}
-            {lastSyncResult?.conflictRecords && lastSyncResult.conflictRecords.length > 0 && (
-              <div className="p-3 bg-yellow-50 rounded-lg text-sm">
-                <div className="font-medium text-yellow-700 mb-2">冲突记录（已自动解决）</div>
-                <div className="space-y-1 text-yellow-600 max-h-32 overflow-y-auto">
-                  {lastSyncResult.conflictRecords.slice(0, 5).map((conflict, i) => (
-                    <div key={i} className="text-xs">
-                      • {conflict.conflictType === 'update_update' ? '双方修改' : 
-                         conflict.conflictType === 'update_delete' ? '本地修改/服务器删除' : 
-                         '本地删除/服务器修改'} 
-                      → 采用{conflict.resolvedBy === 'local' ? '本地' : '服务器'}版本
-                    </div>
-                  ))}
-                  {lastSyncResult.conflictRecords.length > 5 && (
-                    <div className="text-xs">...还有 {lastSyncResult.conflictRecords.length - 5} 条</div>
-                  )}
+                  <span>↑ 上传: {lastSyncResult.uploaded} 条</span>
+                  <span>↓ 下载: {lastSyncResult.downloaded} 条</span>
                 </div>
               </div>
             )}
@@ -222,9 +198,9 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
 
         {/* 说明 */}
         <div className="text-xs text-gray-400 space-y-1">
-          <p>• 双向同步：本地 ↔ 服务器数据自动合并</p>
-          <p>• 智能合并：按修改时间自动解决冲突</p>
-          <p>• 离线优先：无网络时数据保存在本地</p>
+          <p>• 自动备份：联网时自动上传本地数据到云端</p>
+          <p>• 自动恢复：联网时自动下载云端数据到本地</p>
+          <p>• 删除提醒：删除已同步数据时会询问是否删除云端</p>
         </div>
       </CardContent>
     </Card>

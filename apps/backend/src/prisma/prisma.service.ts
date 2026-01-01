@@ -29,7 +29,7 @@ export class PrismaService
       throw new Error('cleanDatabase can only be called in test environment')
     }
     await this.record.deleteMany()
-    await this.syncVersion.deleteMany()
+    await this.ledger.deleteMany()
     await this.user.deleteMany()
   }
 }

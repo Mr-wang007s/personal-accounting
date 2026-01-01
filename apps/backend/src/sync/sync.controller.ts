@@ -3,14 +3,12 @@ import {
   Get,
   Post,
   Body,
-  Query,
   UseGuards,
-  Headers,
   Inject,
 } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader } from '@nestjs/swagger'
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { SyncService } from './sync.service'
-import { SyncPushDto } from './dto/sync-push.dto'
+import { BackupDto, DeleteCloudRecordsDto } from './dto/sync-push.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { User } from '@prisma/client'
@@ -19,49 +17,30 @@ import { User } from '@prisma/client'
 @Controller('sync')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
-@ApiHeader({ name: 'X-Device-Id', description: '设备唯一标识', required: true })
 export class SyncController {
   constructor(@Inject(SyncService) private readonly syncService: SyncService) {}
 
-  @Get('status')
-  @ApiOperation({ summary: '获取同步状态' })
-  async getSyncStatus(
+  @Post('backup')
+  @ApiOperation({ summary: '备份：上传本地记录到云端' })
+  async backup(
     @CurrentUser() user: User,
-    @Headers('x-device-id') deviceId: string,
+    @Body() dto: BackupDto,
   ) {
-    return this.syncService.getSyncStatus(user.id, deviceId || 'default')
+    return this.syncService.backup(user.id, dto)
   }
 
-  @Get('pull')
-  @ApiOperation({ summary: '拉取增量数据' })
-  async pull(
-    @CurrentUser() user: User,
-    @Headers('x-device-id') deviceId: string,
-    @Query('lastSyncVersion') lastSyncVersion: number,
-  ) {
-    return this.syncService.pull(
-      user.id,
-      deviceId || 'default',
-      lastSyncVersion || 0,
-    )
+  @Get('restore')
+  @ApiOperation({ summary: '恢复：从云端下载所有记录' })
+  async restore(@CurrentUser() user: User) {
+    return this.syncService.restore(user.id)
   }
 
-  @Post('push')
-  @ApiOperation({ summary: '推送本地变更' })
-  async push(
+  @Post('delete-cloud')
+  @ApiOperation({ summary: '删除云端记录' })
+  async deleteCloudRecords(
     @CurrentUser() user: User,
-    @Headers('x-device-id') deviceId: string,
-    @Body() dto: SyncPushDto,
+    @Body() dto: DeleteCloudRecordsDto,
   ) {
-    return this.syncService.push(user.id, deviceId || 'default', dto)
-  }
-
-  @Get('full')
-  @ApiOperation({ summary: '全量同步（首次同步或数据恢复）' })
-  async fullSync(
-    @CurrentUser() user: User,
-    @Headers('x-device-id') deviceId: string,
-  ) {
-    return this.syncService.fullSync(user.id, deviceId || 'default')
+    return this.syncService.deleteCloudRecords(user.id, dto)
   }
 }

@@ -1,6 +1,9 @@
 // 类型定义 - 后续从 Web 项目迁移
 export type RecordType = 'income' | 'expense'
 
+// 同步状态：local = 仅本地，synced = 已同步到云端
+export type SyncStatus = 'local' | 'synced'
+
 export interface Record {
   id: string
   type: RecordType
@@ -10,6 +13,10 @@ export interface Record {
   note?: string
   createdAt: string
   ledgerId?: string // 所属账本 ID
+  // 简化的同步状态
+  syncStatus?: SyncStatus // 默认 'local'
+  serverId?: string // 云端 ID（同步后获得）
+  updatedAt?: string // 更新时间（用于判断是否需要重新同步）
 }
 
 export interface Category {

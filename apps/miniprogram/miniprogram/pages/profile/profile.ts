@@ -4,7 +4,7 @@
 import type { Ledger, UserProfile } from '../../shared/types'
 import { LedgerService } from '../../services/ledger'
 import { StorageService } from '../../services/storage'
-import { syncService, SyncState, SyncResult } from '../../services/sync'
+import { syncService, SyncState } from '../../services/sync'
 import { apiClient } from '../../services/apiClient'
 
 interface LedgerDisplay extends Ledger {
@@ -25,7 +25,7 @@ Page({
     newLedgerIcon: '📒',
     ledgerIcons: ['📒', '💰', '🏠', '🚗', '✈️', '🎮', '🛒', '💼', '🎓', '❤️', '🌟', '📱'],
 
-    // 同步相关
+    // 同步相关（简化版）
     showSyncModal: false,
     syncState: 'idle' as SyncState,
     isConnected: false,
@@ -33,7 +33,7 @@ Page({
     serverUrl: '',
     inputServerUrl: 'http://192.168.1.100:3000',
     lastSyncAt: '',
-    pendingCount: 0,
+    pendingBackupCount: 0, // 待备份数量
     autoSyncEnabled: true,
     syncError: '',
   },
@@ -206,22 +206,21 @@ Page({
     })
   },
 
-  // ==================== 同步功能 ====================
+  // ==================== 同步功能（简化版 OneDrive 模式）====================
 
   // 加载同步状态
   loadSyncStatus() {
     const meta = syncService.getSyncMeta()
-    const token = apiClient.getToken()
-    const autoSync = wx.getStorageSync('pa_auto_sync')
+    const isConnected = syncService.isConnected()
 
     this.setData({
       serverUrl: meta.serverUrl || '',
       inputServerUrl: meta.serverUrl || 'http://192.168.1.100:3000',
       lastSyncAt: meta.lastSyncAt || '',
-      pendingCount: syncService.getPendingCount(),
-      isConnected: !!meta.serverUrl,
-      isAuthenticated: !!token,
-      autoSyncEnabled: autoSync !== false,
+      pendingBackupCount: syncService.getPendingBackupCount(),
+      isConnected: isConnected,
+      isAuthenticated: apiClient.isAuthenticated(),
+      autoSyncEnabled: syncService.isAutoSyncEnabled(),
     })
 
     // 检查连接状态
@@ -270,13 +269,13 @@ Page({
       return
     }
 
-    this.setData({ syncState: 'checking', syncError: '' })
+    this.setData({ syncState: 'syncing', syncError: '' })
 
     try {
       const success = await syncService.discoverServer(inputServerUrl)
       if (success) {
         // 连接成功后自动使用昵称登录
-        const loginSuccess = await syncService.devLogin(userProfile.nickname)
+        const loginSuccess = await syncService.login(userProfile.nickname)
         if (loginSuccess) {
           this.setData({
             isConnected: true,
@@ -285,6 +284,11 @@ Page({
             syncState: 'idle',
           })
           wx.showToast({ title: '连接成功', icon: 'success' })
+          
+          // 连接成功后自动同步
+          if (this.data.autoSyncEnabled) {
+            this.manualSync()
+          }
         } else {
           this.setData({
             isConnected: true,
@@ -299,7 +303,7 @@ Page({
           syncState: 'error',
         })
       }
-    } catch (error) {
+    } catch {
       this.setData({
         syncError: '连接失败',
         syncState: 'error',
@@ -311,7 +315,7 @@ Page({
   disconnectServer() {
     wx.showModal({
       title: '确认断开',
-      content: '断开连接将清除同步配置，确定继续？',
+      content: '断开连接后，数据将仅保存在本地。确定继续？',
       confirmColor: '#EF4444',
       success: (res) => {
         if (res.confirm) {
@@ -321,7 +325,7 @@ Page({
             isAuthenticated: false,
             serverUrl: '',
             lastSyncAt: '',
-            pendingCount: 0,
+            pendingBackupCount: 0,
             syncState: 'idle',
           })
           wx.showToast({ title: '已断开连接', icon: 'success' })
@@ -330,7 +334,7 @@ Page({
     })
   },
 
-  // 手动同步
+  // 手动同步（备份 + 恢复）
   async manualSync() {
     if (this.data.syncState === 'syncing') return
 
@@ -343,7 +347,7 @@ Page({
         this.setData({
           syncState: 'success',
           lastSyncAt: syncService.getSyncMeta().lastSyncAt || '',
-          pendingCount: syncService.getPendingCount(),
+          pendingBackupCount: syncService.getPendingBackupCount(),
         })
 
         // 刷新应用数据
@@ -352,7 +356,7 @@ Page({
         this.loadData()
 
         wx.showToast({
-          title: `同步完成 ↓${result.pulled} ↑${result.pushed}`,
+          title: `同步完成 ↑${result.uploaded} ↓${result.downloaded}`,
           icon: 'none',
         })
 
@@ -368,7 +372,7 @@ Page({
           this.setData({ syncState: 'idle' })
         }, 3000)
       }
-    } catch (error) {
+    } catch {
       this.setData({
         syncState: 'error',
         syncError: '同步失败',
@@ -383,7 +387,7 @@ Page({
   toggleAutoSync(e: WechatMiniprogram.SwitchChange) {
     const enabled = e.detail.value
     this.setData({ autoSyncEnabled: enabled })
-    wx.setStorageSync('pa_auto_sync', enabled)
+    syncService.setAutoSync(enabled)
   },
 
   // 获取同步状态文本

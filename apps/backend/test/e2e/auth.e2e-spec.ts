@@ -6,13 +6,14 @@ import {
   getPrismaService,
   cleanDatabase,
   createTestUser,
-  MOCK_USER,
+  TEST_USER,
 } from '../helpers/test-utils'
 import { PrismaService } from '../../src/prisma/prisma.service'
 
 describe('Auth E2E Tests', () => {
   let app: INestApplication
   let prisma: PrismaService
+  let authToken: string
 
   beforeAll(async () => {
     app = await createTestApp()
@@ -26,23 +27,6 @@ describe('Auth E2E Tests', () => {
 
   beforeEach(async () => {
     await cleanDatabase(prisma)
-  })
-
-  describe('GET /auth/profile', () => {
-    it('should return mock user profile when SKIP_AUTH is enabled', async () => {
-      // 创建测试用户（因为 mock user 需要在数据库中存在）
-      await createTestUser(prisma)
-
-      const response = await request(app.getHttpServer())
-        .get('/auth/profile')
-        .expect(200)
-
-      expect(response.body).toMatchObject({
-        id: MOCK_USER.id,
-        openid: MOCK_USER.openid,
-        nickname: MOCK_USER.nickname,
-      })
-    })
   })
 
   describe('POST /auth/dev/login', () => {
@@ -72,18 +56,66 @@ describe('Auth E2E Tests', () => {
 
       expect(firstResponse.body.user.id).toBe(secondResponse.body.user.id)
     })
+
+    it('should create user with nickname', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/dev/login')
+        .send({ openid: 'test-openid-789', nickname: 'Test User' })
+        .expect(200)
+
+      expect(response.body.user.nickname).toBe('Test User')
+    })
+  })
+
+  describe('GET /auth/profile', () => {
+    beforeEach(async () => {
+      // 先登录获取 token
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/dev/login')
+        .send({ openid: TEST_USER.openid, nickname: TEST_USER.nickname })
+      authToken = loginResponse.body.accessToken
+    })
+
+    it('should return user profile with valid token', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/auth/profile')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+
+      expect(response.body.openid).toBe(TEST_USER.openid)
+      expect(response.body.nickname).toBe(TEST_USER.nickname)
+    })
+
+    it('should return 401 without token', async () => {
+      await request(app.getHttpServer())
+        .get('/auth/profile')
+        .expect(401)
+    })
+
+    it('should return 401 with invalid token', async () => {
+      await request(app.getHttpServer())
+        .get('/auth/profile')
+        .set('Authorization', 'Bearer invalid-token')
+        .expect(401)
+    })
   })
 
   describe('POST /auth/refresh', () => {
-    it('should refresh token for authenticated user', async () => {
-      await createTestUser(prisma)
+    beforeEach(async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/auth/dev/login')
+        .send({ openid: TEST_USER.openid })
+      authToken = loginResponse.body.accessToken
+    })
 
+    it('should refresh token for authenticated user', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/refresh')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
 
       expect(response.body).toHaveProperty('accessToken')
-      expect(response.body.user.id).toBe(MOCK_USER.id)
+      expect(response.body.user.openid).toBe(TEST_USER.openid)
     })
   })
 })

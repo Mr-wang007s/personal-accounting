@@ -21,7 +21,6 @@ export default defineConfig({
     },
     env: {
       NODE_ENV: 'test',
-      SKIP_AUTH: 'true',
       JWT_SECRET: 'test-secret-key',
       JWT_EXPIRES_IN: '1h',
       DATABASE_URL: 'file:./dev.db',
