@@ -48,10 +48,9 @@ export class BackupRecordDto {
   @IsOptional()
   updatedAt?: string
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: '账本 ID' })
   @IsString()
-  @IsOptional()
-  ledgerId?: string
+  ledgerId: string
 }
 
 // 批量备份请求

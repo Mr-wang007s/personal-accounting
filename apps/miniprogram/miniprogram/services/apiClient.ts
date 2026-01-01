@@ -30,7 +30,7 @@ export interface CloudRecord {
   note?: string
   createdAt: string
   updatedAt: string
-  ledgerId?: string
+  ledgerId: string
 }
 
 // 备份请求
@@ -43,7 +43,7 @@ export interface BackupRecord {
   note?: string
   createdAt: string
   updatedAt?: string
-  ledgerId?: string
+  ledgerId: string
 }
 
 // 备份响应

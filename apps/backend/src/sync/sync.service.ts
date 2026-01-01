@@ -15,7 +15,7 @@ export interface CloudRecord {
   note?: string
   createdAt: string
   updatedAt: string
-  ledgerId?: string
+  ledgerId: string
 }
 
 // 备份结果
@@ -131,7 +131,7 @@ export class SyncService {
       note: r.note || undefined,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
-      ledgerId: r.ledgerId || undefined,
+      ledgerId: r.ledgerId,
     }))
 
     this.logger.log(`[Restore] 返回 ${cloudRecords.length} 条记录`)

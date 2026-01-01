@@ -39,4 +39,9 @@ export class CreateRecordDto {
   @IsString()
   @IsOptional()
   clientId?: string
+
+  @ApiProperty({ description: '账本 ID' })
+  @IsString()
+  @IsNotEmpty()
+  ledgerId: string
 }

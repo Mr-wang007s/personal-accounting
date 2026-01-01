@@ -56,6 +56,7 @@ export class RecordsService {
         date: new Date(dto.date),
         note: dto.note,
         clientId: dto.clientId,
+        ledgerId: dto.ledgerId,
       },
     })
 
@@ -79,6 +80,7 @@ export class RecordsService {
         date: new Date(dto.date),
         note: dto.note,
         clientId: dto.clientId,
+        ledgerId: dto.ledgerId,
       })),
     })
 

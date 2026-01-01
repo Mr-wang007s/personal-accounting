@@ -8,7 +8,7 @@
  * 4. 删除已同步数据时，提示是否删除云端
  */
 
-import { apiClient, CloudRecord, BackupRecord } from './apiClient'
+import { apiClient, BackupRecord } from './apiClient'
 import type { Record, SyncStatus } from '@personal-accounting/shared/types'
 import { STORAGE_KEY } from '@personal-accounting/shared/constants'
 

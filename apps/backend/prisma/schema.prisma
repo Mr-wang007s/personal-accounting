@@ -67,10 +67,10 @@ model Record {
   clientId String? @map("client_id")
 
   // 关联
-  userId   String  @map("user_id")
-  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ledgerId String? @map("ledger_id") // 所属账本（可选）
-  ledger   Ledger? @relation(fields: [ledgerId], references: [id], onDelete: SetNull)
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerId String @map("ledger_id") // 所属账本（必填）
+  ledger   Ledger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
   @@index([userId, deletedAt])

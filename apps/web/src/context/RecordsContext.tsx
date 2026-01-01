@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { Record, Statistics, DateRange } from '@personal-accounting/shared/types'
 import { storageService } from '@/services/storageService'
-import { syncService } from '@/services/syncService'
 import { useLedger } from '@/context/LedgerContext'
 
 interface RecordsContextType {
@@ -54,23 +53,20 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const addRecord = (data: Omit<Record, 'id' | 'createdAt'>) => {
-    const newRecord = storageService.addRecord(data)
-    // 追踪变更用于同步
-    syncService.trackCreate(newRecord)
+    storageService.addRecord(data)
+    // 新记录默认 syncStatus = 'local'，会在下次同步时自动上传
     refreshData()
   }
 
   const updateRecord = (id: string, data: Partial<Record>) => {
     storageService.updateRecord(id, data)
-    // 追踪变更用于同步
-    syncService.trackUpdate(id, data)
+    // 更新后记录会被标记为需要同步
     refreshData()
   }
 
   const deleteRecord = (id: string) => {
     storageService.deleteRecord(id)
-    // 追踪变更用于同步
-    syncService.trackDelete(id)
+    // 删除本地记录，同步时会处理云端删除
     refreshData()
   }
 

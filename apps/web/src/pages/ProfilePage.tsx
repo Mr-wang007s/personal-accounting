@@ -22,7 +22,7 @@ export function ProfilePage(_props: ProfilePageProps) {
     serverUrl,
     syncState,
     lastSyncAt,
-    pendingCount,
+    pendingBackupCount,
     autoSyncEnabled,
     discoverServer,
     login,
@@ -281,9 +281,9 @@ export function ProfilePage(_props: ProfilePageProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {pendingCount > 0 && (
+                {pendingBackupCount > 0 && (
                   <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
-                    {pendingCount} 待同步
+                    {pendingBackupCount} 待同步
                   </span>
                 )}
                 <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${showSyncConfig ? 'rotate-90' : ''}`} />
@@ -340,8 +340,8 @@ export function ProfilePage(_props: ProfilePageProps) {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">待同步</span>
-                        <span className={`font-medium ${pendingCount > 0 ? 'text-orange-500' : 'text-green-600'}`}>
-                          {pendingCount > 0 ? `${pendingCount} 条` : '已同步'}
+                        <span className={`font-medium ${pendingBackupCount > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                          {pendingBackupCount > 0 ? `${pendingBackupCount} 条` : '已同步'}
                         </span>
                       </div>
                     </div>

@@ -34,8 +34,7 @@ export const RecordService = {
 
     StorageService.addRecord(record)
     
-    // 追踪变更用于同步
-    syncService.trackCreate(record)
+    // 新记录默认 syncStatus = 'local'，会在下次同步时自动上传
     
     return record
   },
@@ -46,8 +45,7 @@ export const RecordService = {
   updateRecord(id: string, updates: Partial<Record>): void {
     StorageService.updateRecord(id, updates)
     
-    // 追踪变更用于同步
-    syncService.trackUpdate(id, updates)
+    // 更新后记录会被标记为需要同步
   },
 
   /**
@@ -56,8 +54,7 @@ export const RecordService = {
   deleteRecord(id: string): void {
     StorageService.deleteRecord(id)
     
-    // 追踪变更用于同步
-    syncService.trackDelete(id)
+    // 删除本地记录，同步时会处理云端删除
   },
 
   /**

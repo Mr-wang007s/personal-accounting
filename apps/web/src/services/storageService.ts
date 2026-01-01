@@ -63,12 +63,12 @@ class StorageService {
   addRecord(data: Omit<Record, 'id' | 'createdAt'>): Record {
     const records = this.getStorageData()
     const currentLedger = ledgerService.getCurrentLedger()
-    
+
     const newRecord: Record = {
       ...data,
       id: generateId(),
       createdAt: getNowISO(),
-      ledgerId: currentLedger?.id,
+      ledgerId: data.ledgerId || currentLedger!.id,
     }
     records.push(newRecord)
     this.setStorageData(records)

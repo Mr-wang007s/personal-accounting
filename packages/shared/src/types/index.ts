@@ -12,7 +12,7 @@ export interface Record {
   date: string
   note?: string
   createdAt: string
-  ledgerId?: string // 所属账本 ID
+  ledgerId: string // 所属账本 ID（必填）
   // 简化的同步状态
   syncStatus?: SyncStatus // 默认 'local'
   serverId?: string // 云端 ID（同步后获得）

@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { CategoryIcon } from '@/components/common/CategoryIcon'
 import { useRecords } from '@/context/RecordsContext'
+import { useLedger } from '@/context/LedgerContext'
 import { getCategoriesByType } from '@personal-accounting/shared/constants'
 import type { RecordType, Record } from '@personal-accounting/shared/types'
 import { cn, getToday } from '@/lib/utils'
@@ -19,6 +20,7 @@ interface RecordFormPageProps {
 
 export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageProps) {
   const { addRecord, updateRecord } = useRecords()
+  const { currentLedger } = useLedger()
   const isEditMode = !!editRecord
   
   // 编辑模式下使用记录的类型，否则使用传入的类型
@@ -58,12 +60,17 @@ export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageP
       })
     } else {
       // 新增模式
+      if (!currentLedger) {
+        console.error('No current ledger')
+        return
+      }
       addRecord({
         type: recordType,
         amount: parseFloat(amount),
         category,
         date,
         note: note || undefined,
+        ledgerId: currentLedger.id,
       })
     }
 
