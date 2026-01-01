@@ -6,7 +6,7 @@
       <text>{{avatarText}}</text>
     </view>
     <view class="user-info">
-      <text class="nickname">{{userProfile.nickname || '用户'}}</text>
+      <text class="nickname">{{userProfile.nickname || '用户'}}{{userProfile.phone ? ' · ' + userProfile.phone : ''}}</text>
       <text class="user-id">ID: {{userIdDisplay}}</text>
     </view>
   </view>

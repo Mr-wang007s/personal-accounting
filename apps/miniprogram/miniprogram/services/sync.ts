@@ -14,7 +14,7 @@ declare function clearTimeout(id: number): void
 
 import { apiClient, BackupRecord, BackupLedger, LoginResponse } from './apiClient'
 import type { Record, Ledger, SyncStatus } from '../shared/types'
-import { STORAGE_KEY, LEDGERS_KEY } from '../shared/constants'
+import { STORAGE_KEY, LEDGERS_KEY, USER_PROFILE_KEY } from '../shared/constants'
 
 // 存储键
 const SYNC_META_KEY = 'pa_sync_meta'
@@ -128,6 +128,19 @@ class SyncService {
         this.syncMeta.serverUrl = normalizedUrl
         this.saveSyncMeta()
         apiClient.setBaseUrl(normalizedUrl)
+        
+        // 将服务地址保存到用户配置（pa_user_profile）
+        try {
+          const existingProfile = wx.getStorageSync(USER_PROFILE_KEY)
+          if (existingProfile) {
+            existingProfile.serverUrl = normalizedUrl
+            existingProfile.updatedAt = new Date().toISOString()
+            wx.setStorageSync(USER_PROFILE_KEY, existingProfile)
+          }
+        } catch (e) {
+          console.error('[Sync] 保存服务地址到用户配置失败:', e)
+        }
+        
         return true
       }
       return false
@@ -157,6 +170,19 @@ class SyncService {
       apiClient.setToken(result.accessToken)
       this.syncMeta.userPhone = phone
       this.saveSyncMeta()
+
+      // 将手机号保存到用户配置（pa_user_profile）
+      try {
+        const existingProfile = wx.getStorageSync(USER_PROFILE_KEY)
+        if (existingProfile) {
+          existingProfile.phone = phone
+          existingProfile.updatedAt = new Date().toISOString()
+          wx.setStorageSync(USER_PROFILE_KEY, existingProfile)
+        }
+      } catch (e) {
+        console.error('[Sync] 保存手机号到用户配置失败:', e)
+      }
+
       return { success: true, isNewUser: result.isNewUser }
     } catch {
       return { success: false, isNewUser: false }
@@ -192,50 +218,66 @@ class SyncService {
     let uploaded = 0
     let downloaded = 0
 
-    // 上传本地账本
-    if (localLedgers.length > 0) {
-      const backupLedgers: BackupLedger[] = localLedgers.map(l => ({
-        clientId: l.id,
-        name: l.name,
-        icon: l.icon,
-        color: l.color,
-        createdAt: l.createdAt,
-      }))
-
-      try {
-        const result = await apiClient.backupLedgers(backupLedgers)
-        uploaded = result.uploaded
-      } catch (error) {
-        console.error('[Sync] 账本上传失败:', error)
-      }
-    }
-
-    // 从云端下载账本
+    // 先从云端获取已有账本
+    let cloudLedgers: { clientId: string; name: string; icon?: string; color?: string; createdAt: string; updatedAt: string }[] = []
     try {
       const restoreResult = await apiClient.restore()
-      const cloudLedgers = restoreResult.ledgers || []
-      const localLedgerMap = new Map(localLedgers.map(l => [l.id, l]))
+      cloudLedgers = restoreResult.ledgers || []
+    } catch (error) {
+      console.error('[Sync] 获取云端账本失败:', error)
+    }
 
-      for (const cloudLedger of cloudLedgers) {
-        if (!localLedgerMap.has(cloudLedger.clientId)) {
-          // 云端有，本地没有 -> 下载到本地
-          const newLedger: Ledger = {
-            id: cloudLedger.clientId,
-            name: cloudLedger.name,
-            icon: cloudLedger.icon,
-            color: cloudLedger.color,
-            createdAt: cloudLedger.createdAt,
-            updatedAt: cloudLedger.updatedAt,
-          }
-          localLedgerMap.set(newLedger.id, newLedger)
-          downloaded++
+    // 创建云端账本名称集合，用于检查是否已存在
+    const cloudLedgerNames = new Set(cloudLedgers.map(l => l.name))
+    const cloudLedgerClientIds = new Set(cloudLedgers.map(l => l.clientId))
+
+    // 上传本地账本（仅上传云端不存在的）
+    if (localLedgers.length > 0) {
+      // 过滤出云端不存在的账本（按 clientId 或 name 判断）
+      const newLedgers = localLedgers.filter(l => 
+        !cloudLedgerClientIds.has(l.id) && !cloudLedgerNames.has(l.name)
+      )
+
+      if (newLedgers.length > 0) {
+        const backupLedgers: BackupLedger[] = newLedgers.map(l => ({
+          clientId: l.id,
+          name: l.name,
+          icon: l.icon,
+          color: l.color,
+          createdAt: l.createdAt,
+        }))
+
+        try {
+          const result = await apiClient.backupLedgers(backupLedgers)
+          uploaded = result.uploaded
+        } catch (error) {
+          console.error('[Sync] 账本上传失败:', error)
         }
       }
-
-      this.setLocalLedgers(Array.from(localLedgerMap.values()))
-    } catch (error) {
-      console.error('[Sync] 账本下载失败:', error)
     }
+
+    // 从云端下载本地没有的账本
+    const localLedgerMap = new Map(localLedgers.map(l => [l.id, l]))
+    const localLedgerNames = new Set(localLedgers.map(l => l.name))
+
+    for (const cloudLedger of cloudLedgers) {
+      // 按 clientId 或 name 判断本地是否已存在
+      if (!localLedgerMap.has(cloudLedger.clientId) && !localLedgerNames.has(cloudLedger.name)) {
+        // 云端有，本地没有 -> 下载到本地
+        const newLedger: Ledger = {
+          id: cloudLedger.clientId,
+          name: cloudLedger.name,
+          icon: cloudLedger.icon,
+          color: cloudLedger.color,
+          createdAt: cloudLedger.createdAt,
+          updatedAt: cloudLedger.updatedAt,
+        }
+        localLedgerMap.set(newLedger.id, newLedger)
+        downloaded++
+      }
+    }
+
+    this.setLocalLedgers(Array.from(localLedgerMap.values()))
 
     return { uploaded, downloaded }
   }
@@ -297,27 +339,45 @@ class SyncService {
       // 2. 上传本地未同步的记录
       const toBackup = localRecords.filter(r => r.syncStatus !== 'synced')
       if (toBackup.length > 0) {
-        const backupRecords: BackupRecord[] = toBackup.map(r => ({
-          clientId: r.id,
-          type: r.type,
-          amount: r.amount,
-          category: r.category,
-          date: r.date,
-          note: r.note,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-          ledgerId: r.ledgerId,
-        }))
+        // 获取当前账本 ID，用于填充没有 ledgerId 的旧记录
+        let defaultLedgerId = ''
+        try {
+          const userProfile = wx.getStorageSync(USER_PROFILE_KEY)
+          defaultLedgerId = userProfile?.currentLedgerId || ''
+        } catch {
+          // ignore
+        }
+        
+        // 过滤掉没有 ledgerId 且没有默认账本的记录
+        const validRecords = toBackup.filter(r => r.ledgerId || defaultLedgerId)
+        
+        if (validRecords.length > 0) {
+          const backupRecords: BackupRecord[] = validRecords.map(r => ({
+            clientId: r.id,
+            type: r.type,
+            amount: r.amount,
+            category: r.category,
+            date: r.date,
+            note: r.note,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            ledgerId: r.ledgerId || defaultLedgerId,
+          }))
 
-        const backupResult = await apiClient.backup(backupRecords)
-        result.uploaded = backupResult.uploaded
+          const backupResult = await apiClient.backup(backupRecords)
+          result.uploaded = backupResult.uploaded
 
-        // 更新本地记录的同步状态
-        for (const item of backupResult.records) {
-          const record = localMap.get(item.clientId)
-          if (record) {
-            record.syncStatus = 'synced'
-            record.serverId = item.serverId
+          // 更新本地记录的同步状态
+          for (const item of backupResult.records) {
+            const record = localMap.get(item.clientId)
+            if (record) {
+              record.syncStatus = 'synced'
+              record.serverId = item.serverId
+              // 同时更新 ledgerId（如果之前没有）
+              if (!record.ledgerId && defaultLedgerId) {
+                record.ledgerId = defaultLedgerId
+              }
+            }
           }
         }
       }

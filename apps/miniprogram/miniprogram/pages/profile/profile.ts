@@ -213,10 +213,12 @@ Page({
   loadSyncStatus() {
     const meta = syncService.getSyncMeta()
     const isConnected = syncService.isConnected()
+    const { userProfile } = this.data
 
     this.setData({
       serverUrl: meta.serverUrl || '',
-      inputServerUrl: meta.serverUrl || 'http://192.168.1.100:3000',
+      inputServerUrl: meta.serverUrl || userProfile?.serverUrl || 'http://192.168.1.100:3000',
+      inputPhone: userProfile?.phone || '',
       lastSyncAt: meta.lastSyncAt || '',
       pendingBackupCount: syncService.getPendingBackupCount(),
       isConnected: isConnected,

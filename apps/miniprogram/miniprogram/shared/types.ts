@@ -81,6 +81,8 @@ export interface UserProfile {
   currentLedgerId: string
   createdAt: string
   updatedAt: string
+  phone?: string // 手机号
+  serverUrl?: string // 同步服务器地址
 }
 
 // 按日期分组的记录
