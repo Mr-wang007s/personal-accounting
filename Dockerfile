@@ -68,7 +68,19 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
 WORKDIR /app/apps/backend
 
+# 创建数据目录
+RUN mkdir -p /app/apps/backend/data
+
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# 创建启动脚本：先执行数据库迁移，再启动应用
+COPY --from=builder /app/apps/backend/prisma ./prisma
+RUN echo '#!/bin/sh' > /app/apps/backend/start.sh && \
+    echo 'echo "Running database migrations..."' >> /app/apps/backend/start.sh && \
+    echo 'npx prisma migrate deploy' >> /app/apps/backend/start.sh && \
+    echo 'echo "Starting application..."' >> /app/apps/backend/start.sh && \
+    echo 'node dist/main.js' >> /app/apps/backend/start.sh && \
+    chmod +x /app/apps/backend/start.sh
+
+# Start the application with migrations
+CMD ["/app/apps/backend/start.sh"]
