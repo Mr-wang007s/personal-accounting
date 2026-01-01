@@ -27,27 +27,29 @@ export class WechatService {
 
   // 通过 code 获取 session
   async code2Session(code: string): Promise<WechatUserInfo> {
-    // 开发环境模拟
-    if (
-      process.env.NODE_ENV === 'development' &&
-      (!this.appId || !this.appSecret)
-    ) {
-      console.warn('WeChat credentials not configured, using mock data')
-      return {
-        openid: `mock_openid_${code}`,
-        sessionKey: 'mock_session_key',
-      }
+    // 检查配置
+    console.log('[WechatService] code2Session called, appId:', this.appId ? `${this.appId.substring(0, 6)}...` : 'NOT SET')
+    console.log('[WechatService] appSecret:', this.appSecret ? 'SET' : 'NOT SET')
+
+    // 如果没有配置凭证，返回详细错误
+    if (!this.appId || !this.appSecret) {
+      console.error('[WechatService] Missing credentials - appId:', !!this.appId, 'appSecret:', !!this.appSecret)
+      throw new UnauthorizedException(
+        'WeChat credentials not configured. Please set WECHAT_APP_ID and WECHAT_APP_SECRET environment variables.',
+      )
     }
 
     const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${this.appId}&secret=${this.appSecret}&js_code=${code}&grant_type=authorization_code`
 
     try {
+      console.log('[WechatService] Calling WeChat API...')
       const response = await fetch(url)
       const data = (await response.json()) as WechatSessionResponse
+      console.log('[WechatService] WeChat API response:', { errcode: data.errcode, errmsg: data.errmsg, hasOpenid: !!data.openid })
 
       if (data.errcode) {
         throw new UnauthorizedException(
-          `WeChat auth failed: ${data.errmsg || 'Unknown error'}`,
+          `WeChat auth failed (${data.errcode}): ${data.errmsg || 'Unknown error'}`,
         )
       }
 
@@ -57,10 +59,11 @@ export class WechatService {
         sessionKey: data.session_key,
       }
     } catch (error) {
+      console.error('[WechatService] Error:', error)
       if (error instanceof UnauthorizedException) {
         throw error
       }
-      throw new UnauthorizedException('Failed to authenticate with WeChat')
+      throw new UnauthorizedException(`Failed to authenticate with WeChat: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 }
