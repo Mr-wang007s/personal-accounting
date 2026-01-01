@@ -6,15 +6,18 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Headers,
 } from '@nestjs/common'
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiResponse,
+  ApiHeader,
 } from '@nestjs/swagger'
 import { AuthService } from './auth.service'
 import { WechatLoginDto } from './dto/wechat-login.dto'
+import { WxCloudLoginDto } from './dto/wx-cloud-login.dto'
 import { DevLoginDto } from './dto/dev-login.dto'
 import { TokenResponseDto } from './dto/token-response.dto'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
@@ -28,10 +31,24 @@ export class AuthController {
 
   @Post('wechat/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '微信登录' })
+  @ApiOperation({ summary: '微信登录（code2Session）' })
   @ApiResponse({ status: 200, type: TokenResponseDto })
   async wechatLogin(@Body() dto: WechatLoginDto): Promise<TokenResponseDto> {
     return this.authService.wechatLogin(dto)
+  }
+
+  @Post('wx-cloud/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '微信云托管登录（自动获取 openid）' })
+  @ApiHeader({ name: 'X-WX-OPENID', description: '微信 openid（云托管自动注入）', required: false })
+  @ApiHeader({ name: 'X-WX-UNIONID', description: '微信 unionid（云托管自动注入）', required: false })
+  @ApiResponse({ status: 200, type: TokenResponseDto })
+  async wxCloudLogin(
+    @Headers('x-wx-openid') openid: string,
+    @Headers('x-wx-unionid') unionid: string,
+    @Body() dto: WxCloudLoginDto,
+  ): Promise<TokenResponseDto> {
+    return this.authService.wxCloudLogin(openid, unionid, dto)
   }
 
   @Post('refresh')

@@ -7,6 +7,26 @@ declare const wx: WechatMiniprogram.Wx
 declare const console: Console
 
 declare namespace WechatMiniprogram {
+  // wx.login 相关
+  interface LoginOption {
+    timeout?: number
+    success?: (res: LoginSuccessCallbackResult) => void
+    fail?: (res: GeneralCallbackResult) => void
+    complete?: () => void
+  }
+
+  interface LoginSuccessCallbackResult {
+    code: string
+    errMsg: string
+  }
+
+  // wx.checkSession 相关
+  interface CheckSessionOption {
+    success?: () => void
+    fail?: () => void
+    complete?: () => void
+  }
+
   interface Wx {
     getStorageSync<T = any>(key: string): T
     setStorageSync(key: string, data: any): void
@@ -24,6 +44,9 @@ declare namespace WechatMiniprogram {
     cloud: Cloud
     // 用户信息
     getUserProfile(options: GetUserProfileOption): void
+    // 登录
+    login(options: LoginOption): void
+    checkSession(options: CheckSessionOption): void
   }
 
   // 云开发相关类型

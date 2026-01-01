@@ -150,15 +150,52 @@ class SyncService {
   }
 
   /**
+   * 获取微信登录 code
+   * @returns Promise<string> 登录凭证 code
+   */
+  private getWxLoginCode(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      wx.login({
+        success: (res) => {
+          if (res.code) {
+            resolve(res.code)
+          } else {
+            reject(new Error('获取登录凭证失败'))
+          }
+        },
+        fail: (err) => {
+          reject(new Error(err.errMsg || '微信登录失败'))
+        },
+      })
+    })
+  }
+
+  /**
+   * 检查微信 session 是否有效
+   * @returns Promise<boolean>
+   */
+  private checkWxSession(): Promise<boolean> {
+    return new Promise((resolve) => {
+      wx.checkSession({
+        success: () => resolve(true),
+        fail: () => resolve(false),
+      })
+    })
+  }
+
+  /**
    * 微信云托管自动登录
-   * 云托管会自动识别用户身份，无需手动输入
+   * 登录流程：
+   * 1. 先尝试云托管自动注入的 openid
+   * 2. 如果失败，调用 wx.login 获取 code，通过 code2Session 换取 openid
    * @param nickname 用户昵称（可选，从微信获取）
    * @param avatar 用户头像（可选，从微信获取）
    * @returns 登录结果，包含用户信息
    */
   async autoLogin(nickname?: string, avatar?: string): Promise<{ success: boolean; user?: { id: string; phone: string; nickname?: string; avatar?: string; openid?: string }; isNewUser?: boolean }> {
     try {
-      const result = await apiClient.wxCloudLogin(nickname, avatar)
+      // 先尝试不带 code 登录（依赖云托管自动注入 openid）
+      let result = await apiClient.wxCloudLogin(nickname, avatar)
       apiClient.setToken(result.accessToken)
       
       // 保存用户信息
@@ -167,29 +204,55 @@ class SyncService {
       this.saveSyncMeta()
 
       // 将用户信息保存到用户配置（pa_user_profile）
-      try {
-        const existingProfile = wx.getStorageSync(USER_PROFILE_KEY)
-        if (existingProfile) {
-          if (result.user.phone) {
-            existingProfile.phone = result.user.phone
-          }
-          if (result.user.nickname) {
-            existingProfile.nickname = result.user.nickname
-          }
-          if (result.user.avatar) {
-            existingProfile.avatar = result.user.avatar
-          }
-          existingProfile.updatedAt = new Date().toISOString()
-          wx.setStorageSync(USER_PROFILE_KEY, existingProfile)
-        }
-      } catch (e) {
-        console.error('[Sync] 保存用户信息到配置失败:', e)
-      }
+      this.saveUserProfileToStorage(result.user)
 
       return { success: true, user: result.user, isNewUser: result.isNewUser }
     } catch (error) {
-      console.error('[Sync] 自动登录失败:', error)
-      return { success: false }
+      console.warn('[Sync] 云托管自动登录失败，尝试使用 wx.login:', error)
+      
+      // 云托管未注入 openid，使用 wx.login 获取 code
+      try {
+        const code = await this.getWxLoginCode()
+        const result = await apiClient.wxCloudLogin(nickname, avatar, code)
+        apiClient.setToken(result.accessToken)
+        
+        // 保存用户信息
+        this.syncMeta.openid = result.user.openid || null
+        this.syncMeta.userPhone = result.user.phone || null
+        this.saveSyncMeta()
+
+        // 将用户信息保存到用户配置
+        this.saveUserProfileToStorage(result.user)
+
+        return { success: true, user: result.user, isNewUser: result.isNewUser }
+      } catch (loginError) {
+        console.error('[Sync] wx.login 登录失败:', loginError)
+        return { success: false }
+      }
+    }
+  }
+
+  /**
+   * 保存用户信息到本地存储
+   */
+  private saveUserProfileToStorage(user: { phone?: string; nickname?: string; avatar?: string }): void {
+    try {
+      const existingProfile = wx.getStorageSync(USER_PROFILE_KEY)
+      if (existingProfile) {
+        if (user.phone) {
+          existingProfile.phone = user.phone
+        }
+        if (user.nickname) {
+          existingProfile.nickname = user.nickname
+        }
+        if (user.avatar) {
+          existingProfile.avatar = user.avatar
+        }
+        existingProfile.updatedAt = new Date().toISOString()
+        wx.setStorageSync(USER_PROFILE_KEY, existingProfile)
+      }
+    } catch (e) {
+      console.error('[Sync] 保存用户信息到配置失败:', e)
     }
   }
 

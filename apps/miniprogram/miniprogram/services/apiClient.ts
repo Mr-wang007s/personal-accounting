@@ -272,14 +272,28 @@ class ApiClient {
   /**
    * 微信云托管自动登录
    * 云托管会自动在请求头中注入用户的 openid 等信息
-   * 后端根据 openid 自动创建或获取用户
+   * 如果云托管未注入 openid，可以传入 code 通过 code2Session 获取
    * @param nickname 用户昵称（从微信获取）
    * @param avatar 用户头像（从微信获取）
+   * @param code wx.login 获取的临时登录凭证（可选）
    */
-  async wxCloudLogin(nickname?: string, avatar?: string): Promise<LoginResponse> {
+  async wxCloudLogin(nickname?: string, avatar?: string, code?: string): Promise<LoginResponse> {
     return this.request('/api/auth/wx-cloud/login', {
       method: 'POST',
-      data: { nickname, avatar },
+      data: { nickname, avatar, code },
+    })
+  }
+
+  /**
+   * 标准微信登录（使用 code2Session）
+   * @param code wx.login 获取的临时登录凭证
+   * @param nickname 用户昵称
+   * @param avatar 用户头像
+   */
+  async wechatLogin(code: string, nickname?: string, avatar?: string): Promise<LoginResponse> {
+    return this.request('/api/auth/wechat/login', {
+      method: 'POST',
+      data: { code, nickname, avatar },
     })
   }
 

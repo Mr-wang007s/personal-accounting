@@ -3,11 +3,12 @@
   <!-- 用户信息卡片 -->
   <view class="user-card">
     <view class="avatar">
-      <text>{{avatarText}}</text>
+      <image wx:if="{{userProfile.avatar}}" class="avatar-image" src="{{userProfile.avatar}}" mode="aspectFill"></image>
+      <text wx:else>{{avatarText}}</text>
     </view>
     <view class="user-info">
-      <text class="nickname">{{userProfile.nickname || '用户'}}{{userProfile.phone ? ' · ' + userProfile.phone : ''}}</text>
-      <text class="user-id">ID: {{userIdDisplay}}</text>
+      <text class="nickname">{{userProfile.nickname || '用户'}}</text>
+      <text class="user-id" wx:if="{{userIdDisplay}}">ID: {{userIdDisplay}}</text>
     </view>
   </view>
   
@@ -53,53 +54,6 @@
             data-name="{{item.name}}"
           ></image>
         </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 数据同步 -->
-  <view class="section">
-    <view class="section-header">
-      <text class="section-title">数据同步</text>
-      <view class="sync-status {{isConnected && isAuthenticated ? 'connected' : ''}}">
-        <text wx:if="{{!isConnected}}">未连接</text>
-        <text wx:elif="{{!isAuthenticated}}">未登录</text>
-        <text wx:elif="{{syncState === 'syncing'}}">同步中...</text>
-        <text wx:elif="{{syncState === 'success'}}">✓ 已同步</text>
-        <text wx:elif="{{syncState === 'error'}}">同步失败</text>
-        <text wx:elif="{{syncState === 'offline'}}">离线</text>
-        <text wx:else>已就绪</text>
-      </view>
-    </view>
-    
-    <view class="sync-card" wx:if="{{isConnected && isAuthenticated}}">
-      <view class="sync-info-row">
-        <text class="sync-label">云服务</text>
-        <text class="sync-value">微信云托管</text>
-      </view>
-      <view class="sync-info-row">
-        <text class="sync-label">待同步</text>
-        <text class="sync-value {{pendingBackupCount > 0 ? 'pending' : ''}}">{{pendingBackupCount > 0 ? pendingBackupCount + ' 条' : '已同步'}}</text>
-      </view>
-      <view class="sync-info-row" wx:if="{{lastSyncAt}}">
-        <text class="sync-label">上次同步</text>
-        <text class="sync-value">{{lastSyncAt}}</text>
-      </view>
-      <view class="sync-actions">
-        <button class="sync-btn primary" bindtap="manualSync" disabled="{{syncState === 'syncing'}}">
-          {{syncState === 'syncing' ? '同步中...' : '立即同步'}}
-        </button>
-        <button class="sync-btn" bindtap="showSyncSettings">设置</button>
-      </view>
-    </view>
-    
-    <view class="menu-list" wx:else>
-      <view class="menu-item" bindtap="reconnect">
-        <view class="menu-icon sync-icon">
-          <text class="sync-icon-text">⟳</text>
-        </view>
-        <text class="menu-text">连接云同步</text>
-        <image class="menu-arrow" src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
       </view>
     </view>
   </view>
@@ -178,77 +132,4 @@
     </view>
   </view>
 
-  <!-- 同步设置弹窗 -->
-  <view class="modal-mask" wx:if="{{showSyncModal}}" bindtap="hideSyncModal"></view>
-  <view class="modal-content sync-modal" wx:if="{{showSyncModal}}">
-    <text class="modal-title">云同步设置</text>
-    <view class="modal-body">
-      <!-- 错误提示 -->
-      <view class="sync-error" wx:if="{{syncError}}">
-        <text>{{syncError}}</text>
-      </view>
-
-      <!-- 连接状态 -->
-      <view class="form-item">
-        <view class="input-row">
-          <button 
-            wx:if="{{!isAuthenticated}}"
-            class="inline-btn primary" 
-            bindtap="reconnect"
-            disabled="{{syncState === 'syncing'}}"
-          >
-            {{syncState === 'syncing' ? '连接中...' : '连接云服务'}}
-          </button>
-          <button 
-            wx:else
-            class="inline-btn" 
-            bindtap="disconnectServer"
-          >
-            退出登录
-          </button>
-        </view>
-        <text class="form-hint success" wx:if="{{isAuthenticated}}">✓ 已自动登录</text>
-        <text class="form-hint" wx:else>云托管将自动识别您的身份</text>
-      </view>
-
-      <!-- 同步设置 -->
-      <view class="sync-settings" wx:if="{{isAuthenticated}}">
-        <view class="form-item switch-item">
-          <view class="switch-info">
-            <text class="form-label">自动同步</text>
-            <text class="form-hint">数据变更后自动同步到云端</text>
-          </view>
-          <switch 
-            checked="{{autoSyncEnabled}}" 
-            bindchange="toggleAutoSync"
-            color="#6366F1"
-          />
-        </view>
-
-        <view class="sync-status-info">
-          <view class="status-row">
-            <text class="status-label">待同步</text>
-            <text class="status-value {{pendingBackupCount > 0 ? 'pending' : ''}}">
-              {{pendingBackupCount > 0 ? pendingBackupCount + ' 条待上传' : '已同步'}}
-            </text>
-          </view>
-          <view class="status-row" wx:if="{{lastSyncAt}}">
-            <text class="status-label">上次同步</text>
-            <text class="status-value">{{lastSyncAt}}</text>
-          </view>
-        </view>
-      </view>
-    </view>
-    <view class="modal-footer">
-      <button class="modal-btn cancel" bindtap="hideSyncModal">关闭</button>
-      <button 
-        wx:if="{{isAuthenticated}}"
-        class="modal-btn confirm" 
-        bindtap="manualSync"
-        disabled="{{syncState === 'syncing'}}"
-      >
-        {{syncState === 'syncing' ? '同步中...' : '立即同步'}}
-      </button>
-    </view>
-  </view>
 </view>
