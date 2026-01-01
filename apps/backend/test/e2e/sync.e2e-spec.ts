@@ -13,7 +13,7 @@ describe('Sync E2E Tests', () => {
   let app: INestApplication
   let prisma: PrismaService
   let authToken: string
-  let userId: string
+  let userPhone: string
 
   beforeAll(async () => {
     app = await createTestApp()
@@ -35,7 +35,7 @@ describe('Sync E2E Tests', () => {
       .expect(200)
 
     authToken = loginResponse.body.accessToken
-    userId = loginResponse.body.user.id
+    userPhone = loginResponse.body.user.phone
   })
 
   describe('POST /sync/backup-ledgers', () => {
@@ -113,7 +113,7 @@ describe('Sync E2E Tests', () => {
       expect(response.body.uploaded).toBe(1)
 
       const ledgers = await prisma.ledger.findMany({
-        where: { userId, clientId: 'ledger-client-003', deletedAt: null },
+        where: { userPhone, clientId: 'ledger-client-003', deletedAt: null },
       })
       expect(ledgers).toHaveLength(1)
       expect(ledgers[0].name).toBe('新名称')
@@ -136,7 +136,7 @@ describe('Sync E2E Tests', () => {
         data: {
           id: 'ledger-client-001',
           clientId: 'ledger-client-001',
-          userId,
+          userPhone,
           name: '默认账本',
           createdAt: new Date(),
         },
@@ -224,7 +224,7 @@ describe('Sync E2E Tests', () => {
 
       // 验证数据库中只有一条记录
       const records = await prisma.record.findMany({
-        where: { userId, clientId: 'client-record-003', deletedAt: null },
+        where: { userPhone, clientId: 'client-record-003', deletedAt: null },
       })
       expect(records).toHaveLength(1)
       expect(Number(records[0].amount)).toBe(200)
@@ -247,7 +247,7 @@ describe('Sync E2E Tests', () => {
         data: {
           id: 'ledger-client-restore',
           clientId: 'ledger-client-restore',
-          userId,
+          userPhone,
           name: '恢复账本',
           createdAt: new Date('2024-01-01'),
         },
@@ -256,7 +256,7 @@ describe('Sync E2E Tests', () => {
       await prisma.record.createMany({
         data: [
           {
-            userId,
+            userPhone,
             clientId: 'client-001',
             type: 'expense',
             amount: 100,
@@ -266,7 +266,7 @@ describe('Sync E2E Tests', () => {
             ledgerId: 'ledger-client-restore',
           },
           {
-            userId,
+            userPhone,
             clientId: 'client-002',
             type: 'income',
             amount: 5000,
@@ -306,7 +306,7 @@ describe('Sync E2E Tests', () => {
     it('should not return deleted records', async () => {
       // 软删除一条记录
       await prisma.record.updateMany({
-        where: { userId, clientId: 'client-001' },
+        where: { userPhone, clientId: 'client-001' },
         data: { deletedAt: new Date() },
       })
 
@@ -328,7 +328,7 @@ describe('Sync E2E Tests', () => {
         data: {
           id: 'ledger-client-delete',
           clientId: 'ledger-client-delete',
-          userId,
+          userPhone,
           name: '删除测试账本',
           createdAt: new Date('2024-01-01'),
         },
@@ -336,7 +336,7 @@ describe('Sync E2E Tests', () => {
 
       const record = await prisma.record.create({
         data: {
-          userId,
+          userPhone,
           clientId: 'client-to-delete',
           type: 'expense',
           amount: 100,

@@ -13,7 +13,8 @@ describe('Records E2E Tests', () => {
   let app: INestApplication
   let prisma: PrismaService
   let authToken: string
-  let userId: string
+  let userPhone: string
+  let defaultLedgerId: string
 
   beforeAll(async () => {
     app = await createTestApp()
@@ -29,10 +30,20 @@ describe('Records E2E Tests', () => {
     await cleanDatabase(prisma)
     // 登录获取 token
     const loginResponse = await request(app.getHttpServer())
-      .post('/auth/dev/login')
-      .send({ openid: TEST_USER.openid, nickname: TEST_USER.nickname })
+      .post('/auth/phone/login')
+      .send({ phone: TEST_USER.phone, nickname: TEST_USER.nickname })
     authToken = loginResponse.body.accessToken
-    userId = loginResponse.body.user.id
+    userPhone = loginResponse.body.user.phone
+
+    // 创建默认账本
+    const ledger = await prisma.ledger.create({
+      data: {
+        userPhone,
+        name: '默认账本',
+        clientId: 'default-ledger',
+      },
+    })
+    defaultLedgerId = ledger.id
   })
 
   describe('POST /records', () => {
@@ -46,6 +57,7 @@ describe('Records E2E Tests', () => {
           category: 'food',
           date: '2024-01-15',
           note: '午餐',
+          ledgerId: defaultLedgerId,
         })
         .expect(201)
 
@@ -69,6 +81,7 @@ describe('Records E2E Tests', () => {
           category: 'salary',
           date: '2024-01-01',
           note: '工资',
+          ledgerId: defaultLedgerId,
         })
         .expect(201)
 
@@ -86,7 +99,7 @@ describe('Records E2E Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           type: 'expense',
-          // missing amount, category, date
+          // missing amount, category, date, ledgerId
         })
         .expect(400)
 
@@ -102,6 +115,7 @@ describe('Records E2E Tests', () => {
           amount: 100,
           category: 'food',
           date: '2024-01-15',
+          ledgerId: defaultLedgerId,
         })
         .expect(400)
 
@@ -116,6 +130,7 @@ describe('Records E2E Tests', () => {
           amount: 100,
           category: 'food',
           date: '2024-01-15',
+          ledgerId: defaultLedgerId,
         })
         .expect(401)
     })
@@ -123,32 +138,35 @@ describe('Records E2E Tests', () => {
 
   describe('GET /records', () => {
     beforeEach(async () => {
-      // 创建测试数据
+      // 创建测试数据（使用 beforeEach 中创建的 defaultLedgerId）
       await prisma.record.createMany({
         data: [
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
             note: '午餐',
+            ledgerId: defaultLedgerId,
           },
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 50,
             category: 'transport',
             date: new Date('2024-01-16'),
             note: '打车',
+            ledgerId: defaultLedgerId,
           },
           {
-            userId,
+            userPhone,
             type: 'income',
             amount: 5000,
             category: 'salary',
             date: new Date('2024-01-01'),
             note: '工资',
+            ledgerId: defaultLedgerId,
           },
         ],
       })
@@ -208,12 +226,13 @@ describe('Records E2E Tests', () => {
     beforeEach(async () => {
       const record = await prisma.record.create({
         data: {
-          userId,
+          userPhone,
           type: 'expense',
           amount: 100,
           category: 'food',
           date: new Date('2024-01-15'),
           note: '测试记录',
+          ledgerId: defaultLedgerId,
         },
       })
       recordId = record.id
@@ -248,12 +267,13 @@ describe('Records E2E Tests', () => {
     beforeEach(async () => {
       const record = await prisma.record.create({
         data: {
-          userId,
+          userPhone,
           type: 'expense',
           amount: 100,
           category: 'food',
           date: new Date('2024-01-15'),
           note: '原始备注',
+          ledgerId: defaultLedgerId,
         },
       })
       recordId = record.id
@@ -292,11 +312,12 @@ describe('Records E2E Tests', () => {
     beforeEach(async () => {
       const record = await prisma.record.create({
         data: {
-          userId,
+          userPhone,
           type: 'expense',
           amount: 100,
           category: 'food',
           date: new Date('2024-01-15'),
+          ledgerId: defaultLedgerId,
         },
       })
       recordId = record.id
@@ -323,20 +344,22 @@ describe('Records E2E Tests', () => {
       const records = await Promise.all([
         prisma.record.create({
           data: {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
+            ledgerId: defaultLedgerId,
           },
         }),
         prisma.record.create({
           data: {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 200,
             category: 'transport',
             date: new Date('2024-01-16'),
+            ledgerId: defaultLedgerId,
           },
         }),
       ])
@@ -359,25 +382,28 @@ describe('Records E2E Tests', () => {
       await prisma.record.createMany({
         data: [
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
+            ledgerId: defaultLedgerId,
           },
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 200,
             category: 'transport',
             date: new Date('2024-01-16'),
+            ledgerId: defaultLedgerId,
           },
           {
-            userId,
+            userPhone,
             type: 'income',
             amount: 5000,
             category: 'salary',
             date: new Date('2024-01-01'),
+            ledgerId: defaultLedgerId,
           },
         ],
       })
@@ -418,25 +444,28 @@ describe('Records E2E Tests', () => {
       await prisma.record.createMany({
         data: [
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 100,
             category: 'food',
             date: new Date('2024-01-15'),
+            ledgerId: defaultLedgerId,
           },
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 200,
             category: 'food',
             date: new Date('2024-01-16'),
+            ledgerId: defaultLedgerId,
           },
           {
-            userId,
+            userPhone,
             type: 'expense',
             amount: 50,
             category: 'transport',
             date: new Date('2024-01-17'),
+            ledgerId: defaultLedgerId,
           },
         ],
       })

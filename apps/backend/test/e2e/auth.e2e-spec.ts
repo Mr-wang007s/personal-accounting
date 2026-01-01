@@ -29,29 +29,29 @@ describe('Auth E2E Tests', () => {
     await cleanDatabase(prisma)
   })
 
-  describe('POST /auth/dev/login', () => {
+  describe('POST /auth/phone/login', () => {
     it('should create and return user with token', async () => {
       const response = await request(app.getHttpServer())
-        .post('/auth/dev/login')
-        .send({ openid: 'test-openid-123' })
+        .post('/auth/phone/login')
+        .send({ phone: '13800138000' })
         .expect(200)
 
       expect(response.body).toHaveProperty('accessToken')
       expect(response.body).toHaveProperty('user')
-      expect(response.body.user.openid).toBe('test-openid-123')
+      expect(response.body.user.phone).toBe('13800138000')
     })
 
-    it('should return existing user if openid exists', async () => {
+    it('should return existing user if phone exists', async () => {
       // 第一次登录
       const firstResponse = await request(app.getHttpServer())
-        .post('/auth/dev/login')
-        .send({ openid: 'test-openid-456' })
+        .post('/auth/phone/login')
+        .send({ phone: '13800138002' })
         .expect(200)
 
       // 第二次登录
       const secondResponse = await request(app.getHttpServer())
-        .post('/auth/dev/login')
-        .send({ openid: 'test-openid-456' })
+        .post('/auth/phone/login')
+        .send({ phone: '13800138002' })
         .expect(200)
 
       expect(firstResponse.body.user.id).toBe(secondResponse.body.user.id)
@@ -59,8 +59,8 @@ describe('Auth E2E Tests', () => {
 
     it('should create user with nickname', async () => {
       const response = await request(app.getHttpServer())
-        .post('/auth/dev/login')
-        .send({ openid: 'test-openid-789', nickname: 'Test User' })
+        .post('/auth/phone/login')
+        .send({ phone: '13800138003', nickname: 'Test User' })
         .expect(200)
 
       expect(response.body.user.nickname).toBe('Test User')
@@ -71,8 +71,8 @@ describe('Auth E2E Tests', () => {
     beforeEach(async () => {
       // 先登录获取 token
       const loginResponse = await request(app.getHttpServer())
-        .post('/auth/dev/login')
-        .send({ openid: TEST_USER.openid, nickname: TEST_USER.nickname })
+        .post('/auth/phone/login')
+        .send({ phone: TEST_USER.phone, nickname: TEST_USER.nickname })
       authToken = loginResponse.body.accessToken
     })
 
@@ -82,7 +82,7 @@ describe('Auth E2E Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
 
-      expect(response.body.openid).toBe(TEST_USER.openid)
+      expect(response.body.phone).toBe(TEST_USER.phone)
       expect(response.body.nickname).toBe(TEST_USER.nickname)
     })
 
@@ -103,8 +103,8 @@ describe('Auth E2E Tests', () => {
   describe('POST /auth/refresh', () => {
     beforeEach(async () => {
       const loginResponse = await request(app.getHttpServer())
-        .post('/auth/dev/login')
-        .send({ openid: TEST_USER.openid })
+        .post('/auth/phone/login')
+        .send({ phone: TEST_USER.phone })
       authToken = loginResponse.body.accessToken
     })
 
@@ -115,7 +115,7 @@ describe('Auth E2E Tests', () => {
         .expect(200)
 
       expect(response.body).toHaveProperty('accessToken')
-      expect(response.body.user.openid).toBe(TEST_USER.openid)
+      expect(response.body.user.phone).toBe(TEST_USER.phone)
     })
   })
 })
