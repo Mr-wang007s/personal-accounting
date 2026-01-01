@@ -70,6 +70,7 @@ export interface UserProfile {
   createdAt: string
   updatedAt: string
   phone?: string
+  serverUrl?: string // 同步服务器地址
 }
 
 // API 相关类型

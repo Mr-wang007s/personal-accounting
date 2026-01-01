@@ -35,8 +35,8 @@ export function ProfilePage(_props: ProfilePageProps) {
   const [showSyncConfig, setShowSyncConfig] = useState(false)
   const [showNewLedger, setShowNewLedger] = useState(false)
   const [newLedgerName, setNewLedgerName] = useState('')
-  const [inputUrl, setInputUrl] = useState(serverUrl || 'http://127.0.0.1:3000')
-  const [inputPhone, setInputPhone] = useState('')
+  const [inputUrl, setInputUrl] = useState(serverUrl || userProfile?.serverUrl || 'http://127.0.0.1:3000')
+  const [inputPhone, setInputPhone] = useState(userProfile?.phone || '')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -127,7 +127,9 @@ export function ProfilePage(_props: ProfilePageProps) {
       <div className="pt-4 pb-6">
         <h1 className="text-xl font-bold text-center text-slate-800">我的</h1>
         {userProfile && (
-          <p className="text-sm text-slate-500 text-center mt-1">{userProfile.nickname}</p>
+          <p className="text-sm text-slate-500 text-center mt-1">
+            {userProfile.nickname}{userProfile.phone ? ` · ${userProfile.phone}` : ''}
+          </p>
         )}
       </div>
 
