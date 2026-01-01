@@ -37,6 +37,30 @@ interface MonthlyTrendDisplay extends MonthlyData {
   isSelected: boolean
 }
 
+interface CategoryPieData {
+  category: string
+  name: string
+  amount: number
+  percentage: number
+  percentDisplay: string
+  color: string
+  rotation: number
+}
+
+interface BarDetailData {
+  month: string
+  income: string
+  expense: string
+  balance: string
+  balancePositive: boolean
+  total: string
+  incomePercent: number
+  expensePercent: number
+  hasData: boolean
+  expenseCategories: CategoryPieData[]
+  incomeCategories: CategoryPieData[]
+}
+
 // 时间范围选项
 type TimeRange = 'month' | '3months' | '6months' | 'year' | 'all'
 
@@ -85,7 +109,14 @@ Page({
       income: '0.00',
       expense: '0.00',
       balance: '0.00',
-    },
+      balancePositive: true,
+      total: '0.00',
+      incomePercent: 0,
+      expensePercent: 0,
+      hasData: false,
+      expenseCategories: [] as CategoryPieData[],
+      incomeCategories: [] as CategoryPieData[],
+    } as BarDetailData,
     
     // 图表滚动
     needScroll: false,
@@ -295,7 +326,43 @@ Page({
       isSelected: i === index,
     }))
 
+    // 获取该月的详细数据
+    const app = getApp<IAppOption>()
+    const { currentLedger } = app.globalData
+    if (!currentLedger) return
+
+    // 解析月份获取年月
+    const monthStr = item.month // 格式如 "1月", "12月"
+    const monthNum = parseInt(monthStr.replace('月', ''), 10)
+    const now = new Date()
+    let year = now.getFullYear()
+    
+    // 如果当前月份小于选中月份，说明是去年的数据
+    if (now.getMonth() + 1 < monthNum) {
+      year = year - 1
+    }
+
+    // 获取该月记录
+    const monthRecords = RecordService.getRecordsByMonth(currentLedger.id, year, monthNum)
+    
+    // 计算分类统计
+    const expenseRecords = monthRecords.filter(r => r.type === 'expense')
+    const incomeRecords = monthRecords.filter(r => r.type === 'income')
+    
+    const expenseStats = RecordService.calculateStatistics(expenseRecords)
+    const incomeStats = RecordService.calculateStatistics(incomeRecords)
+    
+    // 计算饼状图数据
+    const expenseCategories = this.calculatePieData(expenseStats.categoryBreakdown)
+    const incomeCategories = this.calculatePieData(incomeStats.categoryBreakdown)
+    
+    // 计算收支占比
+    const total = item.income + item.expense
+    const incomePercent = total > 0 ? Math.round((item.income / total) * 100) : 0
+    const expensePercent = total > 0 ? 100 - incomePercent : 0
+    
     const balance = item.income - item.expense
+    
     this.setData({
       monthlyTrend,
       showBarDetail: true,
@@ -303,8 +370,33 @@ Page({
         month: item.month,
         income: formatAmount(item.income),
         expense: formatAmount(item.expense),
-        balance: (balance >= 0 ? '+' : '') + formatAmount(balance),
+        balance: formatAmount(Math.abs(balance)),
+        balancePositive: balance >= 0,
+        total: formatAmount(total),
+        incomePercent,
+        expensePercent,
+        hasData: monthRecords.length > 0,
+        expenseCategories,
+        incomeCategories,
       },
+    })
+  },
+
+  // 计算饼状图数据
+  calculatePieData(categoryBreakdown: CategoryBreakdownDisplay[]): CategoryPieData[] {
+    let rotation = 0
+    return categoryBreakdown.map(c => {
+      const data: CategoryPieData = {
+        category: c.category,
+        name: c.name || c.category,
+        amount: c.amount,
+        percentage: c.percentage,
+        percentDisplay: c.percentage.toFixed(1),
+        color: c.color,
+        rotation,
+      }
+      rotation += c.percentage * 3.6 // 转换为角度
+      return data
     })
   },
 

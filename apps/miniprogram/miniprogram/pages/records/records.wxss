@@ -695,7 +695,7 @@
   font-size: 26rpx;
 }
 
-/* 柱状图详情弹窗 */
+/* 柱状图详情弹窗 - 增强版 */
 .bar-detail-popup {
   position: fixed;
   top: 0;
@@ -726,6 +726,12 @@
   transition: transform 0.3s ease;
 }
 
+.popup-content.enhanced {
+  width: 640rpx;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
 .bar-detail-popup.show .popup-content {
   transform: scale(1);
 }
@@ -736,6 +742,10 @@
   align-items: center;
   padding: 32rpx;
   border-bottom: 1rpx solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-primary);
+  z-index: 10;
 }
 
 .popup-title {
@@ -760,42 +770,246 @@
 }
 
 .popup-body {
-  padding: 32rpx;
+  padding: 24rpx 32rpx 32rpx;
 }
 
-.detail-row {
+/* 收支概览卡片 */
+.overview-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16rpx 0;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
 }
 
-.detail-label {
-  font-size: 28rpx;
+.overview-item {
+  flex: 1;
+  padding: 20rpx;
+  border-radius: 16rpx;
+  text-align: center;
+}
+
+.overview-item.income-item {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+}
+
+.overview-item.expense-item {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+}
+
+.overview-label {
+  font-size: 24rpx;
   color: var(--text-secondary);
+  display: block;
+  margin-bottom: 8rpx;
 }
 
-.detail-value {
+.overview-value {
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.detail-value.income {
+.overview-value.income {
   color: #10B981;
 }
 
-.detail-value.expense {
+.overview-value.expense {
   color: #EF4444;
 }
 
-.detail-value.balance {
-  color: var(--primary-color);
+/* 结余行 */
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  background-color: var(--bg-tertiary);
+  border-radius: 12rpx;
+  margin-bottom: 24rpx;
 }
 
-.detail-divider {
-  height: 1rpx;
-  background-color: var(--border-color);
-  margin: 16rpx 0;
+.balance-label {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.balance-value {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.balance-value.positive {
+  color: #10B981;
+}
+
+.balance-value.negative {
+  color: #EF4444;
+}
+
+/* 图表区块 */
+.chart-section {
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border-color);
+}
+
+.chart-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+/* 环形图 - 收支对比 */
+.ring-chart-container {
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.ring-chart {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  position: relative;
+  background: conic-gradient(
+    #10B981 0deg calc(var(--percentage) * 3.6deg),
+    #EF4444 calc(var(--percentage) * 3.6deg) 360deg
+  );
+}
+
+.ring-segment {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.ring-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100rpx;
+  height: 100rpx;
+  background-color: var(--bg-primary);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-total-label {
+  font-size: 20rpx;
+  color: var(--text-muted);
+}
+
+.ring-total-value {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ring-legend {
+  flex: 1;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.legend-color {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 6rpx;
+}
+
+.legend-color.income {
+  background-color: #10B981;
+}
+
+.legend-color.expense {
+  background-color: #EF4444;
+}
+
+.legend-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* 饼状图 - 分类占比 */
+.pie-chart-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 24rpx;
+}
+
+.pie-chart {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  position: relative;
+  background-color: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+
+.pie-segment {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%);
+  background: conic-gradient(
+    var(--color) 0deg calc(var(--percentage) * 3.6deg),
+    transparent calc(var(--percentage) * 3.6deg) 360deg
+  );
+  transform: rotate(var(--rotation));
+}
+
+.pie-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.pie-legend-color {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 4rpx;
+  flex-shrink: 0;
+}
+
+.pie-legend-name {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pie-legend-percent {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* 无数据提示 */
+.no-data-hint {
+  text-align: center;
+  padding: 40rpx 0;
+  color: var(--text-muted);
+  font-size: 26rpx;
 }
 
 /* 空状态 */

@@ -160,26 +160,114 @@
       </view>
     </view>
 
-    <!-- 柱状图详情弹窗 -->
+    <!-- 柱状图详情弹窗 - 增强版带饼状图 -->
     <view class="bar-detail-popup {{showBarDetail ? 'show' : ''}}" bindtap="closeBarDetail">
-      <view class="popup-content" catchtap="">
+      <view class="popup-content enhanced" catchtap="">
         <view class="popup-header">
           <text class="popup-title">{{barDetailData.month}} 收支详情</text>
           <view class="popup-close" bindtap="closeBarDetail">×</view>
         </view>
         <view class="popup-body">
-          <view class="detail-row">
-            <text class="detail-label">收入</text>
-            <text class="detail-value income">+¥{{barDetailData.income}}</text>
+          <!-- 收支概览卡片 -->
+          <view class="overview-row">
+            <view class="overview-item income-item">
+              <text class="overview-label">收入</text>
+              <text class="overview-value income">+¥{{barDetailData.income}}</text>
+            </view>
+            <view class="overview-item expense-item">
+              <text class="overview-label">支出</text>
+              <text class="overview-value expense">-¥{{barDetailData.expense}}</text>
+            </view>
           </view>
-          <view class="detail-row">
-            <text class="detail-label">支出</text>
-            <text class="detail-value expense">-¥{{barDetailData.expense}}</text>
+          
+          <!-- 结余 -->
+          <view class="balance-row">
+            <text class="balance-label">结余</text>
+            <text class="balance-value {{barDetailData.balancePositive ? 'positive' : 'negative'}}">¥{{barDetailData.balance}}</text>
           </view>
-          <view class="detail-divider"></view>
-          <view class="detail-row">
-            <text class="detail-label">结余</text>
-            <text class="detail-value balance">¥{{barDetailData.balance}}</text>
+          
+          <!-- 收支对比环形图 -->
+          <view class="chart-section" wx:if="{{barDetailData.hasData}}">
+            <text class="chart-title">收支对比</text>
+            <view class="ring-chart-container">
+              <view class="ring-chart">
+                <view class="ring-segment income-segment" style="--percentage: {{barDetailData.incomePercent}};"></view>
+                <view class="ring-segment expense-segment" style="--percentage: {{barDetailData.expensePercent}}; --rotation: {{barDetailData.incomePercent * 3.6}}deg;"></view>
+                <view class="ring-center">
+                  <text class="ring-total-label">总额</text>
+                  <text class="ring-total-value">¥{{barDetailData.total}}</text>
+                </view>
+              </view>
+              <view class="ring-legend">
+                <view class="legend-row">
+                  <view class="legend-color income"></view>
+                  <text class="legend-text">收入 {{barDetailData.incomePercent}}%</text>
+                </view>
+                <view class="legend-row">
+                  <view class="legend-color expense"></view>
+                  <text class="legend-text">支出 {{barDetailData.expensePercent}}%</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          
+          <!-- 分类饼状图 - 支出 -->
+          <view class="chart-section" wx:if="{{barDetailData.expenseCategories.length > 0}}">
+            <text class="chart-title">支出分类占比</text>
+            <view class="pie-chart-container">
+              <view class="pie-chart">
+                <view 
+                  class="pie-segment" 
+                  wx:for="{{barDetailData.expenseCategories}}" 
+                  wx:key="category"
+                  style="--color: {{item.color}}; --percentage: {{item.percentage}}; --rotation: {{item.rotation}}deg;"
+                ></view>
+              </view>
+              <view class="pie-legend">
+                <view 
+                  class="pie-legend-item" 
+                  wx:for="{{barDetailData.expenseCategories}}" 
+                  wx:key="category"
+                  wx:if="{{index < 5}}"
+                >
+                  <view class="pie-legend-color" style="background-color: {{item.color}};"></view>
+                  <text class="pie-legend-name">{{item.name}}</text>
+                  <text class="pie-legend-percent">{{item.percentDisplay}}%</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          
+          <!-- 分类饼状图 - 收入 -->
+          <view class="chart-section" wx:if="{{barDetailData.incomeCategories.length > 0}}">
+            <text class="chart-title">收入分类占比</text>
+            <view class="pie-chart-container">
+              <view class="pie-chart">
+                <view 
+                  class="pie-segment" 
+                  wx:for="{{barDetailData.incomeCategories}}" 
+                  wx:key="category"
+                  style="--color: {{item.color}}; --percentage: {{item.percentage}}; --rotation: {{item.rotation}}deg;"
+                ></view>
+              </view>
+              <view class="pie-legend">
+                <view 
+                  class="pie-legend-item" 
+                  wx:for="{{barDetailData.incomeCategories}}" 
+                  wx:key="category"
+                  wx:if="{{index < 5}}"
+                >
+                  <view class="pie-legend-color" style="background-color: {{item.color}};"></view>
+                  <text class="pie-legend-name">{{item.name}}</text>
+                  <text class="pie-legend-percent">{{item.percentDisplay}}%</text>
+                </view>
+              </view>
+            </view>
+          </view>
+          
+          <!-- 无数据提示 -->
+          <view class="no-data-hint" wx:if="{{!barDetailData.hasData}}">
+            <text>该月暂无记录数据</text>
           </view>
         </view>
       </view>
