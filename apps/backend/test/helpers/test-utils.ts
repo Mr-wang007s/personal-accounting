@@ -5,10 +5,12 @@ import { PrismaService } from '../../src/prisma/prisma.service'
 
 // 测试用户数据
 export const TEST_USER = {
+  phone: '13800138001',
+  nickname: 'Test User',
+  avatar: null as string | null,
+  // 兼容字段：部分旧测试/逻辑可能仍会用到
   id: 'test-user-001',
   openid: 'test-openid-001',
-  nickname: 'Test User',
-  avatar: null,
 }
 
 /**
@@ -56,10 +58,10 @@ export async function cleanDatabase(prisma: PrismaService): Promise<void> {
  */
 export async function createTestUser(prisma: PrismaService) {
   return prisma.user.upsert({
-    where: { openid: TEST_USER.openid },
+    where: { phone: TEST_USER.phone },
     update: {},
     create: {
-      id: TEST_USER.id,
+      phone: TEST_USER.phone,
       openid: TEST_USER.openid,
       nickname: TEST_USER.nickname,
       avatar: TEST_USER.avatar,
