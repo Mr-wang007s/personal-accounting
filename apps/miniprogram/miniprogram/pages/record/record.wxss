@@ -236,54 +236,138 @@
   box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: row;
-  gap: 16rpx;
+  gap: 20rpx;
   z-index: 2;
 }
 
+/* 保存按钮 */
 .btn-save {
-  flex: 3;
-  padding: 32rpx;
-  border-radius: var(--radius-lg);
+  flex: 1;
+  padding: 0;
+  height: 100rpx;
+  border-radius: 50rpx;
   font-size: 32rpx;
   font-weight: 700;
   color: #FFFFFF;
   border: none;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative;
 }
 
-.btn-save:active {
-  transform: scale(0.98);
+.btn-save .btn-content,
+.btn-save .btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12rpx;
+}
+
+.btn-save .btn-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.btn-save:active:not([disabled]) {
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
 .btn-save.expense {
   background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-  box-shadow: 0 8rpx 24rpx rgba(239, 68, 68, 0.35);
+  box-shadow: 0 8rpx 28rpx rgba(239, 68, 68, 0.4);
 }
 
 .btn-save.income {
   background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-  box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.35);
+  box-shadow: 0 8rpx 28rpx rgba(16, 185, 129, 0.4);
+}
+
+.btn-save.expense:active:not([disabled]) {
+  box-shadow: 0 4rpx 16rpx rgba(239, 68, 68, 0.5);
+}
+
+.btn-save.income:active:not([disabled]) {
+  box-shadow: 0 4rpx 16rpx rgba(16, 185, 129, 0.5);
 }
 
 .btn-save[disabled] {
-  background: var(--text-muted);
+  background: linear-gradient(135deg, #CBD5E1 0%, #94A3B8 100%);
   opacity: 0.6;
   box-shadow: none;
 }
 
-.btn-delete {
-  flex: 1;
-  padding: 32rpx;
-  border-radius: var(--radius-lg);
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--danger-color);
-  background-color: rgba(239, 68, 68, 0.1);
-  border: none;
-  transition: all 0.2s;
+.btn-save.loading {
+  pointer-events: none;
 }
 
-.btn-delete:active {
-  background-color: rgba(239, 68, 68, 0.2);
-  transform: scale(0.98);
+/* 删除按钮 */
+.btn-delete {
+  width: 100rpx;
+  height: 100rpx;
+  padding: 0;
+  border-radius: 50rpx;
+  font-size: 0;
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.08);
+  border: 2rpx solid rgba(239, 68, 68, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-delete .btn-content,
+.btn-delete .btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.btn-delete .btn-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.btn-delete:active:not([disabled]) {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  transform: scale(0.95);
+}
+
+.btn-delete.loading {
+  pointer-events: none;
+}
+
+/* 加载动画 */
+.loading-spinner {
+  width: 36rpx;
+  height: 36rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-spinner.red {
+  border-color: rgba(239, 68, 68, 0.2);
+  border-top-color: #EF4444;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 按钮文字 */
+.btn-save text,
+.btn-loading text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #FFFFFF;
 }

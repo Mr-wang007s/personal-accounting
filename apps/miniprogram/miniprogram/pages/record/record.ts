@@ -24,6 +24,9 @@ Page({
     editId: '',
     canSave: false,
     amountFocus: true,
+    // 加载状态
+    isSaving: false,
+    isDeleting: false,
   },
 
   onLoad(options) {
@@ -165,8 +168,11 @@ Page({
   },
 
   // 保存记录
-  saveRecord() {
-    const { type, amount, selectedCategory, date, note, isEdit, editId } = this.data
+  async saveRecord() {
+    const { type, amount, selectedCategory, date, note, isEdit, editId, isSaving } = this.data
+    
+    if (isSaving) return
+    
     const numAmount = parseFloat(amount)
 
     if (isNaN(numAmount) || numAmount <= 0) {
@@ -187,58 +193,96 @@ Page({
       return
     }
 
-    if (isEdit && editId) {
-      // 更新记录
-      RecordService.updateRecord(editId, {
-        type,
-        amount: numAmount,
-        category: selectedCategory,
-        date,
-        note: note || undefined,
+    // 开始保存动画
+    this.setData({ isSaving: true })
+    
+    // 添加短暂延迟，让用户看到加载动画
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    try {
+      if (isEdit && editId) {
+        // 更新记录
+        RecordService.updateRecord(editId, {
+          type,
+          amount: numAmount,
+          category: selectedCategory,
+          date,
+          note: note || undefined,
+        })
+      } else {
+        // 新增记录
+        RecordService.addRecord({
+          type,
+          amount: numAmount,
+          category: selectedCategory,
+          date,
+          note: note || undefined,
+          ledgerId,
+        })
+      }
+
+      // 刷新全局数据
+      app.refreshData()
+
+      // 显示成功提示
+      wx.showToast({ 
+        title: isEdit ? '修改成功' : '保存成功', 
+        icon: 'success',
+        duration: 1200,
       })
-      wx.showToast({ title: '修改成功', icon: 'success' })
-    } else {
-      // 新增记录
-      RecordService.addRecord({
-        type,
-        amount: numAmount,
-        category: selectedCategory,
-        date,
-        note: note || undefined,
-        ledgerId,
-      })
-      wx.showToast({ title: '保存成功', icon: 'success' })
+
+      // 震动反馈
+      wx.vibrateShort({ type: 'light' })
+
+      // 返回上一页
+      setTimeout(() => {
+        wx.navigateBack()
+      }, 800)
+    } catch (error) {
+      this.setData({ isSaving: false })
+      wx.showToast({ title: '保存失败', icon: 'none' })
     }
-
-    // 刷新全局数据
-    app.refreshData()
-
-    // 返回上一页
-    setTimeout(() => {
-      wx.navigateBack()
-    }, 500)
   },
 
   // 删除记录
   deleteRecord() {
-    const { editId } = this.data
+    const { editId, isDeleting } = this.data
+    
+    if (isDeleting) return
 
-    wx.showModal({
-      title: '确认删除',
-      content: '删除后无法恢复，确定要删除这条记录吗？',
-      confirmColor: '#EF4444',
-      success: (res) => {
-        if (res.confirm) {
-          RecordService.deleteRecord(editId)
+    // 使用 ActionSheet 替代 Modal，更现代的交互
+    wx.showActionSheet({
+      itemList: ['删除记录'],
+      itemColor: '#EF4444',
+      success: async (res) => {
+        if (res.tapIndex === 0) {
+          this.setData({ isDeleting: true })
+          
+          // 添加短暂延迟
+          await new Promise(resolve => setTimeout(resolve, 300))
+          
+          try {
+            RecordService.deleteRecord(editId)
 
-          const app = getApp<IAppOption>()
-          app.refreshData()
+            const app = getApp<IAppOption>()
+            app.refreshData()
 
-          wx.showToast({ title: '已删除', icon: 'success' })
+            // 震动反馈
+            wx.vibrateShort({ type: 'medium' })
 
-          setTimeout(() => {
-            wx.navigateBack()
-          }, 500)
+            wx.showToast({ 
+              title: '已删除', 
+              icon: 'success',
+              duration: 1200,
+            })
+
+            setTimeout(() => {
+              wx.navigateBack()
+            }, 800)
+          } catch (error) {
+            this.setData({ isDeleting: false })
+            wx.showToast({ title: '删除失败', icon: 'none' })
+          }
         }
       }
     })
