@@ -58,29 +58,6 @@
     </view>
   </view>
   
-  <!-- 数据管理 -->
-  <view class="section">
-    <text class="section-title">数据管理</text>
-    
-    <view class="menu-list">
-      <view class="menu-item" bindtap="exportData">
-        <view class="menu-icon default">
-          <image src="/assets/icons/download.png" mode="aspectFit"></image>
-        </view>
-        <text class="menu-text">导出数据</text>
-        <image class="menu-arrow" src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
-      </view>
-      
-      <view class="menu-item danger" bindtap="clearCurrentLedgerData">
-        <view class="menu-icon danger">
-          <image src="/assets/icons/trash.png" mode="aspectFit"></image>
-        </view>
-        <text class="menu-text">清除当前账本数据</text>
-        <image class="menu-arrow" src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
-      </view>
-    </view>
-  </view>
-  
   <!-- 关于 -->
   <view class="section">
     <text class="section-title">关于</text>

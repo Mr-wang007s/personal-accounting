@@ -3,7 +3,6 @@
  */
 import type { Ledger, UserProfile } from '../../shared/types'
 import { LedgerService } from '../../services/ledger'
-import { StorageService } from '../../services/storage'
 
 interface LedgerDisplay extends Ledger {
   recordCount: number
@@ -147,47 +146,4 @@ Page({
     })
   },
 
-  // 导出数据
-  exportData() {
-    const app = getApp<IAppOption>()
-    const { records, ledgers, userProfile } = app.globalData
-
-    const exportData = {
-      exportTime: new Date().toISOString(),
-      userProfile,
-      ledgers,
-      records,
-    }
-
-    // 复制到剪贴板
-    wx.setClipboardData({
-      data: JSON.stringify(exportData, null, 2),
-      success: () => {
-        wx.showToast({ title: '数据已复制到剪贴板', icon: 'none' })
-      }
-    })
-  },
-
-  // 清除当前账本数据
-  clearCurrentLedgerData() {
-    const { currentLedger } = this.data
-    if (!currentLedger) return
-
-    wx.showModal({
-      title: '确认清除',
-      content: `确定要清除账本"${currentLedger.name}"的所有记录吗？此操作不可恢复。`,
-      confirmColor: '#EF4444',
-      success: (res) => {
-        if (res.confirm) {
-          StorageService.clearLedgerData(currentLedger.id)
-
-          const app = getApp<IAppOption>()
-          app.refreshData()
-
-          wx.showToast({ title: '已清除', icon: 'success' })
-          this.loadData()
-        }
-      }
-    })
-  },
 })
