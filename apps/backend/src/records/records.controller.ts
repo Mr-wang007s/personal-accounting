@@ -37,7 +37,8 @@ export class RecordsController {
   @Post()
   @ApiOperation({ summary: '创建记账记录' })
   async create(@CurrentUser() user: User, @Body() dto: CreateRecordDto) {
-    const record = await this.recordsService.create(user.id, dto)
+    // 使用 phone 作为稳定标识，用户注销重注册后数据不丢失
+    const record = await this.recordsService.create(user.phone, dto)
     return {
       id: record.id,
       type: record.type,
@@ -52,7 +53,7 @@ export class RecordsController {
   @Get()
   @ApiOperation({ summary: '查询记账记录列表' })
   async findAll(@CurrentUser() user: User, @Query() query: QueryRecordsDto) {
-    return this.recordsService.findAll(user.id, query)
+    return this.recordsService.findAll(user.phone, query)
   }
 
   @Get('statistics')
@@ -62,7 +63,7 @@ export class RecordsController {
     @Query() query: StatisticsQueryDto,
   ) {
     return this.recordsService.getStatistics(
-      user.id,
+      user.phone,
       query.startDate,
       query.endDate,
     )
@@ -75,7 +76,7 @@ export class RecordsController {
     @Query('year') year: number,
   ) {
     return this.recordsService.getMonthlyTrend(
-      user.id,
+      user.phone,
       year || new Date().getFullYear(),
     )
   }
@@ -89,7 +90,7 @@ export class RecordsController {
     @Query('endDate') endDate: string,
   ) {
     return this.recordsService.getCategoryBreakdown(
-      user.id,
+      user.phone,
       type,
       startDate,
       endDate,
@@ -99,7 +100,7 @@ export class RecordsController {
   @Get(':id')
   @ApiOperation({ summary: '获取单条记账记录' })
   async findOne(@CurrentUser() user: User, @Param('id') id: string) {
-    const record = await this.recordsService.findOne(user.id, id)
+    const record = await this.recordsService.findOne(user.phone, id)
     return {
       id: record.id,
       type: record.type,
@@ -118,7 +119,7 @@ export class RecordsController {
     @Param('id') id: string,
     @Body() dto: UpdateRecordDto,
   ) {
-    const record = await this.recordsService.update(user.id, id, dto)
+    const record = await this.recordsService.update(user.phone, id, dto)
     return {
       id: record.id,
       type: record.type,
@@ -135,14 +136,14 @@ export class RecordsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: '删除记账记录' })
   async remove(@CurrentUser() user: User, @Param('id') id: string) {
-    await this.recordsService.remove(user.id, id)
+    await this.recordsService.remove(user.phone, id)
   }
 
   @Post('batch-delete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除记账记录' })
   async batchDelete(@CurrentUser() user: User, @Body('ids') ids: string[]) {
-    const count = await this.recordsService.removeMany(user.id, ids)
+    const count = await this.recordsService.removeMany(user.phone, ids)
     return { deleted: count }
   }
 }

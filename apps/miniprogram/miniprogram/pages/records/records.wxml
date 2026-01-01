@@ -86,6 +86,19 @@
   
   <!-- 统计分析 -->
   <view class="tab-content" wx:if="{{activeTab === 'stats'}}">
+    <!-- 时间范围选择器 -->
+    <view class="time-range-selector">
+      <view 
+        class="range-option {{selectedTimeRange === item.key ? 'active' : ''}}" 
+        wx:for="{{timeRangeOptions}}" 
+        wx:key="key"
+        bindtap="onTimeRangeChange"
+        data-range="{{item.key}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+
     <!-- 总览卡片 -->
     <view class="stats-overview">
       <view class="overview-card income-card">
@@ -100,12 +113,27 @@
     
     <!-- 月度趋势 -->
     <view class="stats-section">
-      <text class="section-title">近6个月收支趋势</text>
+      <view class="section-header">
+        <text class="section-title">收支趋势</text>
+        <text class="section-hint">点击柱状图查看详情</text>
+      </view>
       <view class="trend-chart">
         <view class="chart-bars">
-          <view class="bar-group" wx:for="{{monthlyTrend}}" wx:key="month">
-            <view class="bar income-bar" style="height: {{item.incomeHeight}}rpx;"></view>
-            <view class="bar expense-bar" style="height: {{item.expenseHeight}}rpx;"></view>
+          <view 
+            class="bar-group {{item.isSelected ? 'selected' : ''}}" 
+            wx:for="{{monthlyTrend}}" 
+            wx:key="month"
+            bindtap="onBarTap"
+            data-index="{{index}}"
+          >
+            <view class="bar-wrapper">
+              <view class="bar income-bar" style="height: {{item.incomeHeight}}rpx;">
+                <view class="bar-tooltip" wx:if="{{item.isSelected}}">{{item.incomeDisplay}}</view>
+              </view>
+              <view class="bar expense-bar" style="height: {{item.expenseHeight}}rpx;">
+                <view class="bar-tooltip expense" wx:if="{{item.isSelected}}">{{item.expenseDisplay}}</view>
+              </view>
+            </view>
             <text class="bar-label">{{item.month}}</text>
           </view>
         </view>
@@ -121,12 +149,63 @@
         </view>
       </view>
     </view>
+
+    <!-- 柱状图详情弹窗 -->
+    <view class="bar-detail-popup {{showBarDetail ? 'show' : ''}}" bindtap="closeBarDetail">
+      <view class="popup-content" catchtap="">
+        <view class="popup-header">
+          <text class="popup-title">{{barDetailData.month}} 收支详情</text>
+          <view class="popup-close" bindtap="closeBarDetail">×</view>
+        </view>
+        <view class="popup-body">
+          <view class="detail-row">
+            <text class="detail-label">收入</text>
+            <text class="detail-value income">+¥{{barDetailData.income}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">支出</text>
+            <text class="detail-value expense">-¥{{barDetailData.expense}}</text>
+          </view>
+          <view class="detail-divider"></view>
+          <view class="detail-row">
+            <text class="detail-label">结余</text>
+            <text class="detail-value balance">¥{{barDetailData.balance}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
     
-    <!-- 支出分类占比 -->
-    <view class="stats-section" wx:if="{{categoryBreakdown.length > 0}}">
-      <text class="section-title">支出分类占比</text>
-      <view class="category-list">
-        <view class="category-item" wx:for="{{categoryBreakdown}}" wx:key="category">
+    <!-- 分类占比 - 带收入/支出切换 -->
+    <view class="stats-section">
+      <view class="section-header">
+        <text class="section-title">分类占比</text>
+        <view class="stats-type-toggle">
+          <view 
+            class="toggle-option {{statsType === 'expense' ? 'active' : ''}}" 
+            bindtap="onStatsTypeChange" 
+            data-type="expense"
+          >
+            <text>支出</text>
+          </view>
+          <view 
+            class="toggle-option {{statsType === 'income' ? 'active' : ''}}" 
+            bindtap="onStatsTypeChange" 
+            data-type="income"
+          >
+            <text>收入</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="category-list" wx:if="{{categoryBreakdown.length > 0}}">
+        <view 
+          class="category-item" 
+          wx:for="{{categoryBreakdown}}" 
+          wx:key="category"
+          bindtap="onCategoryTap"
+          data-category="{{item.category}}"
+          data-name="{{item.name}}"
+        >
           <view class="category-left">
             <view class="category-icon" style="background-color: {{item.color}}20;">
               <image src="/assets/icons/category/{{item.icon}}.png" mode="aspectFit"></image>
@@ -138,11 +217,18 @@
             <text class="category-percent">{{item.percentDisplay}}%</text>
           </view>
           <view class="category-bar" style="width: {{item.percentage}}%; background-color: {{item.color}};"></view>
+          <view class="category-arrow">
+            <image src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
+          </view>
         </view>
+      </view>
+      
+      <view class="empty-category" wx:else>
+        <text>暂无{{statsType === 'expense' ? '支出' : '收入'}}数据</text>
       </view>
     </view>
     
-    <view class="empty-state" wx:if="{{categoryBreakdown.length === 0}}">
+    <view class="empty-state" wx:if="{{categoryBreakdown.length === 0 && monthlyTrend.length === 0}}">
       <image src="/assets/icons/empty.png" mode="aspectFit"></image>
       <text>暂无统计数据</text>
     </view>

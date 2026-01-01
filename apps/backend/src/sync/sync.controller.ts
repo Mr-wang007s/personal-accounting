@@ -26,7 +26,8 @@ export class SyncController {
     @CurrentUser() user: User,
     @Body() dto: BackupLedgersDto,
   ) {
-    return this.syncService.backupLedgers(user.id, dto)
+    // 使用 phone 作为稳定标识，用户注销重注册后数据不丢失
+    return this.syncService.backupLedgers(user.phone, dto)
   }
 
   @Post('backup')
@@ -35,13 +36,13 @@ export class SyncController {
     @CurrentUser() user: User,
     @Body() dto: BackupDto,
   ) {
-    return this.syncService.backup(user.id, dto)
+    return this.syncService.backup(user.phone, dto)
   }
 
   @Get('restore')
   @ApiOperation({ summary: '恢复：从云端下载所有账本和记录' })
   async restore(@CurrentUser() user: User) {
-    return this.syncService.restore(user.id)
+    return this.syncService.restore(user.phone)
   }
 
   @Post('delete-cloud')
@@ -50,6 +51,6 @@ export class SyncController {
     @CurrentUser() user: User,
     @Body() dto: DeleteCloudRecordsDto,
   ) {
-    return this.syncService.deleteCloudRecords(user.id, dto)
+    return this.syncService.deleteCloudRecords(user.phone, dto)
   }
 }

@@ -77,9 +77,10 @@ export class SyncService {
    * 备份账本：将本地账本上传到云端
    * - 如果 clientId 已存在，更新云端账本
    * - 如果 clientId 不存在，创建新账本
+   * @param userPhone 用户手机号（稳定标识）
    */
-  async backupLedgers(userId: string, dto: BackupLedgersDto): Promise<BackupLedgersResult> {
-    this.logger.log(`[BackupLedgers] userId=${userId}, ledgers=${dto.ledgers.length}`)
+  async backupLedgers(userPhone: string, dto: BackupLedgersDto): Promise<BackupLedgersResult> {
+    this.logger.log(`[BackupLedgers] userPhone=${userPhone}, ledgers=${dto.ledgers.length}`)
     
     const results: Array<{ clientId: string; serverId: string }> = []
     const errors: Array<{ clientId: string; error: string }> = []
@@ -89,7 +90,7 @@ export class SyncService {
       try {
         // 检查是否已存在（按 clientId 查找）
         const existing = await this.prisma.ledger.findFirst({
-          where: { userId, clientId: ledger.clientId, deletedAt: null },
+          where: { userPhone, clientId: ledger.clientId, deletedAt: null },
         })
 
         if (existing) {
@@ -109,7 +110,7 @@ export class SyncService {
           const created = await this.prisma.ledger.create({
             data: {
               id: ledger.clientId, // 使用 clientId 作为 serverId
-              userId,
+              userPhone,
               name: ledger.name,
               icon: ledger.icon,
               color: ledger.color,
@@ -140,9 +141,10 @@ export class SyncService {
    * 备份：将本地记录上传到云端
    * - 如果 clientId 已存在，更新云端记录
    * - 如果 clientId 不存在，创建新记录
+   * @param userPhone 用户手机号（稳定标识）
    */
-  async backup(userId: string, dto: BackupDto): Promise<BackupResult> {
-    this.logger.log(`[Backup] userId=${userId}, records=${dto.records.length}`)
+  async backup(userPhone: string, dto: BackupDto): Promise<BackupResult> {
+    this.logger.log(`[Backup] userPhone=${userPhone}, records=${dto.records.length}`)
     
     const results: Array<{ clientId: string; serverId: string }> = []
     const errors: Array<{ clientId: string; error: string }> = []
@@ -152,7 +154,7 @@ export class SyncService {
       try {
         // 检查账本是否存在
         const ledger = await this.prisma.ledger.findFirst({
-          where: { id: record.ledgerId, userId, deletedAt: null },
+          where: { id: record.ledgerId, userPhone, deletedAt: null },
         })
         
         if (!ledger) {
@@ -164,7 +166,7 @@ export class SyncService {
 
         // 检查是否已存在
         const existing = await this.prisma.record.findFirst({
-          where: { userId, clientId: record.clientId, deletedAt: null },
+          where: { userPhone, clientId: record.clientId, deletedAt: null },
         })
 
         if (existing) {
@@ -186,7 +188,7 @@ export class SyncService {
           // 创建新记录
           const created = await this.prisma.record.create({
             data: {
-              userId,
+              userPhone,
               type: record.type as RecordType,
               amount: record.amount,
               category: record.category,
@@ -209,7 +211,7 @@ export class SyncService {
     }
 
     // 清除缓存
-    this.cache.del(CacheService.keys.userRecords(userId))
+    this.cache.del(CacheService.keys.userRecords(userPhone))
 
     return {
       success: errors.length === 0,
@@ -221,13 +223,14 @@ export class SyncService {
 
   /**
    * 恢复：从云端下载所有账本和记录到本地
+   * @param userPhone 用户手机号（稳定标识）
    */
-  async restore(userId: string): Promise<RestoreResult> {
-    this.logger.log(`[Restore] userId=${userId}`)
+  async restore(userPhone: string): Promise<RestoreResult> {
+    this.logger.log(`[Restore] userPhone=${userPhone}`)
 
     // 获取账本
     const ledgers = await this.prisma.ledger.findMany({
-      where: { userId, deletedAt: null },
+      where: { userPhone, deletedAt: null },
       orderBy: { createdAt: 'asc' },
     })
 
@@ -243,7 +246,7 @@ export class SyncService {
 
     // 获取记录
     const records = await this.prisma.record.findMany({
-      where: { userId, deletedAt: null },
+      where: { userPhone, deletedAt: null },
       orderBy: { date: 'desc' },
     })
 
@@ -271,15 +274,16 @@ export class SyncService {
 
   /**
    * 删除云端记录
+   * @param userPhone 用户手机号（稳定标识）
    */
-  async deleteCloudRecords(userId: string, dto: DeleteCloudRecordsDto): Promise<{ deleted: number }> {
-    this.logger.log(`[DeleteCloud] userId=${userId}, ids=${dto.serverIds.length}`)
+  async deleteCloudRecords(userPhone: string, dto: DeleteCloudRecordsDto): Promise<{ deleted: number }> {
+    this.logger.log(`[DeleteCloud] userPhone=${userPhone}, ids=${dto.serverIds.length}`)
 
     let deleted = 0
     for (const serverId of dto.serverIds) {
       try {
         await this.prisma.record.update({
-          where: { id: serverId, userId },
+          where: { id: serverId, userPhone },
           data: { deletedAt: new Date() },
         })
         deleted++
@@ -289,7 +293,7 @@ export class SyncService {
     }
 
     // 清除缓存
-    this.cache.del(CacheService.keys.userRecords(userId))
+    this.cache.del(CacheService.keys.userRecords(userPhone))
 
     return { deleted }
   }

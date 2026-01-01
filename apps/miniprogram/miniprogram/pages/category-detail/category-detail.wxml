@@ -1,0 +1,47 @@
+<!--分类明细页-->
+<view class="page-container">
+  <!-- 头部统计 -->
+  <view class="header" style="background-color: {{categoryColor}};">
+    <view class="header-icon">
+      <image src="/assets/icons/category/{{categoryIcon}}.png" mode="aspectFit"></image>
+    </view>
+    <view class="header-info">
+      <text class="header-title">{{categoryName}}</text>
+      <text class="header-subtitle">共 {{recordCount}} 笔{{type === 'expense' ? '支出' : '收入'}}</text>
+    </view>
+    <view class="header-amount">
+      <text class="amount-label">总金额</text>
+      <text class="amount-value">¥{{totalAmount}}</text>
+    </view>
+  </view>
+
+  <!-- 记录列表 -->
+  <view class="records-container" wx:if="{{records.length > 0}}">
+    <view class="section-title">全部记录</view>
+    <view class="record-list">
+      <view 
+        class="record-item" 
+        wx:for="{{records}}" 
+        wx:key="id"
+        bindtap="editRecord"
+        data-id="{{item.id}}"
+      >
+        <view class="record-left">
+          <text class="record-date">{{item.dateDisplay}}</text>
+          <text class="record-note" wx:if="{{item.note}}">{{item.note}}</text>
+          <text class="record-note" wx:else>无备注</text>
+        </view>
+        <view class="record-right">
+          <text class="record-amount {{type}}">{{type === 'income' ? '+' : '-'}}¥{{item.amountDisplay}}</text>
+          <image class="record-arrow" src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:else>
+    <image src="/assets/icons/empty.png" mode="aspectFit"></image>
+    <text>暂无记录</text>
+  </view>
+</view>

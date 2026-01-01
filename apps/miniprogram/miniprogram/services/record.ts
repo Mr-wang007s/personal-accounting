@@ -133,10 +133,12 @@ export const RecordService = {
 
   /**
    * 计算月度趋势（使用 business-logic）
+   * @param ledgerId 账本ID
+   * @param months 月数，默认6个月
    */
-  calculateMonthlyTrend(ledgerId: string) {
+  calculateMonthlyTrend(ledgerId: string, months: number = 6) {
     const records = this.getRecordsByLedger(ledgerId)
-    return RecordCalculator.getMonthlyTrend(records, 6)
+    return RecordCalculator.getMonthlyTrend(records, months)
   },
 
   /**

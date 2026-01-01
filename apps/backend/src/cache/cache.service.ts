@@ -63,12 +63,12 @@ export class CacheService {
     }
   }
 
-  // 缓存键
+  // 缓存键（使用 userPhone 作为用户标识）
   static keys = {
-    userRecords: (userId: string) => `user:${userId}:records`,
-    userStats: (userId: string, dateRange: string) =>
-      `user:${userId}:stats:${dateRange}`,
-    syncVersion: (userId: string, deviceId: string) =>
-      `sync:${userId}:${deviceId}`,
+    userRecords: (userPhone: string) => `user:${userPhone}:records`,
+    userStats: (userPhone: string, dateRange: string) =>
+      `user:${userPhone}:stats:${dateRange}`,
+    syncVersion: (userPhone: string, deviceId: string) =>
+      `sync:${userPhone}:${deviceId}`,
   }
 }

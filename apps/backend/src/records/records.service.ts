@@ -46,10 +46,10 @@ export class RecordsService {
   ) {}
 
   // 创建记录
-  async create(userId: string, dto: CreateRecordDto): Promise<Record> {
+  async create(userPhone: string, dto: CreateRecordDto): Promise<Record> {
     const record = await this.prisma.record.create({
       data: {
-        userId,
+        userPhone,
         type: dto.type as RecordType,
         amount: dto.amount,
         category: dto.category,
@@ -61,19 +61,19 @@ export class RecordsService {
     })
 
     // 清除缓存
-    this.invalidateUserCache(userId)
+    this.invalidateUserCache(userPhone)
 
     return record
   }
 
   // 批量创建记录（用于同步）
   async createMany(
-    userId: string,
+    userPhone: string,
     records: CreateRecordDto[],
   ): Promise<number> {
     const result = await this.prisma.record.createMany({
       data: records.map((dto) => ({
-        userId,
+        userPhone,
         type: dto.type as RecordType,
         amount: dto.amount,
         category: dto.category,
@@ -84,15 +84,15 @@ export class RecordsService {
       })),
     })
 
-    this.invalidateUserCache(userId)
+    this.invalidateUserCache(userPhone)
 
     return result.count
   }
 
   // 查询记录列表
-  async findAll(userId: string, query: QueryRecordsDto) {
+  async findAll(userPhone: string, query: QueryRecordsDto) {
     const where: Prisma.RecordWhereInput = {
-      userId,
+      userPhone,
       deletedAt: null,
     }
 
@@ -143,9 +143,9 @@ export class RecordsService {
   }
 
   // 查询单条记录
-  async findOne(userId: string, id: string): Promise<Record> {
+  async findOne(userPhone: string, id: string): Promise<Record> {
     const record = await this.prisma.record.findFirst({
-      where: { id, userId, deletedAt: null },
+      where: { id, userPhone, deletedAt: null },
     })
 
     if (!record) {
@@ -157,11 +157,11 @@ export class RecordsService {
 
   // 更新记录
   async update(
-    userId: string,
+    userPhone: string,
     id: string,
     dto: UpdateRecordDto,
   ): Promise<Record> {
-    await this.findOne(userId, id)
+    await this.findOne(userPhone, id)
 
     const record = await this.prisma.record.update({
       where: { id },
@@ -174,14 +174,14 @@ export class RecordsService {
       },
     })
 
-    this.invalidateUserCache(userId)
+    this.invalidateUserCache(userPhone)
 
     return record
   }
 
   // 删除记录（软删除）
-  async remove(userId: string, id: string): Promise<void> {
-    await this.findOne(userId, id)
+  async remove(userPhone: string, id: string): Promise<void> {
+    await this.findOne(userPhone, id)
 
     await this.prisma.record.update({
       where: { id },
@@ -190,15 +190,15 @@ export class RecordsService {
       },
     })
 
-    this.invalidateUserCache(userId)
+    this.invalidateUserCache(userPhone)
   }
 
   // 批量删除记录
-  async removeMany(userId: string, ids: string[]): Promise<number> {
+  async removeMany(userPhone: string, ids: string[]): Promise<number> {
     const result = await this.prisma.record.updateMany({
       where: {
         id: { in: ids },
-        userId,
+        userPhone,
         deletedAt: null,
       },
       data: {
@@ -206,19 +206,19 @@ export class RecordsService {
       },
     })
 
-    this.invalidateUserCache(userId)
+    this.invalidateUserCache(userPhone)
 
     return result.count
   }
 
   // 获取统计数据
   async getStatistics(
-    userId: string,
+    userPhone: string,
     startDate: string,
     endDate: string,
   ): Promise<Statistics> {
     const cacheKey = CacheService.keys.userStats(
-      userId,
+      userPhone,
       `${startDate}_${endDate}`,
     )
     const cached = this.cache.get<Statistics>(cacheKey)
@@ -229,7 +229,7 @@ export class RecordsService {
 
     const records = await this.prisma.record.findMany({
       where: {
-        userId,
+        userPhone,
         deletedAt: null,
         date: {
           gte: new Date(startDate),
@@ -248,13 +248,13 @@ export class RecordsService {
   }
 
   // 获取月度趋势
-  async getMonthlyTrend(userId: string, year: number): Promise<MonthlyTrend[]> {
+  async getMonthlyTrend(userPhone: string, year: number): Promise<MonthlyTrend[]> {
     const startDate = new Date(year, 0, 1)
     const endDate = new Date(year, 11, 31)
 
     const records = await this.prisma.record.findMany({
       where: {
-        userId,
+        userPhone,
         deletedAt: null,
         date: {
           gte: startDate,
@@ -269,14 +269,14 @@ export class RecordsService {
 
   // 获取分类统计
   async getCategoryBreakdown(
-    userId: string,
+    userPhone: string,
     type: 'income' | 'expense',
     startDate: string,
     endDate: string,
   ): Promise<CategoryBreakdown[]> {
     const records = await this.prisma.record.findMany({
       where: {
-        userId,
+        userPhone,
         type: type as RecordType,
         deletedAt: null,
         date: {
@@ -390,9 +390,9 @@ export class RecordsService {
   }
 
   // 清除用户缓存
-  private invalidateUserCache(userId: string): void {
-    this.cache.del(CacheService.keys.userRecords(userId))
+  private invalidateUserCache(userPhone: string): void {
+    this.cache.del(CacheService.keys.userRecords(userPhone))
     // 清除所有统计缓存
-    this.cache.delByPrefix(`user:${userId}:stats:`)
+    this.cache.delByPrefix(`user:${userPhone}:stats:`)
   }
 }

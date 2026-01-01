@@ -32,7 +32,26 @@ interface CategoryBreakdownDisplay extends CategoryStat {
 interface MonthlyTrendDisplay extends MonthlyData {
   incomeHeight: number
   expenseHeight: number
+  incomeDisplay: string
+  expenseDisplay: string
+  isSelected: boolean
 }
+
+// 时间范围选项
+type TimeRange = 'month' | '3months' | '6months' | 'year' | 'all'
+
+interface TimeRangeOption {
+  key: TimeRange
+  label: string
+}
+
+const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
+  { key: 'month', label: '本月' },
+  { key: '3months', label: '近3月' },
+  { key: '6months', label: '近6月' },
+  { key: 'year', label: '本年' },
+  { key: 'all', label: '全部' },
+]
 
 Page({
   data: {
@@ -53,6 +72,20 @@ Page({
     totalExpenseDisplay: '0.00',
     monthlyTrend: [] as MonthlyTrendDisplay[],
     categoryBreakdown: [] as CategoryBreakdownDisplay[],
+
+    // 新增：时间范围和交互
+    timeRangeOptions: TIME_RANGE_OPTIONS,
+    selectedTimeRange: '6months' as TimeRange,
+    statsType: 'expense' as 'expense' | 'income',  // 收入/支出切换
+    
+    // 柱状图点击弹窗
+    showBarDetail: false,
+    barDetailData: {
+      month: '',
+      income: '0.00',
+      expense: '0.00',
+      balance: '0.00',
+    },
   },
 
   onLoad() {
@@ -126,9 +159,16 @@ Page({
 
   // 加载统计数据
   loadStats(ledgerId: string) {
+    const { selectedTimeRange, statsType } = this.data
     const records = RecordService.getRecordsByLedger(ledgerId)
-    const stats = RecordService.calculateStatistics(records)
-    const monthlyTrend = RecordService.calculateMonthlyTrend(ledgerId)
+    
+    // 根据时间范围过滤记录
+    const filteredRecords = this.filterRecordsByTimeRange(records, selectedTimeRange)
+    const stats = RecordService.calculateStatistics(filteredRecords)
+    
+    // 根据时间范围获取月度趋势
+    const monthCount = this.getMonthCountByRange(selectedTimeRange)
+    const monthlyTrend = RecordService.calculateMonthlyTrend(ledgerId, monthCount)
 
     // 计算柱状图高度
     const maxValue = Math.max(
@@ -141,10 +181,17 @@ Page({
       ...m,
       incomeHeight: Math.max((m.income / maxValue) * maxHeight, 8),
       expenseHeight: Math.max((m.expense / maxValue) * maxHeight, 8),
+      incomeDisplay: formatAmount(m.income),
+      expenseDisplay: formatAmount(m.expense),
+      isSelected: false,
     }))
 
+    // 根据收入/支出类型筛选分类统计
+    const typeFilteredRecords = filteredRecords.filter(r => r.type === statsType)
+    const typeStats = RecordService.calculateStatistics(typeFilteredRecords)
+    
     // 转换分类统计
-    const categoryBreakdown: CategoryBreakdownDisplay[] = stats.categoryBreakdown.map(c => ({
+    const categoryBreakdown: CategoryBreakdownDisplay[] = typeStats.categoryBreakdown.map(c => ({
       ...c,
       color: CATEGORY_COLORS[c.category] || '#94A3B8',
       amountDisplay: formatAmount(c.amount),
@@ -156,6 +203,110 @@ Page({
       totalExpenseDisplay: formatAmount(stats.totalExpense),
       monthlyTrend: trendDisplay,
       categoryBreakdown,
+    })
+  },
+
+  // 根据时间范围过滤记录
+  filterRecordsByTimeRange(records: Record[], range: TimeRange): Record[] {
+    if (range === 'all') return records
+    
+    const now = new Date()
+    let startDate: Date
+    
+    switch (range) {
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        break
+      case '3months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+        break
+      case '6months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+        break
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1)
+        break
+      default:
+        return records
+    }
+    
+    const startStr = startDate.toISOString().slice(0, 10)
+    return records.filter(r => r.date >= startStr)
+  },
+
+  // 根据时间范围获取月数
+  getMonthCountByRange(range: TimeRange): number {
+    switch (range) {
+      case 'month': return 1
+      case '3months': return 3
+      case '6months': return 6
+      case 'year': return 12
+      case 'all': return 12
+      default: return 6
+    }
+  },
+
+  // 切换时间范围
+  onTimeRangeChange(e: WechatMiniprogram.TouchEvent) {
+    const range = e.currentTarget.dataset.range as TimeRange
+    if (range !== this.data.selectedTimeRange) {
+      this.setData({ selectedTimeRange: range })
+      this.loadData()
+    }
+  },
+
+  // 切换收入/支出统计类型
+  onStatsTypeChange(e: WechatMiniprogram.TouchEvent) {
+    const type = e.currentTarget.dataset.type as 'expense' | 'income'
+    if (type !== this.data.statsType) {
+      this.setData({ statsType: type })
+      this.loadData()
+    }
+  },
+
+  // 柱状图点击
+  onBarTap(e: WechatMiniprogram.TouchEvent) {
+    const index = e.currentTarget.dataset.index as number
+    const item = this.data.monthlyTrend[index]
+    if (!item) return
+
+    // 更新选中状态
+    const monthlyTrend = this.data.monthlyTrend.map((m, i) => ({
+      ...m,
+      isSelected: i === index,
+    }))
+
+    const balance = item.income - item.expense
+    this.setData({
+      monthlyTrend,
+      showBarDetail: true,
+      barDetailData: {
+        month: item.month,
+        income: formatAmount(item.income),
+        expense: formatAmount(item.expense),
+        balance: (balance >= 0 ? '+' : '') + formatAmount(balance),
+      },
+    })
+  },
+
+  // 关闭柱状图详情弹窗
+  closeBarDetail() {
+    const monthlyTrend = this.data.monthlyTrend.map(m => ({
+      ...m,
+      isSelected: false,
+    }))
+    this.setData({
+      showBarDetail: false,
+      monthlyTrend,
+    })
+  },
+
+  // 分类点击 - 跳转到该分类的明细
+  onCategoryTap(e: WechatMiniprogram.TouchEvent) {
+    const category = e.currentTarget.dataset.category as string
+    const categoryName = e.currentTarget.dataset.name as string
+    wx.navigateTo({
+      url: `/pages/category-detail/category-detail?category=${category}&name=${encodeURIComponent(categoryName)}&type=${this.data.statsType}`,
     })
   },
 

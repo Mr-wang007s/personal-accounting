@@ -13,7 +13,7 @@ datasource db {
 // 用户表 - 对应 shared/types User 接口
 model User {
   id        String   @id @default(cuid())
-  phone     String   @unique // 手机号（主要标识）
+  phone     String   @unique // 手机号（主要标识，用于数据关联）
   openid    String?  @unique // 微信 openid（可选）
   unionid   String?  @unique // 微信 unionid（可选）
   nickname  String?
@@ -22,7 +22,7 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // 关联
+  // 关联（通过 phone 关联，而非 id）
   records Record[]
   ledgers Ledger[]
 
@@ -42,13 +42,13 @@ model Ledger {
   // 客户端 ID（用于备份/恢复时匹配）
   clientId String? @map("client_id")
 
-  // 关联
-  userId  String   @map("user_id")
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  records Record[]
+  // 关联 - 使用 phone 作为外键（用户注销重注册后数据不丢失）
+  userPhone String   @map("user_phone")
+  user      User     @relation(fields: [userPhone], references: [phone], onDelete: Cascade)
+  records   Record[]
 
-  @@index([userId])
-  @@index([userId, deletedAt])
+  @@index([userPhone])
+  @@index([userPhone, deletedAt])
   @@map("ledgers")
 }
 
@@ -67,15 +67,15 @@ model Record {
   // 客户端 ID（用于备份/恢复时匹配本地记录）
   clientId String? @map("client_id")
 
-  // 关联
-  userId   String @map("user_id")
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ledgerId String @map("ledger_id") // 所属账本（必填）
-  ledger   Ledger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  // 关联 - 使用 phone 作为外键（用户注销重注册后数据不丢失）
+  userPhone String @map("user_phone")
+  user      User   @relation(fields: [userPhone], references: [phone], onDelete: Cascade)
+  ledgerId  String @map("ledger_id") // 所属账本（必填）
+  ledger    Ledger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
 
-  @@index([userId, date])
-  @@index([userId, deletedAt])
-  @@index([userId, clientId]) // 用于备份时按 clientId 查找
+  @@index([userPhone, date])
+  @@index([userPhone, deletedAt])
+  @@index([userPhone, clientId]) // 用于备份时按 clientId 查找
   @@index([ledgerId])
   @@map("records")
 }

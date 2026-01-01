@@ -4,6 +4,7 @@
     "pages/records/records",
     "pages/profile/profile",
     "pages/record/record",
+    "pages/category-detail/category-detail",
     "pages/onboarding/onboarding"
   ],
   "window": {
