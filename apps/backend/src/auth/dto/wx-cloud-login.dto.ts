@@ -11,9 +11,4 @@ export class WxCloudLoginDto {
   @IsString()
   @IsOptional()
   avatar?: string
-
-  @ApiPropertyOptional({ description: '微信登录 code（可选，用于标准登录流程）' })
-  @IsString()
-  @IsOptional()
-  code?: string
 }

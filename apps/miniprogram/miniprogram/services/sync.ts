@@ -184,17 +184,16 @@ class SyncService {
   }
 
   /**
-   * 微信小程序登录
-   * 登录流程：wx.login 获取 code → 后端 code2Session 换取 openid
-   * @param nickname 用户昵称（可选，从微信获取）
-   * @param avatar 用户头像（可选，从微信获取）
+   * 微信云托管自动登录
+   * 云托管会自动在请求头中注入 X-WX-OPENID，无需调用 code2Session
+   * @param nickname 用户昵称（可选）
+   * @param avatar 用户头像（可选）
    * @returns 登录结果，包含用户信息
    */
   async autoLogin(nickname?: string, avatar?: string): Promise<{ success: boolean; user?: { id: string; phone: string; nickname?: string; avatar?: string; openid?: string }; isNewUser?: boolean }> {
     try {
-      // 使用 wx.login 获取 code，后端通过 code2Session 换取 openid
-      const code = await this.getWxLoginCode()
-      const result = await apiClient.wechatLogin(code, nickname, avatar)
+      // 云托管模式：直接调用，后端从请求头 X-WX-OPENID 获取用户身份
+      const result = await apiClient.wxCloudLogin(nickname, avatar)
       apiClient.setToken(result.accessToken)
       
       // 保存用户信息
@@ -207,7 +206,7 @@ class SyncService {
 
       return { success: true, user: result.user, isNewUser: result.isNewUser }
     } catch (error) {
-      console.error('[Sync] 微信登录失败:', error)
+      console.error('[Sync] 云托管登录失败:', error)
       return { success: false }
     }
   }
