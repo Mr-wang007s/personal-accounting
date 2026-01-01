@@ -2,6 +2,33 @@
 
 个人记账应用 - Monorepo 架构，支持多端开发。
 
+## 🚀 CloudBase 部署信息
+
+### 访问地址
+
+| 服务 | 地址 |
+|-----|------|
+| **前端** | [https://my-100-app-7g9jwge5b3870b6a-1253552496.tcloudbaseapp.com/](https://my-100-app-7g9jwge5b3870b6a-1253552496.tcloudbaseapp.com/?v=20260101) |
+| **后端 API** | [https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com](https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com) |
+
+### CloudBase 资源
+
+| 资源类型 | 名称 | 说明 |
+|---------|------|------|
+| 环境 ID | `my-100-app-7g9jwge5b3870b6a` | 上海区域 |
+| 静态托管 | - | 前端 Web 应用 |
+| CloudRun | `pa-api` | 后端 NestJS 服务 (容器) |
+
+### 控制台入口
+
+- [CloudBase 控制台](https://tcb.cloud.tencent.com/dev?envId=my-100-app-7g9jwge5b3870b6a#/overview)
+- [静态托管管理](https://tcb.cloud.tencent.com/dev?envId=my-100-app-7g9jwge5b3870b6a#/static-hosting)
+- [CloudRun 管理](https://tcb.cloud.tencent.com/dev?envId=my-100-app-7g9jwge5b3870b6a#/platform-run)
+
+> **注意**: CDN 有几分钟缓存，部署后可能需要等待缓存刷新才能看到最新内容。后端首次构建需要几分钟时间。
+
+---
+
 ## 项目结构
 
 ```

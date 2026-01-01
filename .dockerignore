@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+.turbo
+
+# Test files
+*.spec.ts
+*.test.ts
+test
+tests
+e2e
+coverage
+
+# IDE
+.idea
+.vscode
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs
+
+# Screenshots
+screenshots
+
+# Core dumps
+core.*
+
+# Web app (not needed for backend)
+apps/web
+apps/miniprogram
+
+# Misc
+.env.local
+.env.*.local
