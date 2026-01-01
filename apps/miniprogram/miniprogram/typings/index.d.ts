@@ -45,6 +45,7 @@ interface IAppOption {
     isInitialized: boolean
     isLoggedIn: boolean
   }
+  initPromise: Promise<void> | null
   initializeApp(): Promise<void>
   completeOnboarding(nickname: string, ledgerName: string, serverUrl?: string): Promise<{
     userProfile: UserProfile

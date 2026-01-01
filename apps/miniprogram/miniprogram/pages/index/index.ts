@@ -37,8 +37,14 @@ Page({
   },
 
   // 检查是否已初始化
-  checkInitialization() {
+  async checkInitialization() {
     const app = getApp<IAppOption>()
+    
+    // 等待 app 初始化完成
+    if (app.initPromise) {
+      await app.initPromise
+    }
+    
     if (!app.globalData.isInitialized) {
       // 跳转到引导页
       wx.redirectTo({
