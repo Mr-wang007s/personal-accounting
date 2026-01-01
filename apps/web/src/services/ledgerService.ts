@@ -28,7 +28,7 @@ class LedgerService {
     localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile))
   }
 
-  createUserProfile(nickname: string): UserProfile {
+  createUserProfile(nickname: string, phone?: string): UserProfile {
     const now = getNowISO()
     const profile: UserProfile = {
       id: generateId(),
@@ -36,6 +36,7 @@ class LedgerService {
       currentLedgerId: '',
       createdAt: now,
       updatedAt: now,
+      phone,
     }
     this.saveUserProfile(profile)
     return profile
@@ -125,9 +126,9 @@ class LedgerService {
   /**
    * 初始化用户和默认账本
    */
-  initialize(nickname: string, ledgerName: string = '我的账本'): { profile: UserProfile; ledger: Ledger } {
+  initialize(nickname: string, ledgerName: string = '我的账本', phone?: string): { profile: UserProfile; ledger: Ledger } {
     // 创建用户
-    const profile = this.createUserProfile(nickname)
+    const profile = this.createUserProfile(nickname, phone)
     
     // 创建默认账本
     const ledger = this.createLedger(ledgerName)
@@ -148,6 +149,13 @@ class LedgerService {
     
     this.updateUserProfile({ currentLedgerId: ledgerId })
     return true
+  }
+
+  /**
+   * 更新手机号（便于直接存储到 pa_user_profile）
+   */
+  updatePhone(phone: string): UserProfile | null {
+    return this.updateUserProfile({ phone })
   }
 
   /**

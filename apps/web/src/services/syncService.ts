@@ -11,6 +11,7 @@
 import { apiClient, BackupRecord, BackupLedger, LoginResponse } from './apiClient'
 import type { Record, Ledger, SyncStatus } from '@personal-accounting/shared/types'
 import { STORAGE_KEY, LEDGERS_KEY } from '@personal-accounting/shared/constants'
+import { ledgerService } from './ledgerService'
 
 // 存储键
 const SYNC_META_KEY = 'pa_sync_meta'
@@ -145,6 +146,16 @@ class SyncService {
       apiClient.setToken(result.accessToken)
       this.syncMeta.userPhone = phone
       this.saveSyncMeta()
+
+      // 将手机号保存到用户配置（pa_user_profile）
+      const existingProfile = ledgerService.getUserProfile()
+      if (existingProfile) {
+        ledgerService.updateUserProfile({ phone })
+      } else {
+        // 若尚未初始化，创建一个基础配置以保存手机号
+        ledgerService.createUserProfile(nickname || '未命名用户', phone)
+      }
+
       return { success: true, isNewUser: result.isNewUser }
     } catch {
       return { success: false, isNewUser: false }

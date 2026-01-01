@@ -69,6 +69,7 @@ export interface UserProfile {
   currentLedgerId: string
   createdAt: string
   updatedAt: string
+  phone?: string
 }
 
 // API 相关类型
