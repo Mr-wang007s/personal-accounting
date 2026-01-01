@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true; nest start --watch",
+    "dev": "nest start --watch",
     "dev:debug": "nest start --debug --watch",
     "build": "nest build",
     "start": "node dist/main.js",

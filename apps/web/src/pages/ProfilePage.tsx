@@ -36,6 +36,7 @@ export function ProfilePage(_props: ProfilePageProps) {
   const [showNewLedger, setShowNewLedger] = useState(false)
   const [newLedgerName, setNewLedgerName] = useState('')
   const [inputUrl, setInputUrl] = useState(serverUrl || 'http://127.0.0.1:3000')
+  const [inputPhone, setInputPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -63,8 +64,8 @@ export function ProfilePage(_props: ProfilePageProps) {
   }
 
   const handleConnect = async () => {
-    if (!userProfile?.nickname) {
-      setError('请先设置用户昵称')
+    if (!inputPhone.trim()) {
+      setError('请输入手机号')
       return
     }
     setError(null)
@@ -76,9 +77,9 @@ export function ProfilePage(_props: ProfilePageProps) {
         setLoading(false)
         return
       }
-      // 连接成功后自动使用昵称登录
-      const loginSuccess = await login(userProfile.nickname)
-      if (!loginSuccess) {
+      // 连接成功后使用手机号登录
+      const loginResult = await login(inputPhone.trim(), userProfile?.nickname)
+      if (!loginResult.success) {
         setError('登录失败')
       }
     } catch {
@@ -300,18 +301,33 @@ export function ProfilePage(_props: ProfilePageProps) {
                 )}
 
                 {/* 服务器连接 */}
-                <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">服务器地址</Label>
-                  <div className="flex gap-2">
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">服务器地址</Label>
                     <Input
                       value={inputUrl}
                       onChange={(e) => setInputUrl(e.target.value)}
                       placeholder="http://127.0.0.1:3000"
                       disabled={isConnected || loading}
-                      className="flex-1"
                     />
+                  </div>
+                  
+                  {!isConnected && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-600">手机号</Label>
+                      <Input
+                        value={inputPhone}
+                        onChange={(e) => setInputPhone(e.target.value)}
+                        placeholder="请输入手机号"
+                        disabled={loading}
+                        maxLength={11}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2">
                     {!isConnected ? (
-                      <Button onClick={handleConnect} disabled={loading} size="sm">
+                      <Button onClick={handleConnect} disabled={loading || !inputUrl.trim() || !inputPhone.trim()} size="sm">
                         {loading ? '连接中...' : '连接'}
                       </Button>
                     ) : (
@@ -320,8 +336,9 @@ export function ProfilePage(_props: ProfilePageProps) {
                       </Button>
                     )}
                   </div>
+                  
                   {isConnected && (
-                    <p className="text-xs text-green-600">✓ 已连接到 {serverUrl}（用户: {userProfile?.nickname}）</p>
+                    <p className="text-xs text-green-600">✓ 已连接到 {serverUrl}</p>
                   )}
                 </div>
 

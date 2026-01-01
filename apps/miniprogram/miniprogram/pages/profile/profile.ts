@@ -32,6 +32,7 @@ Page({
     isAuthenticated: false,
     serverUrl: '',
     inputServerUrl: 'http://192.168.1.100:3000',
+    inputPhone: '', // 手机号
     lastSyncAt: '',
     pendingBackupCount: 0, // 待备份数量
     autoSyncEnabled: true,
@@ -256,16 +257,22 @@ Page({
     this.setData({ inputServerUrl: e.detail.value })
   },
 
-  // 连接服务器（连接成功后自动使用昵称登录）
+  // 输入手机号
+  onPhoneInput(e: WechatMiniprogram.Input) {
+    this.setData({ inputPhone: e.detail.value })
+  },
+
+  // 连接服务器（连接成功后使用手机号登录）
   async connectServer() {
-    const { inputServerUrl, userProfile } = this.data
+    const { inputServerUrl, inputPhone } = this.data
+    
     if (!inputServerUrl.trim()) {
       this.setData({ syncError: '请输入服务器地址' })
       return
     }
 
-    if (!userProfile?.nickname) {
-      this.setData({ syncError: '请先设置用户昵称' })
+    if (!inputPhone.trim()) {
+      this.setData({ syncError: '请输入手机号' })
       return
     }
 
@@ -274,14 +281,15 @@ Page({
     try {
       const success = await syncService.discoverServer(inputServerUrl)
       if (success) {
-        // 连接成功后自动使用昵称登录
-        const loginSuccess = await syncService.login(userProfile.nickname)
+        // 连接成功后使用手机号登录
+        const loginSuccess = await syncService.login(inputPhone.trim())
         if (loginSuccess) {
           this.setData({
             isConnected: true,
             isAuthenticated: true,
             serverUrl: inputServerUrl,
             syncState: 'idle',
+            inputPhone: inputPhone.trim(), // 保存手机号
           })
           wx.showToast({ title: '连接成功', icon: 'success' })
           

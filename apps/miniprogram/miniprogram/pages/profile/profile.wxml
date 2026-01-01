@@ -191,21 +191,39 @@
       <!-- 步骤 1: 连接服务器 -->
       <view class="form-item">
         <text class="form-label">服务器地址</text>
+        <input 
+          class="form-input" 
+          placeholder="http://192.168.1.100:3000" 
+          value="{{inputServerUrl}}"
+          bindinput="onServerUrlInput"
+          disabled="{{isConnected}}"
+        />
+      </view>
+
+      <!-- 手机号输入（未连接时显示） -->
+      <view class="form-item" wx:if="{{!isConnected}}">
+        <text class="form-label">手机号</text>
+        <input 
+          class="form-input" 
+          placeholder="请输入手机号" 
+          value="{{inputPhone}}"
+          bindinput="onPhoneInput"
+          type="number"
+          maxlength="11"
+          disabled="{{syncState === 'checking' || syncState === 'syncing'}}"
+        />
+      </view>
+
+      <!-- 连接/断开按钮 -->
+      <view class="form-item">
         <view class="input-row">
-          <input 
-            class="form-input flex-1" 
-            placeholder="http://192.168.1.100:3000" 
-            value="{{inputServerUrl}}"
-            bindinput="onServerUrlInput"
-            disabled="{{isConnected}}"
-          />
           <button 
             wx:if="{{!isConnected}}"
             class="inline-btn primary" 
             bindtap="connectServer"
-            disabled="{{syncState === 'checking'}}"
+            disabled="{{syncState === 'checking' || syncState === 'syncing' || !inputServerUrl || !inputPhone}}"
           >
-            {{syncState === 'checking' ? '连接中' : '连接'}}
+            {{syncState === 'checking' || syncState === 'syncing' ? '连接中...' : '连接'}}
           </button>
           <button 
             wx:else
@@ -215,7 +233,7 @@
             断开
           </button>
         </view>
-        <text class="form-hint success" wx:if="{{isConnected && isAuthenticated}}">✓ 已连接（用户: {{userProfile.nickname}}）</text>
+        <text class="form-hint success" wx:if="{{isConnected && isAuthenticated}}">✓ 已连接</text>
       </view>
 
       <!-- 同步设置 -->
