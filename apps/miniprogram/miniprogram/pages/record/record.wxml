@@ -11,7 +11,7 @@
   </view>
   
   <!-- 金额输入 -->
-  <view class="amount-section">
+  <view class="amount-section {{type}}">
     <text class="currency-symbol">¥</text>
     <input 
       class="amount-input" 
@@ -29,14 +29,14 @@
     <text class="section-title">选择分类</text>
     <view class="category-grid">
       <view 
-        class="category-item {{selectedCategory === item.id ? 'selected' : ''}}"
+        class="category-item {{selectedCategory === item.id ? 'selected ' + type + '-selected' : ''}}"
         wx:for="{{categories}}"
         wx:key="id"
         bindtap="selectCategory"
         data-id="{{item.id}}"
       >
-        <view class="category-icon" style="background-color: {{item.color}}20;">
-          <image src="/assets/icons/category/{{item.icon}}.png" mode="aspectFit"></image>
+        <view class="category-icon" style="background-color: {{selectedCategory === item.id ? 'rgba(255,255,255,0.25)' : item.color + '20'}};">
+          <image src="/assets/icons/category/{{item.icon}}.png" mode="aspectFit" style="{{selectedCategory === item.id ? 'filter: brightness(0) invert(1);' : ''}}"></image>
         </view>
         <text class="category-name">{{item.name}}</text>
       </view>

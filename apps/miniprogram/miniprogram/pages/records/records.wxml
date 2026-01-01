@@ -65,7 +65,7 @@
             bindtap="editRecord"
             data-id="{{record.id}}"
           >
-            <view class="record-icon" style="background-color: {{record.categoryColor}}20;">
+            <view class="record-icon {{record.type}}">
               <image src="/assets/icons/category/{{record.categoryIcon}}.png" mode="aspectFit"></image>
             </view>
             <view class="record-info">

@@ -5,13 +5,14 @@
   padding-bottom: 200rpx;
 }
 
-/* 类型切换 */
+/* 类型切换 - 优化样式 */
 .type-tabs {
   display: flex;
   background-color: var(--bg-primary);
   padding: 16rpx;
   margin: 24rpx 32rpx;
   border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .tab {
@@ -20,54 +21,78 @@
   padding: 24rpx;
   border-radius: var(--radius-md);
   font-size: 30rpx;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab.active {
   color: #FFFFFF;
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.15);
 }
 
 .tab.active.expense {
-  background-color: var(--danger-color);
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
 }
 
 .tab.active.income {
-  background-color: var(--success-color);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
 }
 
-/* 金额输入 */
+/* 金额输入 - 更突出 */
 .amount-section {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48rpx 32rpx;
+  padding: 56rpx 32rpx;
   background-color: var(--bg-primary);
   margin: 0 32rpx 24rpx;
   border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 支出时的金额区域 */
+.amount-section.expense {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, rgba(220, 38, 38, 0.06) 100%);
+}
+
+/* 收入时的金额区域 */
+.amount-section.income {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.03) 0%, rgba(5, 150, 105, 0.06) 100%);
 }
 
 .currency-symbol {
-  font-size: 56rpx;
-  font-weight: 600;
+  font-size: 64rpx;
+  font-weight: 700;
   color: var(--text-primary);
   margin-right: 16rpx;
+}
+
+.amount-section.expense .currency-symbol {
+  color: #EF4444;
+}
+
+.amount-section.income .currency-symbol {
+  color: #10B981;
 }
 
 .amount-input {
   height: 160rpx;
   line-height: 160rpx;
-  font-size: 72rpx;
-  font-weight: 700;
+  font-size: 80rpx;
+  font-weight: 800;
   color: var(--text-primary);
   text-align: center;
   min-width: 200rpx;
   max-width: 400rpx;
+  letter-spacing: -2rpx;
 }
 
 .amount-input::placeholder {
   color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* 分类选择 */
@@ -76,6 +101,7 @@
   margin: 0 32rpx 24rpx;
   padding: 24rpx;
   border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .section-title {
@@ -83,6 +109,7 @@
   color: var(--text-secondary);
   margin-bottom: 20rpx;
   display: block;
+  font-weight: 500;
 }
 
 .category-grid {
@@ -97,11 +124,27 @@
   align-items: center;
   padding: 16rpx 8rpx;
   border-radius: var(--radius-md);
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.category-item:active {
+  transform: scale(0.95);
 }
 
 .category-item.selected {
-  background-color: var(--primary-color);
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  box-shadow: 0 8rpx 24rpx rgba(99, 102, 241, 0.4);
+  transform: scale(1.02);
+}
+
+.category-item.selected.expense-selected {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  box-shadow: 0 8rpx 24rpx rgba(239, 68, 68, 0.4);
+}
+
+.category-item.selected.income-selected {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.4);
 }
 
 .category-item.selected .category-name {
@@ -111,15 +154,19 @@
 .category-icon {
   width: 72rpx;
   height: 72rpx;
-  border-radius: var(--radius-md);
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 8rpx;
+  transition: all 0.2s;
+  background-color: var(--bg-tertiary);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 }
 
 .category-item.selected .category-icon {
-  background-color: rgba(255, 255, 255, 0.2) !important;
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: none;
 }
 
 .category-icon image {
@@ -131,6 +178,7 @@
   font-size: 22rpx;
   color: var(--text-secondary);
   text-align: center;
+  font-weight: 500;
 }
 
 /* 日期选择 */
@@ -176,7 +224,7 @@
   color: var(--text-muted);
 }
 
-/* 底部按钮 */
+/* 底部按钮 - 优化样式 */
 .bottom-actions {
   position: fixed;
   bottom: 0;
@@ -185,7 +233,7 @@
   padding: 24rpx 32rpx;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background-color: var(--bg-primary);
-  box-shadow: 0 -4rpx 12rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: row;
   gap: 16rpx;
@@ -194,34 +242,48 @@
 
 .btn-save {
   flex: 3;
-  padding: 28rpx;
-  border-radius: var(--radius-md);
+  padding: 32rpx;
+  border-radius: var(--radius-lg);
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 700;
   color: #FFFFFF;
   border: none;
+  transition: all 0.2s;
+}
+
+.btn-save:active {
+  transform: scale(0.98);
 }
 
 .btn-save.expense {
-  background-color: var(--danger-color);
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  box-shadow: 0 8rpx 24rpx rgba(239, 68, 68, 0.35);
 }
 
 .btn-save.income {
-  background-color: var(--success-color);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.35);
 }
 
 .btn-save[disabled] {
-  background-color: var(--text-muted);
+  background: var(--text-muted);
   opacity: 0.6;
+  box-shadow: none;
 }
 
 .btn-delete {
   flex: 1;
-  padding: 28rpx;
-  border-radius: var(--radius-md);
+  padding: 32rpx;
+  border-radius: var(--radius-lg);
   font-size: 30rpx;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--danger-color);
   background-color: rgba(239, 68, 68, 0.1);
   border: none;
+  transition: all 0.2s;
+}
+
+.btn-delete:active {
+  background-color: rgba(239, 68, 68, 0.2);
+  transform: scale(0.98);
 }

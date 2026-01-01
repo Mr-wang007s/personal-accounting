@@ -60,7 +60,7 @@
     
     <view class="records-list" wx:if="{{recentRecords.length > 0}}">
       <view class="record-item" wx:for="{{recentRecords}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
-        <view class="record-icon" style="background-color: {{item.categoryColor}}20;">
+        <view class="record-icon {{item.type}}">
           <image src="/assets/icons/category/{{item.categoryIcon}}.png" mode="aspectFit"></image>
         </view>
         <view class="record-info">

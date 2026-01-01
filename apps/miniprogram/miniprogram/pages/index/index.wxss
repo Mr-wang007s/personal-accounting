@@ -5,13 +5,14 @@
   padding-bottom: 180rpx;
 }
 
-/* 头部卡片 */
+/* 头部卡片 - 与 web 端保持一致的渐变 */
 .header-card {
   background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
   padding: 40rpx 32rpx 56rpx;
   color: #FFFFFF;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 20rpx 60rpx rgba(99, 102, 241, 0.25);
 }
 
 .header-card::before {
@@ -34,6 +35,23 @@
   height: 200rpx;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 50%;
+}
+
+/* 斜线纹理背景 */
+.header-card-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 20rpx,
+    rgba(255, 255, 255, 0.03) 20rpx,
+    rgba(255, 255, 255, 0.03) 40rpx
+  );
+  pointer-events: none;
 }
 
 .header-top {
@@ -159,7 +177,7 @@
   background-color: rgba(255, 255, 255, 0.35);
 }
 
-/* 快捷操作 */
+/* 快捷操作 - 与 web 端保持一致 */
 .quick-actions {
   display: flex;
   gap: 24rpx;
@@ -172,53 +190,79 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16rpx;
-  background-color: var(--bg-primary);
-  padding: 36rpx;
+  gap: 24rpx;
+  padding: 32rpx 24rpx;
   border-radius: var(--radius-lg);
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
 }
 
 .action-btn:active {
   transform: scale(0.98);
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+/* 收入按钮 - 绿色主题 */
+.action-btn.income-btn {
+  background-color: rgba(16, 185, 129, 0.08);
+  box-shadow: 0 4rpx 16rpx rgba(16, 185, 129, 0.1);
+}
+
+.action-btn.income-btn:active {
+  background-color: rgba(16, 185, 129, 0.15);
+}
+
+.action-btn.income-btn .action-text {
+  color: #047857;
+}
+
+/* 支出按钮 - 红色主题 */
+.action-btn.expense-btn {
+  background-color: rgba(239, 68, 68, 0.08);
+  box-shadow: 0 4rpx 16rpx rgba(239, 68, 68, 0.1);
+}
+
+.action-btn.expense-btn:active {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+.action-btn.expense-btn .action-text {
+  color: #B91C1C;
 }
 
 .action-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .action-icon image {
-  width: 36rpx;
-  height: 36rpx;
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .income-icon {
-  background-color: rgba(16, 185, 129, 0.1);
+  background-color: #10B981;
+  box-shadow: 0 8rpx 20rpx rgba(16, 185, 129, 0.35);
 }
 
 .income-icon image {
-  filter: brightness(0) saturate(100%) invert(58%) sepia(52%) saturate(553%) hue-rotate(113deg) brightness(93%) contrast(92%);
+  filter: brightness(0) invert(1);
 }
 
 .expense-icon {
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: #EF4444;
+  box-shadow: 0 8rpx 20rpx rgba(239, 68, 68, 0.35);
 }
 
 .expense-icon image {
-  filter: brightness(0) saturate(100%) invert(36%) sepia(93%) saturate(1352%) hue-rotate(337deg) brightness(91%) contrast(97%);
+  filter: brightness(0) invert(1);
 }
 
 .action-text {
   font-size: 30rpx;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* 最近记录 */
@@ -243,20 +287,28 @@
   display: flex;
   align-items: center;
   gap: 8rpx;
-  color: var(--text-muted);
+  color: #6366F1;
   font-size: 26rpx;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.view-all:active {
+  opacity: 0.7;
 }
 
 .view-all image {
   width: 24rpx;
   height: 24rpx;
-  opacity: 0.5;
+  opacity: 0.8;
+  filter: brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(213deg) brightness(89%) contrast(119%);
 }
 
 .records-list {
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
 }
 
 .record-item {
@@ -264,6 +316,12 @@
   align-items: center;
   padding: 28rpx 24rpx;
   border-bottom: 1rpx solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.record-item:active {
+  background-color: var(--bg-tertiary);
+  transform: scale(0.99);
 }
 
 .record-item:last-child {
@@ -273,7 +331,7 @@
 .record-icon {
   width: 80rpx;
   height: 80rpx;
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -281,9 +339,29 @@
   flex-shrink: 0;
 }
 
+/* 收入图标背景 */
+.record-icon.income {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+/* 支出图标背景 */
+.record-icon.expense {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
 .record-icon image {
   width: 40rpx;
   height: 40rpx;
+}
+
+/* 收入图标颜色 */
+.record-icon.income image {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(47%) saturate(5765%) hue-rotate(131deg) brightness(92%) contrast(87%);
+}
+
+/* 支出图标颜色 */
+.record-icon.expense image {
+  filter: brightness(0) saturate(100%) invert(41%) sepia(78%) saturate(1831%) hue-rotate(335deg) brightness(94%) contrast(93%);
 }
 
 .record-info {
@@ -317,16 +395,16 @@
 
 .record-amount {
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
 .record-amount.income {
-  color: var(--success-color);
+  color: #10B981;
 }
 
 .record-amount.expense {
-  color: var(--text-primary);
+  color: #EF4444;
 }
 
 /* 空状态 */

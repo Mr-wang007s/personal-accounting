@@ -110,7 +110,7 @@
     
     <view class="menu-list">
       <view class="menu-item" bindtap="exportData">
-        <view class="menu-icon">
+        <view class="menu-icon default">
           <image src="/assets/icons/download.png" mode="aspectFit"></image>
         </view>
         <text class="menu-text">导出数据</text>
@@ -118,7 +118,7 @@
       </view>
       
       <view class="menu-item danger" bindtap="clearCurrentLedgerData">
-        <view class="menu-icon">
+        <view class="menu-icon danger">
           <image src="/assets/icons/trash.png" mode="aspectFit"></image>
         </view>
         <text class="menu-text">清除当前账本数据</text>
@@ -133,7 +133,7 @@
     
     <view class="menu-list">
       <view class="menu-item">
-        <view class="menu-icon">
+        <view class="menu-icon default">
           <image src="/assets/icons/info.png" mode="aspectFit"></image>
         </view>
         <text class="menu-text">版本</text>

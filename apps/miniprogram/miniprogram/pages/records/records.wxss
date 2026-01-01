@@ -5,13 +5,13 @@
   padding-bottom: 180rpx;
 }
 
-/* Tab 切换 */
+/* Tab 切换 - 优化样式 */
 .tabs-header {
   display: flex;
   position: relative;
   background-color: var(--bg-primary);
   padding: 0 32rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .tab {
@@ -22,12 +22,13 @@
   color: var(--text-secondary);
   position: relative;
   z-index: 1;
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
+  font-weight: 500;
 }
 
 .tab.active {
   color: var(--primary-color);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .tab-indicator {
@@ -36,7 +37,7 @@
   left: 32rpx;
   width: calc(50% - 32rpx);
   height: 6rpx;
-  background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+  background: linear-gradient(90deg, #6366F1, #8B5CF6);
   border-radius: 3rpx;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -91,14 +92,14 @@
   opacity: 0.5;
 }
 
-/* 月度汇总 */
+/* 月度汇总 - 优化卡片样式 */
 .month-summary {
   display: flex;
   background-color: var(--bg-primary);
   margin: 0 32rpx 24rpx;
-  padding: 28rpx 24rpx;
+  padding: 32rpx 24rpx;
   border-radius: var(--radius-lg);
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
 }
 
 .month-summary .summary-item {
@@ -123,27 +124,29 @@
   color: var(--text-muted);
   display: block;
   margin-bottom: 12rpx;
+  font-weight: 500;
 }
 
 .month-summary .value {
-  font-size: 34rpx;
-  font-weight: 700;
+  font-size: 36rpx;
+  font-weight: 800;
+  letter-spacing: -1rpx;
 }
 
 .month-summary .value.income {
-  color: var(--success-color);
+  color: #10B981;
 }
 
 .month-summary .value.expense {
-  color: var(--danger-color);
+  color: #EF4444;
 }
 
 .month-summary .value.positive {
-  color: var(--success-color);
+  color: #10B981;
 }
 
 .month-summary .value.negative {
-  color: var(--danger-color);
+  color: #EF4444;
 }
 
 /* 记录列表 */
@@ -186,6 +189,7 @@
   background-color: var(--bg-primary);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
 }
 
 .record-item {
@@ -193,6 +197,12 @@
   align-items: center;
   padding: 24rpx;
   border-bottom: 1rpx solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.record-item:active {
+  background-color: var(--bg-tertiary);
+  transform: scale(0.99);
 }
 
 .record-item:last-child {
@@ -202,7 +212,7 @@
 .record-icon {
   width: 72rpx;
   height: 72rpx;
-  border-radius: var(--radius-md);
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -210,9 +220,29 @@
   flex-shrink: 0;
 }
 
+/* 收入图标背景 */
+.record-icon.income {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+/* 支出图标背景 */
+.record-icon.expense {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
 .record-icon image {
   width: 36rpx;
   height: 36rpx;
+}
+
+/* 收入图标颜色 */
+.record-icon.income image {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(47%) saturate(5765%) hue-rotate(131deg) brightness(92%) contrast(87%);
+}
+
+/* 支出图标颜色 */
+.record-icon.expense image {
+  filter: brightness(0) saturate(100%) invert(41%) sepia(78%) saturate(1831%) hue-rotate(335deg) brightness(94%) contrast(93%);
 }
 
 .record-info {
@@ -239,19 +269,19 @@
 
 .record-amount {
   font-size: 30rpx;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
 .record-amount.income {
-  color: var(--success-color);
+  color: #10B981;
 }
 
 .record-amount.expense {
-  color: var(--text-primary);
+  color: #EF4444;
 }
 
-/* 统计分析 */
+/* 统计分析 - 优化卡片 */
 .stats-overview {
   display: flex;
   gap: 24rpx;
@@ -263,14 +293,40 @@
   padding: 32rpx;
   border-radius: var(--radius-lg);
   color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-card::before {
+  content: '';
+  position: absolute;
+  top: -40rpx;
+  right: -40rpx;
+  width: 120rpx;
+  height: 120rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+}
+
+.overview-card::after {
+  content: '';
+  position: absolute;
+  bottom: -30rpx;
+  left: -30rpx;
+  width: 80rpx;
+  height: 80rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
 }
 
 .income-card {
   background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.35);
 }
 
 .expense-card {
   background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  box-shadow: 0 8rpx 24rpx rgba(239, 68, 68, 0.35);
 }
 
 .card-label {
@@ -278,11 +334,17 @@
   opacity: 0.9;
   display: block;
   margin-bottom: 12rpx;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
 }
 
 .card-value {
-  font-size: 40rpx;
-  font-weight: 700;
+  font-size: 44rpx;
+  font-weight: 800;
+  letter-spacing: -1rpx;
+  position: relative;
+  z-index: 1;
 }
 
 /* 统计区块 */
