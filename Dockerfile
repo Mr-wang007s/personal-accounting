@@ -73,14 +73,17 @@ RUN mkdir -p /app/apps/backend/data
 
 EXPOSE 3000
 
-# 创建启动脚本：先执行数据库迁移，再启动应用
-COPY --from=builder /app/apps/backend/prisma ./prisma
+# 创建启动脚本：先同步数据库 schema，再启动应用
 RUN echo '#!/bin/sh' > /app/apps/backend/start.sh && \
-    echo 'echo "Running database migrations..."' >> /app/apps/backend/start.sh && \
-    echo 'npx prisma migrate deploy' >> /app/apps/backend/start.sh && \
+    echo 'set -e' >> /app/apps/backend/start.sh && \
+    echo 'echo "========== Database Setup =========="' >> /app/apps/backend/start.sh && \
+    echo 'echo "DATABASE_URL: $DATABASE_URL"' >> /app/apps/backend/start.sh && \
+    echo 'echo "Syncing database schema..."' >> /app/apps/backend/start.sh && \
+    echo 'npx prisma db push --accept-data-loss --skip-generate 2>&1 || echo "Warning: db push failed, continuing..."' >> /app/apps/backend/start.sh && \
+    echo 'echo "=================================="' >> /app/apps/backend/start.sh && \
     echo 'echo "Starting application..."' >> /app/apps/backend/start.sh && \
-    echo 'node dist/main.js' >> /app/apps/backend/start.sh && \
+    echo 'exec node dist/main.js' >> /app/apps/backend/start.sh && \
     chmod +x /app/apps/backend/start.sh
 
-# Start the application with migrations
+# Start the application with db sync
 CMD ["/app/apps/backend/start.sh"]
