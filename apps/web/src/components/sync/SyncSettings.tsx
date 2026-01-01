@@ -12,11 +12,12 @@ interface SyncSettingsProps {
 }
 
 export function SyncSettings({ onClose }: SyncSettingsProps) {
-  const { userProfile } = useLedger()
+  const { ledgers } = useLedger()
   const {
     isConnected,
     isAuthenticated,
     serverUrl,
+    userPhone,
     syncState,
     lastSyncAt,
     pendingBackupCount,
@@ -25,20 +26,21 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
     discoverServer,
     login,
     sync,
+    syncLedgers,
     disconnect,
     setAutoSyncEnabled,
   } = useSync()
 
   const [inputUrl, setInputUrl] = useState(serverUrl || 'http://127.0.0.1:3000')
+  const [inputPhone, setInputPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState<'url' | 'phone'>('url')
+
+  // 验证手机号格式
+  const isValidPhone = (phone: string) => /^1[3-9]\d{9}$/.test(phone)
 
   const handleConnect = async () => {
-    if (!userProfile?.nickname) {
-      setError('请先设置用户昵称')
-      return
-    }
-
     setError(null)
     setLoading(true)
     
@@ -49,13 +51,43 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
         setLoading(false)
         return
       }
-      // 连接成功后自动使用昵称登录
-      const loginSuccess = await login(userProfile.nickname)
-      if (!loginSuccess) {
-        setError('登录失败')
-      }
+      // 连接成功，进入手机号输入步骤
+      setStep('phone')
     } catch {
       setError('连接失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogin = async () => {
+    if (!isValidPhone(inputPhone)) {
+      setError('请输入有效的手机号')
+      return
+    }
+
+    setError(null)
+    setLoading(true)
+    
+    try {
+      const result = await login(inputPhone)
+      if (!result.success) {
+        setError('登录失败')
+        setLoading(false)
+        return
+      }
+
+      // 登录成功后，同步本地账本到云端
+      if (ledgers.length > 0) {
+        await syncLedgers()
+      }
+
+      // 如果有待备份的记录，自动触发同步
+      if (pendingBackupCount > 0) {
+        await sync()
+      }
+    } catch {
+      setError('登录失败')
     } finally {
       setLoading(false)
     }
@@ -80,6 +112,8 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
   const handleDisconnect = () => {
     if (confirm('断开连接后，数据将仅保存在本地。确定继续？')) {
       disconnect()
+      setStep('url')
+      setInputPhone('')
     }
   }
 
@@ -106,34 +140,15 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
           </div>
         )}
 
-        {/* 步骤 1: 连接服务器 */}
-        <div className="space-y-2">
-          <Label>服务器地址</Label>
-          <div className="flex gap-2">
-            <Input
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="http://127.0.0.1:3000"
-              disabled={isConnected || loading}
-            />
-            {!isConnected ? (
-              <Button onClick={handleConnect} disabled={loading}>
-                {loading ? '连接中...' : '连接'}
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={handleDisconnect}>
-                断开
-              </Button>
-            )}
-          </div>
-          {isConnected && (
-            <p className="text-sm text-green-600">✓ 已连接到 {serverUrl}（用户: {userProfile?.nickname}）</p>
-          )}
-        </div>
-
-        {/* 步骤 2: 同步操作 */}
-        {isConnected && isAuthenticated && (
+        {/* 已连接状态 */}
+        {isConnected && isAuthenticated ? (
           <div className="space-y-4">
+            {/* 连接信息 */}
+            <div className="p-3 bg-green-50 rounded-lg space-y-1">
+              <p className="text-sm text-green-600">✓ 已连接到 {serverUrl}</p>
+              <p className="text-sm text-green-600">📱 手机号: {userPhone}</p>
+            </div>
+
             {/* 自动同步开关 */}
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
               <div>
@@ -186,14 +201,82 @@ export function SyncSettings({ onClose }: SyncSettingsProps) {
               </div>
             )}
 
-            <Button 
-              className="w-full" 
-              onClick={handleSync}
-              disabled={loading || syncState === 'syncing'}
-            >
-              {syncState === 'syncing' ? '同步中...' : '立即同步'}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1" 
+                onClick={handleSync}
+                disabled={loading || syncState === 'syncing'}
+              >
+                {syncState === 'syncing' ? '同步中...' : '立即同步'}
+              </Button>
+              <Button variant="outline" onClick={handleDisconnect}>
+                断开
+              </Button>
+            </div>
           </div>
+        ) : (
+          <>
+            {/* 步骤 1: 连接服务器 */}
+            {step === 'url' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>服务器地址</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={inputUrl}
+                      onChange={(e) => setInputUrl(e.target.value)}
+                      placeholder="http://127.0.0.1:3000"
+                      disabled={loading}
+                    />
+                    <Button onClick={handleConnect} disabled={loading}>
+                      {loading ? '连接中...' : '连接'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 步骤 2: 输入手机号 */}
+            {step === 'phone' && (
+              <div className="space-y-4">
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-600">✓ 已连接到 {inputUrl}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>手机号</Label>
+                  <p className="text-xs text-gray-500">
+                    输入手机号进行登录/注册，首次登录将自动同步本地账本到云端
+                  </p>
+                  <Input
+                    type="tel"
+                    value={inputPhone}
+                    onChange={(e) => setInputPhone(e.target.value)}
+                    placeholder="请输入手机号"
+                    disabled={loading}
+                    maxLength={11}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setStep('url')}
+                    disabled={loading}
+                  >
+                    返回
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={handleLogin} 
+                    disabled={loading || !isValidPhone(inputPhone)}
+                  >
+                    {loading ? '登录中...' : '登录并同步'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* 说明 */}

@@ -13,7 +13,8 @@ datasource db {
 // 用户表 - 对应 shared/types User 接口
 model User {
   id        String   @id @default(cuid())
-  openid    String   @unique // 微信 openid
+  phone     String   @unique // 手机号（主要标识）
+  openid    String?  @unique // 微信 openid（可选）
   unionid   String?  @unique // 微信 unionid（可选）
   nickname  String?
   avatar    String?

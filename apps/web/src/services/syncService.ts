@@ -8,9 +8,9 @@
  * 4. 删除已同步数据时，提示是否删除云端
  */
 
-import { apiClient, BackupRecord } from './apiClient'
-import type { Record, SyncStatus } from '@personal-accounting/shared/types'
-import { STORAGE_KEY } from '@personal-accounting/shared/constants'
+import { apiClient, BackupRecord, BackupLedger, LoginResponse } from './apiClient'
+import type { Record, Ledger, SyncStatus } from '@personal-accounting/shared/types'
+import { STORAGE_KEY, LEDGERS_KEY } from '@personal-accounting/shared/constants'
 
 // 存储键
 const SYNC_META_KEY = 'pa_sync_meta'
@@ -19,6 +19,7 @@ interface SyncMeta {
   serverUrl: string | null
   lastSyncAt: string | null
   autoSync: boolean
+  userPhone: string | null // 保存登录的手机号
 }
 
 export type SyncState = 'idle' | 'syncing' | 'success' | 'error' | 'offline'
@@ -27,6 +28,8 @@ export interface SyncResult {
   success: boolean
   uploaded: number   // 上传到云端的数量
   downloaded: number // 从云端下载的数量
+  ledgersUploaded?: number // 上传的账本数量
+  ledgersDownloaded?: number // 下载的账本数量
   error?: string
 }
 
@@ -45,7 +48,7 @@ class SyncService {
 
   private loadSyncMeta(): SyncMeta {
     const data = localStorage.getItem(SYNC_META_KEY)
-    return data ? JSON.parse(data) : { serverUrl: null, lastSyncAt: null, autoSync: true }
+    return data ? JSON.parse(data) : { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null }
   }
 
   private saveSyncMeta(): void {
@@ -60,6 +63,16 @@ class SyncService {
   private setLocalRecords(records: Record[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
+  }
+
+  private getLocalLedgers(): Ledger[] {
+    const data = localStorage.getItem(LEDGERS_KEY)
+    return data ? JSON.parse(data) : []
+  }
+
+  private setLocalLedgers(ledgers: Ledger[]): void {
+    localStorage.setItem(LEDGERS_KEY, JSON.stringify(ledgers))
+    window.dispatchEvent(new StorageEvent('storage', { key: LEDGERS_KEY }))
   }
 
   // ==================== 公共方法 ====================
@@ -122,18 +135,24 @@ class SyncService {
     }
   }
 
-  async login(identifier: string, nickname?: string): Promise<boolean> {
+  /**
+   * 手机号登录
+   * @returns 登录结果，包含是否为新用户
+   */
+  async login(phone: string, nickname?: string): Promise<{ success: boolean; isNewUser: boolean }> {
     try {
-      const result = await apiClient.devLogin(identifier, nickname)
+      const result: LoginResponse = await apiClient.phoneLogin(phone, nickname)
       apiClient.setToken(result.accessToken)
-      return true
+      this.syncMeta.userPhone = phone
+      this.saveSyncMeta()
+      return { success: true, isNewUser: result.isNewUser }
     } catch {
-      return false
+      return { success: false, isNewUser: false }
     }
   }
 
   disconnect(): void {
-    this.syncMeta = { serverUrl: null, lastSyncAt: null, autoSync: true }
+    this.syncMeta = { serverUrl: null, lastSyncAt: null, autoSync: true, userPhone: null }
     this.saveSyncMeta()
     apiClient.clearToken()
     
@@ -147,12 +166,100 @@ class SyncService {
     this.setLocalRecords(updatedRecords)
   }
 
+  // ==================== 账本同步 ====================
+
+  /**
+   * 同步本地账本到云端
+   */
+  async syncLedgers(): Promise<{ uploaded: number; downloaded: number }> {
+    if (!this.isConnected()) {
+      return { uploaded: 0, downloaded: 0 }
+    }
+
+    const localLedgers = this.getLocalLedgers()
+    let uploaded = 0
+    let downloaded = 0
+
+    // 上传本地账本
+    if (localLedgers.length > 0) {
+      const backupLedgers: BackupLedger[] = localLedgers.map(l => ({
+        clientId: l.id,
+        name: l.name,
+        icon: l.icon,
+        color: l.color,
+        createdAt: l.createdAt,
+      }))
+
+      try {
+        const result = await apiClient.backupLedgers(backupLedgers)
+        uploaded = result.uploaded
+      } catch (error) {
+        console.error('[Sync] 账本上传失败:', error)
+      }
+    }
+
+    // 从云端下载账本
+    try {
+      const restoreResult = await apiClient.restore()
+      const cloudLedgers = restoreResult.ledgers || []
+      const localLedgerMap = new Map(localLedgers.map(l => [l.id, l]))
+
+      for (const cloudLedger of cloudLedgers) {
+        if (!localLedgerMap.has(cloudLedger.clientId)) {
+          // 云端有，本地没有 -> 下载到本地
+          const newLedger: Ledger = {
+            id: cloudLedger.clientId,
+            name: cloudLedger.name,
+            icon: cloudLedger.icon,
+            color: cloudLedger.color,
+            createdAt: cloudLedger.createdAt,
+            updatedAt: cloudLedger.updatedAt,
+          }
+          localLedgerMap.set(newLedger.id, newLedger)
+          downloaded++
+        }
+      }
+
+      this.setLocalLedgers(Array.from(localLedgerMap.values()))
+    } catch (error) {
+      console.error('[Sync] 账本下载失败:', error)
+    }
+
+    return { uploaded, downloaded }
+  }
+
+  /**
+   * 同步单个新账本到云端
+   */
+  async syncNewLedger(ledger: Ledger): Promise<boolean> {
+    if (!this.isConnected()) {
+      return false
+    }
+
+    try {
+      const backupLedger: BackupLedger = {
+        clientId: ledger.id,
+        name: ledger.name,
+        icon: ledger.icon,
+        color: ledger.color,
+        createdAt: ledger.createdAt,
+      }
+
+      const result = await apiClient.backupLedgers([backupLedger])
+      return result.success
+    } catch (error) {
+      console.error('[Sync] 账本同步失败:', error)
+      return false
+    }
+  }
+
   // ==================== 同步操作 ====================
 
   /**
    * 自动同步（联网时调用）
-   * 1. 上传本地未同步的数据到云端
-   * 2. 下载云端有而本地没有的数据
+   * 1. 先同步账本
+   * 2. 上传本地未同步的记录到云端
+   * 3. 下载云端有而本地没有的记录
    */
   async sync(): Promise<SyncResult> {
     if (!this.isConnected()) {
@@ -167,10 +274,15 @@ class SyncService {
     const result: SyncResult = { success: false, uploaded: 0, downloaded: 0 }
 
     try {
+      // 1. 先同步账本
+      const ledgerResult = await this.syncLedgers()
+      result.ledgersUploaded = ledgerResult.uploaded
+      result.ledgersDownloaded = ledgerResult.downloaded
+
       const localRecords = this.getLocalRecords()
       const localMap = new Map(localRecords.map(r => [r.id, r]))
 
-      // 1. 上传本地未同步的记录
+      // 2. 上传本地未同步的记录
       const toBackup = localRecords.filter(r => r.syncStatus !== 'synced')
       if (toBackup.length > 0) {
         const backupRecords: BackupRecord[] = toBackup.map(r => ({
@@ -198,7 +310,7 @@ class SyncService {
         }
       }
 
-      // 2. 从云端下载记录
+      // 3. 从云端下载记录
       const restoreResult = await apiClient.restore()
       const cloudRecords = restoreResult.records
 

@@ -23,11 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
 import { Header } from '@/components/layout/Header'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { CategoryIcon } from '@/components/common/CategoryIcon'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useRecords } from '@/context/RecordsContext'
+import { useSync } from '@/context/SyncContext'
 import { formatCurrency, formatDate, dayjs } from '@/lib/utils'
 import { getCategoryById, CHART_COLORS } from '@personal-accounting/shared/constants'
 import type { Record } from '@personal-accounting/shared/types'
@@ -38,10 +40,12 @@ interface RecordsPageProps {
 }
 
 export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPageProps) {
-  const { records, statistics, deleteRecord } = useRecords()
+  const { records, statistics, deleteRecord, refreshData } = useRecords()
+  const { deleteRecord: syncDeleteRecord, isRecordSynced, isConnected } = useSync()
   const [currentMonth, setCurrentMonth] = useState(dayjs())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState<Record | null>(null)
+  const [deleteFromCloud, setDeleteFromCloud] = useState(true)
   const [activeTab, setActiveTab] = useState('records')
 
   const monthStr = useMemo(() => {
@@ -109,16 +113,25 @@ export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPa
 
   const handleDeleteClick = (record: Record) => {
     setRecordToDelete(record)
+    setDeleteFromCloud(true)
     setDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (recordToDelete) {
-      deleteRecord(recordToDelete.id)
+      const isSynced = isRecordSynced(recordToDelete.id)
+      if (isSynced && isConnected) {
+        await syncDeleteRecord(recordToDelete.id, deleteFromCloud)
+        refreshData()
+      } else {
+        deleteRecord(recordToDelete.id)
+      }
       setDeleteDialogOpen(false)
       setRecordToDelete(null)
     }
   }
+
+  const recordToDeleteIsSynced = recordToDelete ? isRecordSynced(recordToDelete.id) : false
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -505,6 +518,15 @@ export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPa
                 确定要删除这条记录吗？此操作无法撤销。
               </DialogDescription>
             </DialogHeader>
+            {recordToDeleteIsSynced && isConnected && (
+              <div className="flex items-center justify-between py-3 px-1">
+                <span className="text-sm text-slate-600">同时删除云端数据</span>
+                <Switch
+                  checked={deleteFromCloud}
+                  onCheckedChange={setDeleteFromCloud}
+                />
+              </div>
+            )}
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
                 取消

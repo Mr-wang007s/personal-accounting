@@ -13,6 +13,7 @@ interface SyncContextType {
   isConnected: boolean
   isAuthenticated: boolean
   serverUrl: string | null
+  userPhone: string | null
   lastSyncAt: string | null
   pendingBackupCount: number // 待备份数量
   autoSyncEnabled: boolean
@@ -20,8 +21,10 @@ interface SyncContextType {
   
   // 操作
   discoverServer: (url: string) => Promise<boolean>
-  login: (identifier: string, nickname?: string) => Promise<boolean>
+  login: (phone: string, nickname?: string) => Promise<{ success: boolean; isNewUser: boolean }>
   sync: () => Promise<SyncResult>
+  syncLedgers: () => Promise<{ uploaded: number; downloaded: number }>
+  syncNewLedger: (ledger: { id: string; name: string; icon?: string; color?: string; createdAt: string }) => Promise<boolean>
   checkConnection: () => Promise<void>
   disconnect: () => void
   setAutoSyncEnabled: (enabled: boolean) => void
@@ -40,6 +43,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [serverUrl, setServerUrl] = useState<string | null>(null)
+  const [userPhone, setUserPhone] = useState<string | null>(null)
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
   const [pendingBackupCount, setPendingBackupCount] = useState(0)
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
@@ -123,6 +127,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const init = async () => {
       const meta = syncService.getSyncMeta()
       setLastSyncAt(meta.lastSyncAt)
+      setUserPhone(meta.userPhone)
       updatePendingCount()
 
       if (meta.serverUrl) {
@@ -234,17 +239,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return success
   }, [])
 
-  // 登录
-  const login = useCallback(async (identifier: string, nickname?: string): Promise<boolean> => {
-    const success = await syncService.login(identifier, nickname)
-    setIsAuthenticated(success)
+  // 登录（手机号）
+  const login = useCallback(async (phone: string, nickname?: string): Promise<{ success: boolean; isNewUser: boolean }> => {
+    const result = await syncService.login(phone, nickname)
+    setIsAuthenticated(result.success)
     
-    if (success && stateRef.current.autoSyncEnabled && syncService.getPendingBackupCount() > 0) {
-      setTimeout(() => performSync(), RECONNECT_SYNC_DELAY)
+    if (result.success) {
+      setUserPhone(phone)
     }
     
-    return success
-  }, [performSync])
+    return result
+  }, [])
 
   // 手动同步
   const sync = useCallback(async (): Promise<SyncResult> => {
@@ -269,6 +274,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return result
   }, [updatePendingCount])
 
+  // 同步账本
+  const syncLedgers = useCallback(async (): Promise<{ uploaded: number; downloaded: number }> => {
+    return syncService.syncLedgers()
+  }, [])
+
+  // 同步单个新账本
+  const syncNewLedger = useCallback(async (ledger: { id: string; name: string; icon?: string; color?: string; createdAt: string }): Promise<boolean> => {
+    return syncService.syncNewLedger(ledger as any)
+  }, [])
+
   // 检查连接
   const checkConnection = useCallback(async () => {
     if (!serverUrl) return
@@ -285,6 +300,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setServerUrl(null)
     setIsConnected(false)
     setIsAuthenticated(false)
+    setUserPhone(null)
     setLastSyncAt(null)
     setPendingBackupCount(0)
     setSyncState('idle')
@@ -318,6 +334,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         isConnected,
         isAuthenticated,
         serverUrl,
+        userPhone,
         lastSyncAt,
         pendingBackupCount,
         autoSyncEnabled,
@@ -325,6 +342,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         discoverServer,
         login,
         sync,
+        syncLedgers,
+        syncNewLedger,
         checkConnection,
         disconnect,
         setAutoSyncEnabled,

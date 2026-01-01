@@ -1,11 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator'
+import { IsString, IsNotEmpty, IsOptional, Matches } from 'class-validator'
 
 export class DevLoginDto {
-  @ApiProperty({ description: '用户唯一标识（openid 或自定义 ID）' })
+  @ApiProperty({ description: '手机号' })
   @IsString()
   @IsNotEmpty()
-  openid: string
+  @Matches(/^1[3-9]\d{9}$/, { message: '请输入有效的手机号' })
+  phone: string
 
   @ApiPropertyOptional({ description: '用户昵称' })
   @IsString()

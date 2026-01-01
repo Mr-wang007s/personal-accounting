@@ -7,7 +7,7 @@ import { TokenResponseDto } from './dto/token-response.dto'
 
 export interface JwtPayload {
   sub: string // userId
-  openid: string
+  phone: string
 }
 
 @Injectable()
@@ -25,9 +25,13 @@ export class AuthService {
 
     // 查找或创建用户
     let user = await this.usersService.findByOpenid(wechatUser.openid)
+    let isNewUser = false
 
     if (!user) {
+      isNewUser = true
+      // 微信登录时，使用 openid 作为临时手机号（后续可绑定真实手机号）
       user = await this.usersService.create({
+        phone: `wx_${wechatUser.openid}`,
         openid: wechatUser.openid,
         unionid: wechatUser.unionid,
         nickname: dto.nickname,
@@ -44,7 +48,7 @@ export class AuthService {
     // 生成 JWT
     const payload: JwtPayload = {
       sub: user.id,
-      openid: user.openid,
+      phone: user.phone,
     }
 
     const accessToken = this.jwtService.sign(payload)
@@ -53,10 +57,12 @@ export class AuthService {
       accessToken,
       user: {
         id: user.id,
+        phone: user.phone,
         openid: user.openid,
         nickname: user.nickname,
         avatar: user.avatar,
       },
+      isNewUser,
     }
   }
 
@@ -70,7 +76,7 @@ export class AuthService {
 
     const payload: JwtPayload = {
       sub: user.id,
-      openid: user.openid,
+      phone: user.phone,
     }
 
     const accessToken = this.jwtService.sign(payload)
@@ -79,10 +85,12 @@ export class AuthService {
       accessToken,
       user: {
         id: user.id,
+        phone: user.phone,
         openid: user.openid,
         nickname: user.nickname,
         avatar: user.avatar,
       },
+      isNewUser: false,
     }
   }
 
@@ -97,26 +105,23 @@ export class AuthService {
     return user
   }
 
-  // 开发环境模拟登录（也用于 Web/小程序注册登录）
-  async devLogin(openid: string, nickname?: string): Promise<TokenResponseDto> {
-    // if (process.env.NODE_ENV === 'production') {
-    //   throw new UnauthorizedException('Dev login not allowed in production')
-    // }
-
-    let user = await this.usersService.findByOpenid(openid)
+  // 手机号登录/注册
+  async phoneLogin(phone: string, nickname?: string): Promise<TokenResponseDto> {
+    let user = await this.usersService.findByPhone(phone)
+    let isNewUser = false
 
     if (!user) {
-      // 自动创建用户，默认密码 20260101
+      isNewUser = true
+      // 自动创建用户
       user = await this.usersService.create({
-        openid,
-        nickname: nickname || `User ${openid.slice(-4)}`,
-        password: '20260101',
+        phone,
+        nickname: nickname || `用户${phone.slice(-4)}`,
       })
     }
 
     const payload: JwtPayload = {
       sub: user.id,
-      openid: user.openid,
+      phone: user.phone,
     }
 
     const accessToken = this.jwtService.sign(payload)
@@ -125,10 +130,12 @@ export class AuthService {
       accessToken,
       user: {
         id: user.id,
+        phone: user.phone,
         openid: user.openid,
         nickname: user.nickname,
         avatar: user.avatar,
       },
+      isNewUser,
     }
   }
 }

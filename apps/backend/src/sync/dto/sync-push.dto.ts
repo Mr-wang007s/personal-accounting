@@ -11,6 +11,40 @@ import {
   Min,
 } from 'class-validator'
 
+// 备份账本 DTO
+export class BackupLedgerDto {
+  @ApiProperty({ description: '客户端 ID（本地唯一标识）' })
+  @IsString()
+  clientId: string
+
+  @ApiProperty({ description: '账本名称' })
+  @IsString()
+  name: string
+
+  @ApiPropertyOptional({ description: '图标' })
+  @IsString()
+  @IsOptional()
+  icon?: string
+
+  @ApiPropertyOptional({ description: '颜色' })
+  @IsString()
+  @IsOptional()
+  color?: string
+
+  @ApiProperty()
+  @IsDateString()
+  createdAt: string
+}
+
+// 批量备份账本请求
+export class BackupLedgersDto {
+  @ApiProperty({ description: '要备份的账本列表', type: [BackupLedgerDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BackupLedgerDto)
+  ledgers: BackupLedgerDto[]
+}
+
 // 备份记录 DTO
 export class BackupRecordDto {
   @ApiProperty({ description: '客户端 ID（本地唯一标识）' })

@@ -51,6 +51,7 @@ export class AuthController {
   async getProfile(@CurrentUser() user: User) {
     return {
       id: user.id,
+      phone: user.phone,
       openid: user.openid,
       nickname: user.nickname,
       avatar: user.avatar,
@@ -58,12 +59,12 @@ export class AuthController {
     }
   }
 
-  // 开发环境专用接口（也用于 Web/小程序注册登录）
-  @Post('dev/login')
+  // 手机号登录/注册接口
+  @Post('phone/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '开发环境登录/注册（仅开发环境可用）' })
+  @ApiOperation({ summary: '手机号登录/注册' })
   @ApiResponse({ status: 200, type: TokenResponseDto })
-  async devLogin(@Body() dto: DevLoginDto): Promise<TokenResponseDto> {
-    return this.authService.devLogin(dto.openid, dto.nickname)
+  async phoneLogin(@Body() dto: DevLoginDto): Promise<TokenResponseDto> {
+    return this.authService.phoneLogin(dto.phone, dto.nickname)
   }
 }

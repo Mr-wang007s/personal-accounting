@@ -19,6 +19,17 @@ export interface PingResponse {
   addresses: string[]
 }
 
+// 云端账本
+export interface CloudLedger {
+  serverId: string
+  clientId: string
+  name: string
+  icon?: string
+  color?: string
+  createdAt: string
+  updatedAt: string
+}
+
 // 云端记录
 export interface CloudRecord {
   serverId: string
@@ -31,6 +42,15 @@ export interface CloudRecord {
   createdAt: string
   updatedAt: string
   ledgerId: string
+}
+
+// 备份账本请求
+export interface BackupLedger {
+  clientId: string
+  name: string
+  icon?: string
+  color?: string
+  createdAt: string
 }
 
 // 备份请求
@@ -46,6 +66,20 @@ export interface BackupRecord {
   ledgerId: string
 }
 
+// 账本备份响应
+export interface BackupLedgersResponse {
+  success: boolean
+  uploaded: number
+  ledgers: Array<{
+    clientId: string
+    serverId: string
+  }>
+  errors?: Array<{
+    clientId: string
+    error: string
+  }>
+}
+
 // 备份响应
 export interface BackupResponse {
   success: boolean
@@ -59,7 +93,21 @@ export interface BackupResponse {
 // 恢复响应
 export interface RestoreResponse {
   success: boolean
+  ledgers: CloudLedger[]
   records: CloudRecord[]
+}
+
+// 登录响应
+export interface LoginResponse {
+  accessToken: string
+  user: {
+    id: string
+    phone: string
+    openid?: string
+    nickname?: string
+    avatar?: string
+  }
+  isNewUser: boolean
 }
 
 // 存储键
@@ -186,26 +234,25 @@ class ApiClient {
     })
   }
 
-  // 用户注册/登录（开发环境）
-  async register(nickname: string): Promise<{ accessToken: string; user: { id: string; openid: string; nickname: string; avatar: string | null } }> {
-    return this.request('/api/auth/dev/login', {
+  // 手机号登录
+  async phoneLogin(phone: string, nickname?: string): Promise<LoginResponse> {
+    return this.request('/api/auth/phone/login', {
       method: 'POST',
-      data: { 
-        openid: this.deviceId,
-        nickname 
-      },
-    })
-  }
-
-  // 开发环境登录
-  async devLogin(identifier: string, nickname?: string): Promise<{ accessToken: string; user: { id: string; openid: string; nickname: string; avatar: string | null } }> {
-    return this.request('/api/auth/dev/login', {
-      method: 'POST',
-      data: { openid: identifier, nickname },
+      data: { phone, nickname },
     })
   }
 
   // ==================== 新版简化 API ====================
+
+  /**
+   * 备份账本：上传本地账本到云端
+   */
+  async backupLedgers(ledgers: BackupLedger[]): Promise<BackupLedgersResponse> {
+    return this.request('/api/sync/backup-ledgers', {
+      method: 'POST',
+      data: { ledgers },
+    })
+  }
 
   /**
    * 备份：上传本地记录到云端

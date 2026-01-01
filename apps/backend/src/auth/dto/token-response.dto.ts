@@ -5,7 +5,10 @@ class UserInfo {
   id: string
 
   @ApiProperty()
-  openid: string
+  phone: string
+
+  @ApiProperty({ required: false })
+  openid?: string | null
 
   @ApiProperty({ required: false })
   nickname?: string | null
@@ -20,4 +23,7 @@ export class TokenResponseDto {
 
   @ApiProperty({ description: '用户信息', type: UserInfo })
   user: UserInfo
+
+  @ApiProperty({ description: '是否为新用户（首次注册）' })
+  isNewUser: boolean
 }

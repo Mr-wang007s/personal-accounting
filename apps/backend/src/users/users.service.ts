@@ -12,12 +12,20 @@ export class UsersService {
   async create(dto: CreateUserDto): Promise<User> {
     return this.prisma.user.create({
       data: {
+        phone: dto.phone,
         openid: dto.openid,
         unionid: dto.unionid,
         nickname: dto.nickname,
         avatar: dto.avatar,
         password: dto.password,
       },
+    })
+  }
+
+  // 通过手机号查找用户
+  async findByPhone(phone: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { phone },
     })
   }
 

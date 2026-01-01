@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { SyncService } from './sync.service'
-import { BackupDto, DeleteCloudRecordsDto } from './dto/sync-push.dto'
+import { BackupDto, BackupLedgersDto, DeleteCloudRecordsDto } from './dto/sync-push.dto'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { User } from '@prisma/client'
@@ -20,6 +20,15 @@ import { User } from '@prisma/client'
 export class SyncController {
   constructor(@Inject(SyncService) private readonly syncService: SyncService) {}
 
+  @Post('backup-ledgers')
+  @ApiOperation({ summary: '备份账本：上传本地账本到云端' })
+  async backupLedgers(
+    @CurrentUser() user: User,
+    @Body() dto: BackupLedgersDto,
+  ) {
+    return this.syncService.backupLedgers(user.id, dto)
+  }
+
   @Post('backup')
   @ApiOperation({ summary: '备份：上传本地记录到云端' })
   async backup(
@@ -30,7 +39,7 @@ export class SyncController {
   }
 
   @Get('restore')
-  @ApiOperation({ summary: '恢复：从云端下载所有记录' })
+  @ApiOperation({ summary: '恢复：从云端下载所有账本和记录' })
   async restore(@CurrentUser() user: User) {
     return this.syncService.restore(user.id)
   }
