@@ -35,7 +35,9 @@ personal-accounting/
 │   └── business-logic/          # 纯计算逻辑（无副作用）
 └── apps/
     ├── web/                     # React 前端 → apps/web/CODEBUDDY.md
-    └── backend/                 # NestJS 后端 → apps/backend/CODEBUDDY.md
+    ├── backend/                 # NestJS 后端 → apps/backend/CODEBUDDY.md
+    ├── miniprogram/             # 微信小程序 → apps/miniprogram/CODEBUDDY.md
+    └── mobile/                  # Flutter App → apps/mobile/CODEBUDDY.md
 ```
 
 ### 依赖关系
@@ -130,5 +132,7 @@ interface Record {
 
 ## 子模块文档
 
-- **前端详情**: [`apps/web/CODEBUDDY.md`](apps/web/CODEBUDDY.md)
-- **后端详情**: [`apps/backend/CODEBUDDY.md`](apps/backend/CODEBUDDY.md)
+- **Web 前端**: [`apps/web/CODEBUDDY.md`](apps/web/CODEBUDDY.md) - React + TypeScript + Vite
+- **后端服务**: [`apps/backend/CODEBUDDY.md`](apps/backend/CODEBUDDY.md) - NestJS + Prisma
+- **微信小程序**: [`apps/miniprogram/CODEBUDDY.md`](apps/miniprogram/CODEBUDDY.md) - 原生小程序 + TypeScript
+- **Flutter App**: [`apps/mobile/CODEBUDDY.md`](apps/mobile/CODEBUDDY.md) - Flutter + Provider
