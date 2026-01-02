@@ -1,0 +1,12 @@
+{
+  "name": "personal-accounting-harmony",
+  "version": "1.0.0",
+  "description": "个人记账应用 HarmonyOS 端",
+  "main": "",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.18"
+  }
+}

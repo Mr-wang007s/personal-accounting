@@ -37,7 +37,8 @@ personal-accounting/
     ├── web/                     # React 前端 → apps/web/CODEBUDDY.md
     ├── backend/                 # NestJS 后端 → apps/backend/CODEBUDDY.md
     ├── miniprogram/             # 微信小程序 → apps/miniprogram/CODEBUDDY.md
-    └── mobile/                  # Flutter App → apps/mobile/CODEBUDDY.md
+    ├── mobile/                  # Flutter App → apps/mobile/CODEBUDDY.md
+    └── harmony/                 # HarmonyOS 鸿蒙 → apps/harmony/CODEBUDDY.md
 ```
 
 ### 依赖关系
@@ -136,3 +137,4 @@ interface Record {
 - **后端服务**: [`apps/backend/CODEBUDDY.md`](apps/backend/CODEBUDDY.md) - NestJS + Prisma
 - **微信小程序**: [`apps/miniprogram/CODEBUDDY.md`](apps/miniprogram/CODEBUDDY.md) - 原生小程序 + TypeScript
 - **Flutter App**: [`apps/mobile/CODEBUDDY.md`](apps/mobile/CODEBUDDY.md) - Flutter + Provider
+- **HarmonyOS**: [`apps/harmony/CODEBUDDY.md`](apps/harmony/CODEBUDDY.md) - ArkTS + ArkUI
