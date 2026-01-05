@@ -4,11 +4,6 @@
  */
 import type { Category, RecordType } from './types'
 
-// 存储键
-export const STORAGE_KEY = 'personal_accounting_records'
-export const LEDGERS_KEY = 'pa_ledgers'
-export const USER_PROFILE_KEY = 'pa_user_profile'
-
 // 支出分类
 export const EXPENSE_CATEGORIES: Category[] = [
   { id: 'food', name: '餐饮', icon: 'food', type: 'expense' },

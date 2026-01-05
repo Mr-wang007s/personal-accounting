@@ -1,78 +1,99 @@
 /**
  * 记录服务 - 记账记录相关操作
- * 本地 + 云端双存储：CRUD 操作时自动备份到云端
+ * 重构：移除本地存储，所有操作直接通过 API 完成
  */
 import type { Record, RecordType, GroupedRecords, Statistics } from '../shared/types'
 import { generateId, getNowISO, getDateLabel } from '../shared/utils'
 import { getCategoryById } from '../shared/constants'
 import { RecordCalculator } from '../business-logic/records'
 import { StatisticsService } from '../business-logic/statistics'
-import { StorageService } from './storage'
-import { syncService } from './sync'
+import { apiClient, CloudRecord, CreateRecordRequest, UpdateRecordRequest } from './apiClient'
+
+/**
+ * 将云端记录转换为本地格式
+ */
+function transformCloudRecord(cloudRecord: CloudRecord): Record {
+  return {
+    id: cloudRecord.clientId,
+    type: cloudRecord.type,
+    amount: cloudRecord.amount,
+    category: cloudRecord.category,
+    date: cloudRecord.date,
+    note: cloudRecord.note,
+    createdAt: cloudRecord.createdAt,
+    updatedAt: cloudRecord.updatedAt,
+    ledgerId: cloudRecord.ledgerId,
+    syncStatus: 'synced',
+    serverId: cloudRecord.serverId,
+  }
+}
 
 export const RecordService = {
   /**
-   * 添加记录（本地 + 云端）
+   * 添加记录（直接调用 API）
    */
-  addRecord(data: {
+  async addRecord(data: {
     type: RecordType
     amount: number
     category: string
     date: string
     note?: string
     ledgerId: string
-  }): Record {
-    const record: Record = {
-      id: generateId(),
+  }): Promise<Record> {
+    const clientId = generateId()
+    const now = getNowISO()
+
+    const request: CreateRecordRequest = {
+      clientId,
       type: data.type,
       amount: data.amount,
       category: data.category,
       date: data.date,
       note: data.note,
-      createdAt: getNowISO(),
       ledgerId: data.ledgerId,
-      syncStatus: 'local',
     }
 
-    // 1. 先保存到本地
-    StorageService.addRecord(record)
-    
-    // 2. 自动触发云端同步
-    syncService.triggerAutoSync()
-    
-    return record
+    const cloudRecord = await apiClient.createRecord(request)
+    return transformCloudRecord(cloudRecord)
   },
 
   /**
-   * 更新记录（本地 + 云端）
+   * 更新记录（直接调用 API）
    */
-  updateRecord(id: string, updates: Partial<Record>): void {
-    // 1. 更新本地
-    StorageService.updateRecord(id, updates)
-    
-    // 2. 标记需要重新同步
-    syncService.markRecordForSync(id)
-    
-    // 3. 自动触发云端同步
-    syncService.triggerAutoSync()
+  async updateRecord(id: string, updates: Partial<Record>): Promise<void> {
+    const request: UpdateRecordRequest = {
+      type: updates.type,
+      amount: updates.amount,
+      category: updates.category,
+      date: updates.date,
+      note: updates.note,
+    }
+
+    await apiClient.updateRecord(id, request)
   },
 
   /**
-   * 删除记录（本地 + 云端）
+   * 删除记录（直接调用 API）
    */
-  deleteRecord(id: string): void {
-    // 检查是否已同步到云端
-    const isSynced = syncService.isRecordSynced(id)
-    
-    // 使用 syncService 删除（会同时处理云端）
-    syncService.deleteRecord(id, isSynced)
+  async deleteRecord(id: string): Promise<void> {
+    await apiClient.deleteRecord(id)
   },
 
   /**
-   * 获取当前账本的记录
+   * 获取所有记录（从 API）
+   */
+  async getAllRecords(): Promise<Record[]> {
+    const cloudRecords = await apiClient.getRecords()
+    return cloudRecords.map(transformCloudRecord)
+  },
+
+  /**
+   * 获取当前账本的记录（从缓存的 globalData）
+   * 注意：这个方法使用 app.globalData 中的缓存数据
    */
   getRecordsByLedger(ledgerId: string): Record[] {
-    const records = StorageService.getRecords()
+    const app = getApp<IAppOption>()
+    const records = app.globalData.records || []
     return records.filter((r) => r.ledgerId === ledgerId)
   },
 

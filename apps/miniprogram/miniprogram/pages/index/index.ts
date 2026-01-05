@@ -1,5 +1,6 @@
 /**
  * 首页
+ * 重构：使用 globalData 缓存数据，刷新时从云端加载
  */
 import type { Record, Ledger } from '../../shared/types'
 import { getCategoryById, CATEGORY_COLORS } from '../../shared/constants'
@@ -23,6 +24,7 @@ Page({
     incomeDisplay: '0.00',
     expenseDisplay: '0.00',
     recentRecords: [] as RecordDisplay[],
+    isLoading: false,
   },
 
   onLoad() {
@@ -60,9 +62,17 @@ Page({
   },
 
   // 加载数据
-  loadData() {
+  async loadData() {
     const app = getApp<IAppOption>()
-    app.refreshData()
+    
+    // 从云端刷新数据
+    this.setData({ isLoading: true })
+    try {
+      await app.refreshData()
+    } catch (error) {
+      console.error('刷新数据失败:', error)
+    }
+    this.setData({ isLoading: false })
 
     const { currentLedger, records } = app.globalData
 

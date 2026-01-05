@@ -1,9 +1,9 @@
 /**
  * Services 模块入口
+ * 重构：移除本地存储和同步服务
  */
 
-export { StorageService } from './storage'
 export { LedgerService } from './ledger'
 export { RecordService } from './record'
-export { syncService, SyncState, SyncResult } from './sync'
 export { apiClient } from './apiClient'
+export { authService } from './auth'

@@ -1,6 +1,8 @@
 /**
  * API 客户端 - 用于与后端通信
  * 微信云托管版本 - 使用 wx.cloud.callContainer
+ * 
+ * 重构：移除本地存储，所有数据直接通过 API 操作
  */
 
 /// <reference path="../typings/wx.d.ts" />
@@ -52,53 +54,42 @@ export interface CloudRecord {
   ledgerId: string
 }
 
-// 备份账本请求
-export interface BackupLedger {
+// 创建账本请求
+export interface CreateLedgerRequest {
   clientId: string
   name: string
   icon?: string
   color?: string
-  createdAt: string
 }
 
-// 备份请求
-export interface BackupRecord {
+// 更新账本请求
+export interface UpdateLedgerRequest {
+  name?: string
+  icon?: string
+  color?: string
+}
+
+// 创建记录请求
+export interface CreateRecordRequest {
   clientId: string
   type: 'income' | 'expense'
   amount: number
   category: string
   date: string
   note?: string
-  createdAt: string
-  updatedAt?: string
   ledgerId: string
 }
 
-// 账本备份响应
-export interface BackupLedgersResponse {
-  success: boolean
-  uploaded: number
-  ledgers: Array<{
-    clientId: string
-    serverId: string
-  }>
-  errors?: Array<{
-    clientId: string
-    error: string
-  }>
+// 更新记录请求
+export interface UpdateRecordRequest {
+  type?: 'income' | 'expense'
+  amount?: number
+  category?: string
+  date?: string
+  note?: string
 }
 
-// 备份响应
-export interface BackupResponse {
-  success: boolean
-  uploaded: number
-  records: Array<{
-    clientId: string
-    serverId: string
-  }>
-}
-
-// 恢复响应
+// 恢复响应（获取所有数据）
 export interface RestoreResponse {
   success: boolean
   ledgers: CloudLedger[]
@@ -126,7 +117,7 @@ export interface WxCloudUserInfo {
   phone?: string
 }
 
-// 存储键
+// 存储键（仅保留必要的 token 和 deviceId）
 const DEVICE_ID_KEY = 'pa_device_id'
 const TOKEN_KEY = 'pa_token'
 
@@ -315,53 +306,110 @@ class ApiClient {
     })
   }
 
-  // ==================== 新版简化 API ====================
+  // ==================== 账本 CRUD API ====================
 
   /**
-   * 备份账本：上传本地账本到云端
+   * 获取所有账本
    */
-  async backupLedgers(ledgers: BackupLedger[]): Promise<BackupLedgersResponse> {
-    return this.request('/api/sync/backup-ledgers', {
+  async getLedgers(): Promise<CloudLedger[]> {
+    const result = await this.request<RestoreResponse>('/api/sync/restore')
+    return result.ledgers || []
+  }
+
+  /**
+   * 创建账本
+   */
+  async createLedger(data: CreateLedgerRequest): Promise<CloudLedger> {
+    return this.request('/api/ledgers', {
       method: 'POST',
-      data: { ledgers },
+      data,
     })
   }
 
   /**
-   * 备份：上传本地记录到云端
+   * 更新账本
    */
-  async backup(records: BackupRecord[]): Promise<BackupResponse> {
-    return this.request('/api/sync/backup', {
-      method: 'POST',
-      data: { records },
+  async updateLedger(clientId: string, data: UpdateLedgerRequest): Promise<CloudLedger> {
+    return this.request(`/api/ledgers/${clientId}`, {
+      method: 'PUT',
+      data,
     })
   }
 
   /**
-   * 恢复：从云端下载所有记录
+   * 删除账本
    */
-  async restore(): Promise<RestoreResponse> {
-    return this.request('/api/sync/restore')
-  }
-
-  /**
-   * 删除云端记录
-   */
-  async deleteCloudRecords(serverIds: string[]): Promise<{ deleted: number }> {
-    return this.request('/api/sync/delete-cloud', {
-      method: 'POST',
-      data: { serverIds },
-    })
-  }
-
-  /**
-   * 删除云端账本及其所有记录
-   */
-  async deleteCloudLedger(clientId: string): Promise<{ deleted: boolean; recordsDeleted: number }> {
+  async deleteLedger(clientId: string): Promise<{ deleted: boolean; recordsDeleted: number }> {
     return this.request('/api/sync/delete-ledger', {
       method: 'POST',
       data: { clientId },
     })
+  }
+
+  // ==================== 记录 CRUD API ====================
+
+  /**
+   * 获取所有记录
+   */
+  async getRecords(): Promise<CloudRecord[]> {
+    const result = await this.request<RestoreResponse>('/api/sync/restore')
+    return result.records || []
+  }
+
+  /**
+   * 获取指定账本的记录
+   */
+  async getRecordsByLedger(ledgerId: string): Promise<CloudRecord[]> {
+    const records = await this.getRecords()
+    return records.filter(r => r.ledgerId === ledgerId)
+  }
+
+  /**
+   * 创建记录
+   */
+  async createRecord(data: CreateRecordRequest): Promise<CloudRecord> {
+    return this.request('/api/records', {
+      method: 'POST',
+      data,
+    })
+  }
+
+  /**
+   * 更新记录
+   */
+  async updateRecord(clientId: string, data: UpdateRecordRequest): Promise<CloudRecord> {
+    return this.request(`/api/records/${clientId}`, {
+      method: 'PUT',
+      data,
+    })
+  }
+
+  /**
+   * 删除记录
+   */
+  async deleteRecord(clientId: string): Promise<{ deleted: boolean }> {
+    return this.request(`/api/records/${clientId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  /**
+   * 批量删除记录
+   */
+  async deleteRecords(clientIds: string[]): Promise<{ deleted: number }> {
+    return this.request('/api/records/batch-delete', {
+      method: 'POST',
+      data: { clientIds },
+    })
+  }
+
+  // ==================== 数据同步 API ====================
+
+  /**
+   * 获取所有数据（账本 + 记录）
+   */
+  async getAllData(): Promise<RestoreResponse> {
+    return this.request('/api/sync/restore')
   }
 }
 

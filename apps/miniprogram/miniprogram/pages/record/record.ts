@@ -1,11 +1,11 @@
 /**
  * 记账表单页
+ * 重构：移除本地存储，使用 API 操作
  */
 import type { Category, RecordType } from '../../shared/types'
 import { getCategoriesByType, CATEGORY_COLORS } from '../../shared/constants'
 import { formatDate, getToday } from '../../shared/utils'
 import { RecordService } from '../../services/record'
-import { StorageService } from '../../services/storage'
 
 interface CategoryDisplay extends Category {
   color: string
@@ -27,6 +27,7 @@ Page({
     // 加载状态
     isSaving: false,
     isDeleting: false,
+    isLoading: false,
   },
 
   onLoad(options) {
@@ -71,9 +72,10 @@ Page({
     this.checkCanSave()
   },
 
-  // 加载记录（编辑模式）
+  // 加载记录（编辑模式）- 从 globalData 获取
   loadRecord(id: string) {
-    const records = StorageService.getRecords()
+    const app = getApp<IAppOption>()
+    const records = app.globalData.records || []
     const record = records.find(r => r.id === id)
 
     if (record) {
@@ -195,14 +197,11 @@ Page({
 
     // 开始保存动画
     this.setData({ isSaving: true })
-    
-    // 添加短暂延迟，让用户看到加载动画
-    await new Promise(resolve => setTimeout(resolve, 300))
 
     try {
       if (isEdit && editId) {
         // 更新记录
-        RecordService.updateRecord(editId, {
+        await RecordService.updateRecord(editId, {
           type,
           amount: numAmount,
           category: selectedCategory,
@@ -211,7 +210,7 @@ Page({
         })
       } else {
         // 新增记录
-        RecordService.addRecord({
+        await RecordService.addRecord({
           type,
           amount: numAmount,
           category: selectedCategory,
@@ -222,7 +221,7 @@ Page({
       }
 
       // 刷新全局数据
-      app.refreshData()
+      await app.refreshData()
 
       // 显示成功提示
       wx.showToast({ 
@@ -240,7 +239,8 @@ Page({
       }, 800)
     } catch (error) {
       this.setData({ isSaving: false })
-      wx.showToast({ title: '保存失败', icon: 'none' })
+      console.error('保存失败:', error)
+      wx.showToast({ title: '保存失败，请重试', icon: 'none' })
     }
   },
 
@@ -258,14 +258,11 @@ Page({
         if (res.tapIndex === 0) {
           this.setData({ isDeleting: true })
           
-          // 添加短暂延迟
-          await new Promise(resolve => setTimeout(resolve, 300))
-          
           try {
-            RecordService.deleteRecord(editId)
+            await RecordService.deleteRecord(editId)
 
             const app = getApp<IAppOption>()
-            app.refreshData()
+            await app.refreshData()
 
             // 震动反馈
             wx.vibrateShort({ type: 'medium' })
@@ -281,7 +278,8 @@ Page({
             }, 800)
           } catch (error) {
             this.setData({ isDeleting: false })
-            wx.showToast({ title: '删除失败', icon: 'none' })
+            console.error('删除失败:', error)
+            wx.showToast({ title: '删除失败，请重试', icon: 'none' })
           }
         }
       }

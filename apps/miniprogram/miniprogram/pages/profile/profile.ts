@@ -1,5 +1,6 @@
 /**
  * 个人中心页
+ * 重构：使用 globalData 缓存数据，刷新时从云端加载
  */
 import type { Ledger, UserProfile } from '../../shared/types'
 import { LedgerService } from '../../services/ledger'
@@ -21,6 +22,10 @@ Page({
     newLedgerName: '',
     newLedgerIcon: '📒',
     ledgerIcons: ['📒', '💰', '🏠', '🚗', '✈️', '🎮', '🛒', '💼', '🎓', '❤️', '🌟', '📱'],
+    
+    // 加载状态
+    isLoading: false,
+    isCreating: false,
   },
 
   onLoad() {
@@ -36,9 +41,17 @@ Page({
   },
 
   // 加载数据
-  loadData() {
+  async loadData() {
     const app = getApp<IAppOption>()
-    app.refreshData()
+    
+    // 从云端刷新数据
+    this.setData({ isLoading: true })
+    try {
+      await app.refreshData()
+    } catch (error) {
+      console.error('刷新数据失败:', error)
+    }
+    this.setData({ isLoading: false })
 
     const { userProfile, currentLedger, ledgers, records } = app.globalData
 
@@ -71,10 +84,13 @@ Page({
     LedgerService.switchLedger(id)
 
     const app = getApp<IAppOption>()
-    app.refreshData()
+    
+    // 更新本地显示
+    this.setData({
+      currentLedger: app.globalData.currentLedger,
+    })
 
     wx.showToast({ title: '已切换账本', icon: 'success' })
-    this.loadData()
   },
 
   // 显示新建账本弹窗
@@ -103,22 +119,33 @@ Page({
   },
 
   // 创建账本
-  createLedger() {
-    const { newLedgerName, newLedgerIcon } = this.data
+  async createLedger() {
+    const { newLedgerName, newLedgerIcon, isCreating } = this.data
+
+    if (isCreating) return
 
     if (!newLedgerName.trim()) {
       wx.showToast({ title: '请输入账本名称', icon: 'none' })
       return
     }
 
-    LedgerService.createLedger(newLedgerName.trim(), newLedgerIcon)
+    this.setData({ isCreating: true })
 
-    const app = getApp<IAppOption>()
-    app.refreshData()
+    try {
+      await LedgerService.createLedger(newLedgerName.trim(), newLedgerIcon)
 
-    wx.showToast({ title: '创建成功', icon: 'success' })
-    this.hideCreateLedger()
-    this.loadData()
+      const app = getApp<IAppOption>()
+      await app.refreshData()
+
+      wx.showToast({ title: '创建成功', icon: 'success' })
+      this.hideCreateLedger()
+      this.loadData()
+    } catch (error) {
+      console.error('创建账本失败:', error)
+      wx.showToast({ title: '创建失败，请重试', icon: 'none' })
+    } finally {
+      this.setData({ isCreating: false })
+    }
   },
 
   // 删除账本
@@ -138,18 +165,25 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '删除中...' })
-          const success = await LedgerService.deleteLedger(id)
-          wx.hideLoading()
-          if (success) {
-            const app = getApp<IAppOption>()
-            app.refreshData()
+          try {
+            const success = await LedgerService.deleteLedger(id)
+            wx.hideLoading()
+            if (success) {
+              const app = getApp<IAppOption>()
+              await app.refreshData()
 
-            wx.showToast({ title: '已删除', icon: 'success' })
-            this.loadData()
+              wx.showToast({ title: '已删除', icon: 'success' })
+              this.loadData()
+            } else {
+              wx.showToast({ title: '删除失败', icon: 'none' })
+            }
+          } catch (error) {
+            wx.hideLoading()
+            console.error('删除账本失败:', error)
+            wx.showToast({ title: '删除失败，请重试', icon: 'none' })
           }
         }
       }
     })
   },
-
 })

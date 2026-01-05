@@ -1,5 +1,6 @@
 /**
  * 账单明细页
+ * 重构：使用 globalData 缓存数据，刷新时从云端加载
  */
 import type { Record, CategoryStat, MonthlyData } from '../../shared/types'
 import { getCategoryById, CATEGORY_COLORS } from '../../shared/constants'
@@ -121,6 +122,9 @@ Page({
     // 图表滚动
     needScroll: false,
     scrollToView: '',
+    
+    // 加载状态
+    isLoading: false,
   },
 
   onLoad() {
@@ -145,9 +149,17 @@ Page({
   },
 
   // 加载数据
-  loadData() {
+  async loadData() {
     const app = getApp<IAppOption>()
-    app.refreshData()
+    
+    // 从云端刷新数据
+    this.setData({ isLoading: true })
+    try {
+      await app.refreshData()
+    } catch (error) {
+      console.error('刷新数据失败:', error)
+    }
+    this.setData({ isLoading: false })
 
     const { currentLedger } = app.globalData
     if (!currentLedger) return
@@ -301,7 +313,11 @@ Page({
     const range = e.currentTarget.dataset.range as TimeRange
     if (range !== this.data.selectedTimeRange) {
       this.setData({ selectedTimeRange: range })
-      this.loadData()
+      const app = getApp<IAppOption>()
+      const { currentLedger } = app.globalData
+      if (currentLedger) {
+        this.loadStats(currentLedger.id)
+      }
     }
   },
 
@@ -310,7 +326,11 @@ Page({
     const type = e.currentTarget.dataset.type as 'expense' | 'income'
     if (type !== this.data.statsType) {
       this.setData({ statsType: type })
-      this.loadData()
+      const app = getApp<IAppOption>()
+      const { currentLedger } = app.globalData
+      if (currentLedger) {
+        this.loadStats(currentLedger.id)
+      }
     }
   },
 
@@ -426,7 +446,15 @@ Page({
     const tab = e.currentTarget.dataset.tab as 'records' | 'stats'
     if (tab !== this.data.activeTab) {
       this.setData({ activeTab: tab })
-      this.loadData()
+      const app = getApp<IAppOption>()
+      const { currentLedger } = app.globalData
+      if (currentLedger) {
+        if (tab === 'records') {
+          this.loadRecords(currentLedger.id)
+        } else {
+          this.loadStats(currentLedger.id)
+        }
+      }
     }
   },
 
@@ -440,7 +468,11 @@ Page({
     }
     this.setData({ currentYear, currentMonth })
     this.updateMonthStr()
-    this.loadData()
+    const app = getApp<IAppOption>()
+    const { currentLedger } = app.globalData
+    if (currentLedger) {
+      this.loadRecords(currentLedger.id)
+    }
   },
 
   // 下一个月
@@ -462,7 +494,11 @@ Page({
     }
     this.setData({ currentYear, currentMonth })
     this.updateMonthStr()
-    this.loadData()
+    const app = getApp<IAppOption>()
+    const { currentLedger } = app.globalData
+    if (currentLedger) {
+      this.loadRecords(currentLedger.id)
+    }
   },
 
   // 月份选择变化
@@ -474,7 +510,11 @@ Page({
       currentMonth: month,
       currentMonthStr: value,
     })
-    this.loadData()
+    const app = getApp<IAppOption>()
+    const { currentLedger } = app.globalData
+    if (currentLedger) {
+      this.loadRecords(currentLedger.id)
+    }
   },
 
   // 编辑记录

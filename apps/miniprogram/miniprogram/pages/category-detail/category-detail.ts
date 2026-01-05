@@ -1,5 +1,6 @@
 /**
  * 分类明细页
+ * 重构：使用 globalData 缓存数据
  */
 import type { Record } from '../../shared/types'
 import { getCategoryById, CATEGORY_COLORS } from '../../shared/constants'

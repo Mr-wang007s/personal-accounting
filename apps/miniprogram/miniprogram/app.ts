@@ -1,11 +1,11 @@
 /**
  * 小程序入口文件
- * 负责应用初始化、数据加载、云端同步
+ * 负责应用初始化、数据加载
+ * 重构：移除本地存储，所有数据从云端加载
  */
-import { StorageService } from './services/storage';
 import { LedgerService } from './services/ledger';
 import { apiClient, CloudLedger, CloudRecord } from './services/apiClient';
-import { syncService } from './services/sync';
+import { authService } from './services/auth';
 import type { Ledger, Record, UserProfile } from './shared/types';
 
 const LOG_TAG = '[App]';
@@ -76,57 +76,12 @@ App<IAppOption>({
 
   /**
    * 应用初始化入口
-   * 优先使用本地数据，无本地数据时尝试从云端恢复
+   * 尝试自动登录并从云端加载数据
    */
   async initializeApp() {
     try {
-      const userProfile = StorageService.getUserProfile();
-      const ledgers = StorageService.getLedgers();
-
-      if (userProfile && ledgers.length > 0) {
-        this.initFromLocalData(userProfile, ledgers);
-        this.handleAutoLogin(userProfile);
-      } else {
-        await this.tryRestoreFromCloud();
-      }
-    } catch (error) {
-      console.error(`${LOG_TAG} 初始化失败:`, error);
-    }
-  },
-
-  /**
-   * 从本地存储初始化数据
-   */
-  initFromLocalData(userProfile: UserProfile, ledgers: Ledger[]) {
-    const currentLedger = ledgers.find(l => l.id === userProfile.currentLedgerId) || ledgers[0];
-
-    this.globalData.userProfile = userProfile;
-    this.globalData.ledgers = ledgers;
-    this.globalData.currentLedger = currentLedger;
-    this.globalData.records = StorageService.getRecords();
-    this.globalData.isInitialized = true;
-  },
-
-  /**
-   * 处理自动登录逻辑
-   */
-  handleAutoLogin(userProfile: UserProfile) {
-    const hasToken = !!apiClient.getToken();
-
-    if (hasToken) {
-      this.globalData.isLoggedIn = true;
-      return;
-    }
-
-    this.tryAutoLogin(userProfile.nickname, userProfile.avatar);
-  },
-
-  /**
-   * 尝试从云端恢复数据（首次打开或清除缓存后）
-   */
-  async tryRestoreFromCloud() {
-    try {
-      const loginResult = await syncService.autoLogin();
+      // 尝试自动登录
+      const loginResult = await authService.autoLogin();
 
       if (!loginResult.success) {
         console.log(`${LOG_TAG} 云端登录失败，需要引导`);
@@ -134,9 +89,21 @@ App<IAppOption>({
       }
 
       this.globalData.isLoggedIn = true;
-      console.log(`${LOG_TAG} 云端登录成功，尝试恢复数据`);
+      console.log(`${LOG_TAG} 云端登录成功，加载数据`);
 
-      const restoreResult = await apiClient.restore();
+      // 从云端加载所有数据
+      await this.loadDataFromCloud(loginResult.user);
+    } catch (error) {
+      console.error(`${LOG_TAG} 初始化失败:`, error);
+    }
+  },
+
+  /**
+   * 从云端加载数据
+   */
+  async loadDataFromCloud(user?: { nickname?: string; avatar?: string }) {
+    try {
+      const restoreResult = await apiClient.getAllData();
       const cloudLedgers = restoreResult.ledgers || [];
       const cloudRecords = restoreResult.records || [];
 
@@ -145,63 +112,27 @@ App<IAppOption>({
         return;
       }
 
-      this.restoreCloudData(cloudLedgers, cloudRecords, loginResult.user);
+      // 转换数据格式
+      const ledgers = cloudLedgers.map(transformCloudLedger);
+      const records = cloudRecords.map(transformCloudRecord);
+      
+      // 创建用户配置
+      const userProfile = createUserProfile(
+        user?.nickname || '',
+        user?.avatar || '',
+        ledgers[0].id
+      );
+
+      // 更新全局状态
+      this.globalData.userProfile = userProfile;
+      this.globalData.ledgers = ledgers;
+      this.globalData.currentLedger = ledgers[0];
+      this.globalData.records = records;
+      this.globalData.isInitialized = true;
+
+      console.log(`${LOG_TAG} 从云端加载数据成功，账本: ${ledgers.length}，记录: ${records.length}`);
     } catch (error) {
-      console.error(`${LOG_TAG} 从云端恢复数据失败:`, error);
-    }
-  },
-
-  /**
-   * 将云端数据恢复到本地
-   */
-  restoreCloudData(
-    cloudLedgers: CloudLedger[],
-    cloudRecords: CloudRecord[],
-    user?: { nickname?: string; avatar?: string }
-  ) {
-    const ledgers = cloudLedgers.map(transformCloudLedger);
-    const records = cloudRecords.map(transformCloudRecord);
-    const userProfile = createUserProfile(
-      user?.nickname || '',
-      user?.avatar || '',
-      ledgers[0].id
-    );
-
-    // 持久化到本地存储
-    StorageService.saveUserProfile(userProfile);
-    StorageService.saveLedgers(ledgers);
-    StorageService.saveRecords(records);
-
-    // 更新全局状态
-    this.globalData.userProfile = userProfile;
-    this.globalData.ledgers = ledgers;
-    this.globalData.currentLedger = ledgers[0];
-    this.globalData.records = records;
-    this.globalData.isInitialized = true;
-
-    console.log(`${LOG_TAG} 从云端恢复数据成功，账本: ${ledgers.length}，记录: ${records.length}`);
-  },
-
-  /**
-   * 尝试自动登录（云托管模式）
-   */
-  async tryAutoLogin(nickname?: string, avatar?: string) {
-    try {
-      const result = await syncService.autoLogin(nickname, avatar);
-
-      if (!result.success) {
-        return;
-      }
-
-      this.globalData.isLoggedIn = true;
-      console.log(`${LOG_TAG} 自动登录成功`);
-
-      // 登录成功后自动同步
-      if (syncService.isAutoSyncEnabled()) {
-        syncService.sync();
-      }
-    } catch (error) {
-      console.error(`${LOG_TAG} 自动登录失败:`, error);
+      console.error(`${LOG_TAG} 从云端加载数据失败:`, error);
     }
   },
 
@@ -222,19 +153,31 @@ App<IAppOption>({
   },
 
   /**
-   * 刷新全局数据（从本地存储重新加载）
+   * 刷新全局数据（从云端重新加载）
    */
-  refreshData() {
-    const userProfile = StorageService.getUserProfile();
-    const records = StorageService.getRecords();
-    const ledgers = StorageService.getLedgers();
+  async refreshData() {
+    try {
+      const restoreResult = await apiClient.getAllData();
+      const cloudLedgers = restoreResult.ledgers || [];
+      const cloudRecords = restoreResult.records || [];
 
-    this.globalData.userProfile = userProfile;
-    this.globalData.records = records;
-    this.globalData.ledgers = ledgers;
+      // 转换数据格式
+      const ledgers = cloudLedgers.map(transformCloudLedger);
+      const records = cloudRecords.map(transformCloudRecord);
 
-    if (userProfile) {
-      this.globalData.currentLedger = ledgers.find(l => l.id === userProfile.currentLedgerId) || ledgers[0];
+      // 更新全局状态
+      this.globalData.ledgers = ledgers;
+      this.globalData.records = records;
+
+      // 更新当前账本
+      if (this.globalData.userProfile) {
+        const currentLedgerId = this.globalData.userProfile.currentLedgerId;
+        this.globalData.currentLedger = ledgers.find(l => l.id === currentLedgerId) || ledgers[0];
+      }
+
+      console.log(`${LOG_TAG} 刷新数据成功，账本: ${ledgers.length}，记录: ${records.length}`);
+    } catch (error) {
+      console.error(`${LOG_TAG} 刷新数据失败:`, error);
     }
   },
 });

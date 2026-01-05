@@ -1,9 +1,10 @@
 /**
  * 首次使用引导页
  * 云托管版本 - 通过微信获取用户信息，自动登录
+ * 重构：移除本地存储
  */
 import { LedgerService } from '../../services/ledger'
-import { syncService } from '../../services/sync'
+import { authService } from '../../services/auth'
 
 Page({
   data: {
@@ -79,7 +80,20 @@ Page({
 
       const app = getApp<IAppOption>()
       
-      // 初始化本地数据
+      // 云托管自动登录
+      let cloudConnected = false
+      try {
+        const loginResult = await authService.autoLogin(nickname.trim(), avatarUrl)
+        if (loginResult.success) {
+          cloudConnected = true
+          app.globalData.isLoggedIn = true
+          console.log('[Onboarding] 云端自动登录成功')
+        }
+      } catch (e) {
+        console.error('[Onboarding] 云端登录失败:', e)
+      }
+
+      // 初始化本地数据（会同时在云端创建账本）
       await app.completeOnboarding(
         nickname.trim(), 
         finalLedgerName
@@ -89,37 +103,21 @@ Page({
       if (ledgerIcon !== '📒') {
         const ledgers = app.globalData.ledgers
         if (ledgers.length > 0) {
-          LedgerService.updateLedger(ledgers[0].id, { icon: ledgerIcon })
-          app.refreshData()
-        }
-      }
-
-      // 保存头像到用户配置
-      if (avatarUrl) {
-        try {
-          const userProfile = app.globalData.userProfile
-          if (userProfile) {
-            userProfile.avatar = avatarUrl
-            app.globalData.userProfile = userProfile
-            // 保存到本地存储
-            wx.setStorageSync('pa_user_profile', userProfile)
+          try {
+            await LedgerService.updateLedger(ledgers[0].id, { icon: ledgerIcon })
+          } catch (e) {
+            console.error('[Onboarding] 更新账本图标失败:', e)
           }
-        } catch (e) {
-          console.error('[Onboarding] 保存头像失败:', e)
         }
       }
 
-      // 云托管自动登录
-      let cloudConnected = false
-      try {
-        const loginResult = await syncService.autoLogin(nickname.trim(), avatarUrl)
-        if (loginResult.success) {
-          cloudConnected = true
-          app.globalData.isLoggedIn = true
-          console.log('[Onboarding] 云端自动登录成功')
+      // 保存头像到用户配置（仅在内存中）
+      if (avatarUrl) {
+        const userProfile = app.globalData.userProfile
+        if (userProfile) {
+          userProfile.avatar = avatarUrl
+          app.globalData.userProfile = userProfile
         }
-      } catch (e) {
-        console.error('[Onboarding] 云端登录失败:', e)
       }
 
       wx.hideLoading()
