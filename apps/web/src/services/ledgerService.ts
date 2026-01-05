@@ -1,11 +1,15 @@
 /**
- * 账本服务 - 管理多账本数据
+ * 账本服务 - 直接通过 API 操作
+ * 重构：移除本地存储，所有数据直接通过 API 操作
  */
 
 import type { Ledger, UserProfile } from '@personal-accounting/shared/types'
-import { LEDGERS_KEY, USER_PROFILE_KEY } from '@personal-accounting/shared/constants'
 import { generateId, getNowISO } from '@personal-accounting/shared/utils'
-import { syncService } from './syncService'
+import { apiClient, CloudLedger } from './apiClient'
+
+// 用户配置存储键（仅保留必要的本地状态）
+const USER_PROFILE_KEY = 'pa_user_profile'
+const CURRENT_LEDGER_KEY = 'pa_current_ledger_id'
 
 // 默认账本颜色
 const DEFAULT_COLORS = [
@@ -17,8 +21,24 @@ const DEFAULT_COLORS = [
   '#8B5CF6', // 浅紫
 ]
 
+// 将云端账本转换为本地账本格式
+function cloudToLocal(cloud: CloudLedger): Ledger {
+  return {
+    id: cloud.clientId,
+    name: cloud.name,
+    icon: cloud.icon,
+    color: cloud.color,
+    createdAt: cloud.createdAt,
+    updatedAt: cloud.updatedAt,
+  }
+}
+
 class LedgerService {
-  // ==================== 用户配置 ====================
+  private cache: Ledger[] = []
+  private cacheTime: number = 0
+  private readonly CACHE_TTL = 5000 // 5秒缓存
+
+  // ==================== 用户配置（本地存储，非业务数据） ====================
 
   getUserProfile(): UserProfile | null {
     const data = localStorage.getItem(USER_PROFILE_KEY)
@@ -56,93 +76,149 @@ class LedgerService {
     return updated
   }
 
-  // ==================== 账本管理 ====================
+  // ==================== 当前账本 ID（本地存储） ====================
 
-  getLedgers(): Ledger[] {
-    const data = localStorage.getItem(LEDGERS_KEY)
-    return data ? JSON.parse(data) : []
+  getCurrentLedgerId(): string | null {
+    return localStorage.getItem(CURRENT_LEDGER_KEY)
   }
 
-  saveLedgers(ledgers: Ledger[]): void {
-    localStorage.setItem(LEDGERS_KEY, JSON.stringify(ledgers))
+  setCurrentLedgerId(id: string): void {
+    localStorage.setItem(CURRENT_LEDGER_KEY, id)
+    // 同步更新 userProfile
+    this.updateUserProfile({ currentLedgerId: id })
   }
 
-  getLedger(id: string): Ledger | undefined {
-    return this.getLedgers().find(l => l.id === id)
-  }
+  // ==================== 账本管理（API 操作） ====================
 
-  createLedger(name: string, icon?: string, color?: string): Ledger {
-    const ledgers = this.getLedgers()
-    const now = getNowISO()
-    
-    const newLedger: Ledger = {
-      id: generateId(),
-      name,
-      icon: icon || 'Book',
-      color: color || DEFAULT_COLORS[ledgers.length % DEFAULT_COLORS.length],
-      createdAt: now,
-      updatedAt: now,
-    }
-    
-    ledgers.push(newLedger)
-    this.saveLedgers(ledgers)
-    
-    return newLedger
-  }
-
-  updateLedger(id: string, data: Partial<Omit<Ledger, 'id' | 'createdAt'>>): Ledger | null {
-    const ledgers = this.getLedgers()
-    const index = ledgers.findIndex(l => l.id === id)
-    
-    if (index === -1) return null
-    
-    ledgers[index] = {
-      ...ledgers[index],
-      ...data,
-      updatedAt: getNowISO(),
-    }
-    
-    this.saveLedgers(ledgers)
-    return ledgers[index]
-  }
-
-  async deleteLedger(id: string): Promise<boolean> {
-    const ledgers = this.getLedgers()
-    const filtered = ledgers.filter(l => l.id !== id)
-    
-    if (filtered.length === ledgers.length) return false
-    
-    this.saveLedgers(filtered)
-
-    // 同步删除云端账本
+  /**
+   * 刷新缓存
+   */
+  async refreshCache(): Promise<void> {
     try {
-      await syncService.deleteLedger(id)
+      const cloudLedgers = await apiClient.getLedgers()
+      this.cache = cloudLedgers.map(cloudToLocal)
+      this.cacheTime = Date.now()
     } catch (error) {
-      console.error('[LedgerService] 删除云端账本失败:', error)
+      console.error('[LedgerService] 刷新缓存失败:', error)
+      throw error
     }
+  }
 
-    return true
+  /**
+   * 获取缓存的账本（如果过期则刷新）
+   */
+  private async getCache(): Promise<Ledger[]> {
+    if (Date.now() - this.cacheTime > this.CACHE_TTL) {
+      await this.refreshCache()
+    }
+    return this.cache
+  }
+
+  /**
+   * 获取所有账本
+   */
+  async getLedgers(): Promise<Ledger[]> {
+    return this.getCache()
+  }
+
+  /**
+   * 获取指定账本
+   */
+  async getLedger(id: string): Promise<Ledger | undefined> {
+    const ledgers = await this.getCache()
+    return ledgers.find(l => l.id === id)
+  }
+
+  /**
+   * 创建账本
+   */
+  async createLedger(name: string, icon?: string, color?: string): Promise<Ledger> {
+    const clientId = generateId()
+    const ledgers = await this.getCache()
+
+    try {
+      const cloudLedger = await apiClient.createLedger({
+        clientId,
+        name,
+        icon: icon || 'Book',
+        color: color || DEFAULT_COLORS[ledgers.length % DEFAULT_COLORS.length],
+      })
+
+      const newLedger = cloudToLocal(cloudLedger)
+      
+      // 更新缓存
+      this.cache.push(newLedger)
+      
+      return newLedger
+    } catch (error) {
+      console.error('[LedgerService] 创建账本失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 更新账本
+   */
+  async updateLedger(id: string, data: Partial<Omit<Ledger, 'id' | 'createdAt'>>): Promise<Ledger | null> {
+    try {
+      const cloudLedger = await apiClient.updateLedger(id, {
+        name: data.name,
+        icon: data.icon,
+        color: data.color,
+      })
+
+      const updatedLedger = cloudToLocal(cloudLedger)
+      
+      // 更新缓存
+      const index = this.cache.findIndex(l => l.id === id)
+      if (index !== -1) {
+        this.cache[index] = updatedLedger
+      }
+      
+      return updatedLedger
+    } catch (error) {
+      console.error('[LedgerService] 更新账本失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 删除账本
+   */
+  async deleteLedger(id: string): Promise<boolean> {
+    try {
+      await apiClient.deleteLedger(id)
+      
+      // 更新缓存
+      this.cache = this.cache.filter(l => l.id !== id)
+      
+      return true
+    } catch (error) {
+      console.error('[LedgerService] 删除账本失败:', error)
+      return false
+    }
   }
 
   // ==================== 初始化检查 ====================
 
   isInitialized(): boolean {
     const profile = this.getUserProfile()
-    const ledgers = this.getLedgers()
-    return !!profile && ledgers.length > 0 && !!profile.currentLedgerId
+    const currentLedgerId = this.getCurrentLedgerId()
+    return !!profile && !!currentLedgerId
   }
 
   /**
    * 初始化用户和默认账本
    */
-  initialize(nickname: string, ledgerName: string = '我的账本', phone?: string): { profile: UserProfile; ledger: Ledger } {
+  async initialize(nickname: string, ledgerName: string = '我的账本', phone?: string): Promise<{ profile: UserProfile; ledger: Ledger }> {
     // 创建用户
     const profile = this.createUserProfile(nickname, phone)
     
     // 创建默认账本
-    const ledger = this.createLedger(ledgerName)
+    const ledger = await this.createLedger(ledgerName)
     
     // 设置当前账本
+    this.setCurrentLedgerId(ledger.id)
     profile.currentLedgerId = ledger.id
     this.saveUserProfile(profile)
     
@@ -153,35 +229,35 @@ class LedgerService {
    * 切换当前账本
    */
   switchLedger(ledgerId: string): boolean {
-    const ledger = this.getLedger(ledgerId)
-    if (!ledger) return false
-    
-    this.updateUserProfile({ currentLedgerId: ledgerId })
+    this.setCurrentLedgerId(ledgerId)
     return true
-  }
-
-  /**
-   * 更新手机号（便于直接存储到 pa_user_profile）
-   */
-  updatePhone(phone: string): UserProfile | null {
-    return this.updateUserProfile({ phone })
   }
 
   /**
    * 获取当前账本
    */
-  getCurrentLedger(): Ledger | null {
-    const profile = this.getUserProfile()
-    if (!profile?.currentLedgerId) return null
-    return this.getLedger(profile.currentLedgerId) || null
+  async getCurrentLedger(): Promise<Ledger | null> {
+    const currentId = this.getCurrentLedgerId()
+    if (!currentId) return null
+    return await this.getLedger(currentId) || null
   }
 
   /**
-   * 清除所有数据
+   * 清除所有本地数据
    */
   clearAllData(): void {
     localStorage.removeItem(USER_PROFILE_KEY)
-    localStorage.removeItem(LEDGERS_KEY)
+    localStorage.removeItem(CURRENT_LEDGER_KEY)
+    this.cache = []
+    this.cacheTime = 0
+  }
+
+  /**
+   * 清除缓存
+   */
+  clearCache(): void {
+    this.cache = []
+    this.cacheTime = 0
   }
 }
 

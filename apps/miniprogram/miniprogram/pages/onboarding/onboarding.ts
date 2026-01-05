@@ -1,7 +1,7 @@
 /**
  * 首次使用引导页
  * 云托管版本 - 通过微信获取用户信息，自动登录
- * 重构：移除本地存储
+ * 点击"开始记账"时创建账本
  */
 import { LedgerService } from '../../services/ledger'
 import { authService } from '../../services/auth'
@@ -80,7 +80,7 @@ Page({
 
       const app = getApp<IAppOption>()
       
-      // 云托管自动登录
+      // 1. 先进行云端自动登录（必须成功才能创建账本）
       let cloudConnected = false
       try {
         const loginResult = await authService.autoLogin(nickname.trim(), avatarUrl)
@@ -93,22 +93,32 @@ Page({
         console.error('[Onboarding] 云端登录失败:', e)
       }
 
-      // 初始化本地数据（会同时在云端创建账本）
-      await app.completeOnboarding(
-        nickname.trim(), 
-        finalLedgerName
-      )
+      // 2. 登录成功后创建账本
+      if (cloudConnected) {
+        // 在云端创建账本
+        await app.completeOnboarding(
+          nickname.trim(), 
+          finalLedgerName
+        )
 
-      // 更新账本图标
-      if (ledgerIcon !== '📒') {
-        const ledgers = app.globalData.ledgers
-        if (ledgers.length > 0) {
-          try {
-            await LedgerService.updateLedger(ledgers[0].id, { icon: ledgerIcon })
-          } catch (e) {
-            console.error('[Onboarding] 更新账本图标失败:', e)
+        // 更新账本图标
+        if (ledgerIcon !== '📒') {
+          const ledgers = app.globalData.ledgers
+          if (ledgers.length > 0) {
+            try {
+              await LedgerService.updateLedger(ledgers[0].id, { icon: ledgerIcon })
+            } catch (e) {
+              console.error('[Onboarding] 更新账本图标失败:', e)
+            }
           }
         }
+      } else {
+        // 登录失败，仅创建本地数据
+        console.warn('[Onboarding] 未登录，仅创建本地数据')
+        await app.completeOnboarding(
+          nickname.trim(), 
+          finalLedgerName
+        )
       }
 
       // 保存头像到用户配置（仅在内存中）

@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { RecordsModule } from './records/records.module'
 import { SyncModule } from './sync/sync.module'
+import { LedgersModule } from './ledgers/ledgers.module'
 import { join } from 'path'
 
 @Module({
@@ -34,6 +35,7 @@ import { join } from 'path'
     UsersModule,
     RecordsModule,
     SyncModule,
+    LedgersModule,
   ],
 })
 export class AppModule {}

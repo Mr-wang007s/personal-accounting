@@ -1,356 +1,171 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
-import { syncService, SyncState, SyncResult } from '@/services/syncService'
-import { apiClient } from '@/services/apiClient'
+/**
+ * 同步上下文 - 简化版
+ * 重构：移除本地存储同步逻辑，仅处理服务器连接和认证状态
+ */
 
-// 自动同步配置
-const AUTO_SYNC_DELAY = 3000 // 变更后延迟 3 秒自动同步
-const CONNECTION_CHECK_INTERVAL = 30000 // 每 30 秒检查连接
-const RECONNECT_SYNC_DELAY = 1000 // 重连后延迟 1 秒同步
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { apiClient, LoginResponse } from '@/services/apiClient'
+import { ledgerService } from '@/services/ledgerService'
+import { recordService } from '@/services/recordService'
+
+// 存储键（仅保留必要的配置）
+const SERVER_URL_KEY = 'pa_server_url'
+
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 interface SyncContextType {
   // 状态
-  syncState: SyncState
+  connectionState: ConnectionState
   isConnected: boolean
   isAuthenticated: boolean
   serverUrl: string | null
   userPhone: string | null
-  lastSyncAt: string | null
-  pendingBackupCount: number // 待备份数量
-  autoSyncEnabled: boolean
-  lastSyncResult: SyncResult | null
+  error: string | null
   
   // 操作
   discoverServer: (url: string) => Promise<boolean>
   login: (phone: string, nickname?: string) => Promise<{ success: boolean; isNewUser: boolean }>
-  sync: () => Promise<SyncResult>
-  syncLedgers: () => Promise<{ uploaded: number; downloaded: number }>
-  syncNewLedger: (ledger: { id: string; name: string; icon?: string; color?: string; createdAt: string }) => Promise<boolean>
-  checkConnection: () => Promise<void>
   disconnect: () => void
-  setAutoSyncEnabled: (enabled: boolean) => void
-  
-  // 记录操作（简化版）
-  markRecordForSync: (id: string) => void
-  deleteRecord: (id: string, deleteFromCloud: boolean) => Promise<boolean>
-  isRecordSynced: (id: string) => boolean
-  triggerAutoSync: () => void
+  refreshAllData: () => Promise<void>
 }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const [syncState, setSyncState] = useState<SyncState>('idle')
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [serverUrl, setServerUrl] = useState<string | null>(null)
   const [userPhone, setUserPhone] = useState<string | null>(null)
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
-  const [pendingBackupCount, setPendingBackupCount] = useState(0)
-  const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
-  const [autoSyncEnabled, setAutoSyncEnabledState] = useState(() => {
-    const saved = localStorage.getItem('pa_auto_sync')
-    return saved !== 'false' // 默认开启
-  })
+  const [error, setError] = useState<string | null>(null)
 
-  // 用于防抖的定时器引用
-  const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isSyncingRef = useRef(false)
-  const wasOfflineRef = useRef(false)
-  
-  // 使用 ref 存储最新状态
-  const stateRef = useRef({ isConnected, isAuthenticated, autoSyncEnabled })
-  stateRef.current = { isConnected, isAuthenticated, autoSyncEnabled }
-
-  // 更新待备份数量
-  const updatePendingCount = useCallback(() => {
-    setPendingBackupCount(syncService.getPendingBackupCount())
-  }, [])
-
-  // 执行同步
-  const performSync = useCallback(async () => {
-    const { isConnected: connected, isAuthenticated: authenticated, autoSyncEnabled: autoSync } = stateRef.current
+  // 刷新所有数据
+  const refreshAllData = useCallback(async () => {
+    if (!isAuthenticated) return
     
-    if (isSyncingRef.current || !connected || !authenticated || !autoSync) {
-      return
-    }
-
-    isSyncingRef.current = true
-    setSyncState('syncing')
-
     try {
-      const result = await syncService.sync()
-      setLastSyncResult(result)
-      
-      if (result.success) {
-        setSyncState('success')
-        setLastSyncAt(syncService.getSyncMeta().lastSyncAt)
-        updatePendingCount()
-        setTimeout(() => setSyncState('idle'), 2000)
-      } else {
-        setSyncState('error')
-        setTimeout(() => setSyncState('idle'), 3000)
-      }
-    } catch {
-      setSyncState('error')
-      setTimeout(() => setSyncState('idle'), 3000)
-    } finally {
-      isSyncingRef.current = false
+      await ledgerService.refreshCache()
+      await recordService.refreshCache()
+    } catch (err) {
+      console.error('[SyncContext] 刷新数据失败:', err)
     }
-  }, [updatePendingCount])
-
-  // 触发延迟自动同步（防抖）
-  const triggerAutoSync = useCallback(() => {
-    const { isConnected: connected, isAuthenticated: authenticated, autoSyncEnabled: autoSync } = stateRef.current
-    
-    if (!autoSync || !connected || !authenticated) {
-      return
-    }
-
-    if (autoSyncTimerRef.current) {
-      clearTimeout(autoSyncTimerRef.current)
-    }
-
-    autoSyncTimerRef.current = setTimeout(() => {
-      performSync()
-    }, AUTO_SYNC_DELAY)
-  }, [performSync])
-
-  // 设置自动同步开关
-  const setAutoSyncEnabled = useCallback((enabled: boolean) => {
-    setAutoSyncEnabledState(enabled)
-    localStorage.setItem('pa_auto_sync', String(enabled))
-    syncService.setAutoSync(enabled)
-  }, [])
+  }, [isAuthenticated])
 
   // 初始化
   useEffect(() => {
     const init = async () => {
-      const meta = syncService.getSyncMeta()
-      setLastSyncAt(meta.lastSyncAt)
-      setUserPhone(meta.userPhone)
-      updatePendingCount()
-
-      if (meta.serverUrl) {
-        setServerUrl(meta.serverUrl)
-        apiClient.setBaseUrl(meta.serverUrl)
+      const savedUrl = localStorage.getItem(SERVER_URL_KEY)
+      const profile = ledgerService.getUserProfile()
+      
+      if (savedUrl) {
+        setServerUrl(savedUrl)
+        apiClient.setBaseUrl(savedUrl)
         
-        const connected = await syncService.checkConnection()
-        setIsConnected(connected)
-        
-        const token = apiClient.getToken()
-        setIsAuthenticated(!!token && connected)
-        
-        if (!connected) {
-          setSyncState('offline')
+        // 检查连接
+        setConnectionState('connecting')
+        try {
+          await apiClient.ping(savedUrl)
+          setIsConnected(true)
+          setConnectionState('connected')
+          
+          // 检查认证
+          if (apiClient.isAuthenticated()) {
+            setIsAuthenticated(true)
+            setUserPhone(profile?.phone || null)
+          }
+        } catch {
+          setConnectionState('error')
+          setIsConnected(false)
         }
       }
     }
 
     init()
-  }, [updatePendingCount])
-
-  // 定期检查连接状态
-  useEffect(() => {
-    if (!serverUrl) return
-
-    const interval = setInterval(async () => {
-      const connected = await syncService.checkConnection()
-      const wasOffline = !stateRef.current.isConnected || wasOfflineRef.current
-      
-      setIsConnected(connected)
-      
-      if (!connected) {
-        setSyncState('offline')
-        wasOfflineRef.current = true
-      } else {
-        if (wasOffline && stateRef.current.isAuthenticated && stateRef.current.autoSyncEnabled) {
-          wasOfflineRef.current = false
-          setSyncState('idle')
-          setTimeout(() => {
-            if (syncService.getPendingBackupCount() > 0) {
-              performSync()
-            }
-          }, RECONNECT_SYNC_DELAY)
-        } else if (syncState === 'offline') {
-          setSyncState('idle')
-        }
-      }
-    }, CONNECTION_CHECK_INTERVAL)
-
-    return () => clearInterval(interval)
-  }, [serverUrl, syncState, performSync])
-
-  // 监听网络状态变化
-  useEffect(() => {
-    const handleOnline = async () => {
-      if (serverUrl && stateRef.current.isAuthenticated && stateRef.current.autoSyncEnabled) {
-        const connected = await syncService.checkConnection()
-        setIsConnected(connected)
-        
-        if (connected) {
-          setSyncState('idle')
-          setTimeout(() => {
-            if (syncService.getPendingBackupCount() > 0) {
-              performSync()
-            }
-          }, RECONNECT_SYNC_DELAY)
-        }
-      }
-    }
-
-    const handleOffline = () => {
-      setIsConnected(false)
-      setSyncState('offline')
-      wasOfflineRef.current = true
-    }
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [serverUrl, performSync])
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      if (autoSyncTimerRef.current) {
-        clearTimeout(autoSyncTimerRef.current)
-      }
-    }
   }, [])
 
   // 发现并连接服务器
   const discoverServer = useCallback(async (url: string): Promise<boolean> => {
-    setSyncState('syncing')
+    setConnectionState('connecting')
+    setError(null)
     
-    const success = await syncService.discoverServer(url)
-    
-    if (success) {
-      setServerUrl(url)
+    try {
+      const normalizedUrl = url.replace(/\/$/, '')
+      await apiClient.ping(normalizedUrl)
+      
+      // 保存服务器地址
+      localStorage.setItem(SERVER_URL_KEY, normalizedUrl)
+      apiClient.setBaseUrl(normalizedUrl)
+      
+      setServerUrl(normalizedUrl)
       setIsConnected(true)
-      setSyncState('idle')
-    } else {
-      setSyncState('error')
+      setConnectionState('connected')
+      
+      // 更新用户配置
+      ledgerService.updateUserProfile({ serverUrl: normalizedUrl })
+      
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '连接服务器失败')
+      setConnectionState('error')
+      return false
     }
-    
-    return success
   }, [])
 
-  // 登录（手机号）
+  // 登录
   const login = useCallback(async (phone: string, nickname?: string): Promise<{ success: boolean; isNewUser: boolean }> => {
-    const result = await syncService.login(phone, nickname)
-    setIsAuthenticated(result.success)
+    setError(null)
     
-    if (result.success) {
+    try {
+      const result: LoginResponse = await apiClient.phoneLogin(phone, nickname)
+      apiClient.setToken(result.accessToken)
+      
+      setIsAuthenticated(true)
       setUserPhone(phone)
+      
+      // 更新用户配置
+      const existingProfile = ledgerService.getUserProfile()
+      if (existingProfile) {
+        ledgerService.updateUserProfile({ phone })
+      } else {
+        ledgerService.createUserProfile(nickname || '用户', phone)
+      }
+      
+      return { success: true, isNewUser: result.isNewUser }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '登录失败')
+      return { success: false, isNewUser: false }
     }
-    
-    return result
   }, [])
-
-  // 手动同步
-  const sync = useCallback(async (): Promise<SyncResult> => {
-    if (!stateRef.current.isConnected || !stateRef.current.isAuthenticated) {
-      return { success: false, uploaded: 0, downloaded: 0, error: '未连接或未登录' }
-    }
-
-    setSyncState('syncing')
-    
-    const result = await syncService.sync()
-    setLastSyncResult(result)
-    
-    if (result.success) {
-      setSyncState('success')
-      setLastSyncAt(syncService.getSyncMeta().lastSyncAt)
-      updatePendingCount()
-      setTimeout(() => setSyncState('idle'), 3000)
-    } else {
-      setSyncState('error')
-    }
-    
-    return result
-  }, [updatePendingCount])
-
-  // 同步账本
-  const syncLedgers = useCallback(async (): Promise<{ uploaded: number; downloaded: number }> => {
-    return syncService.syncLedgers()
-  }, [])
-
-  // 同步单个新账本
-  const syncNewLedger = useCallback(async (ledger: { id: string; name: string; icon?: string; color?: string; createdAt: string }): Promise<boolean> => {
-    return syncService.syncNewLedger(ledger as any)
-  }, [])
-
-  // 检查连接
-  const checkConnection = useCallback(async () => {
-    if (!serverUrl) return
-    
-    setSyncState('syncing')
-    const connected = await syncService.checkConnection()
-    setIsConnected(connected)
-    setSyncState(connected ? 'idle' : 'offline')
-  }, [serverUrl])
 
   // 断开连接
   const disconnect = useCallback(() => {
-    syncService.disconnect()
+    localStorage.removeItem(SERVER_URL_KEY)
+    apiClient.clearToken()
+    
+    // 清除服务缓存
+    ledgerService.clearCache()
+    recordService.clearCache()
+    
     setServerUrl(null)
     setIsConnected(false)
     setIsAuthenticated(false)
     setUserPhone(null)
-    setLastSyncAt(null)
-    setPendingBackupCount(0)
-    setSyncState('idle')
-  }, [])
-
-  // 标记记录需要重新同步
-  const markRecordForSync = useCallback((id: string) => {
-    syncService.markRecordForSync(id)
-    updatePendingCount()
-    triggerAutoSync()
-  }, [updatePendingCount, triggerAutoSync])
-
-  // 删除记录
-  const deleteRecord = useCallback(async (id: string, deleteFromCloud: boolean): Promise<boolean> => {
-    const success = await syncService.deleteRecord(id, deleteFromCloud)
-    if (success) {
-      updatePendingCount()
-    }
-    return success
-  }, [updatePendingCount])
-
-  // 检查记录是否已同步
-  const isRecordSynced = useCallback((id: string): boolean => {
-    return syncService.isRecordSynced(id)
+    setConnectionState('disconnected')
   }, [])
 
   return (
     <SyncContext.Provider
       value={{
-        syncState,
+        connectionState,
         isConnected,
         isAuthenticated,
         serverUrl,
         userPhone,
-        lastSyncAt,
-        pendingBackupCount,
-        autoSyncEnabled,
-        lastSyncResult,
+        error,
         discoverServer,
         login,
-        sync,
-        syncLedgers,
-        syncNewLedger,
-        checkConnection,
         disconnect,
-        setAutoSyncEnabled,
-        markRecordForSync,
-        deleteRecord,
-        isRecordSynced,
-        triggerAutoSync,
+        refreshAllData,
       }}
     >
       {children}
