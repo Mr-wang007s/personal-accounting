@@ -68,7 +68,7 @@
           <image src="/assets/icons/info.png" mode="aspectFit"></image>
         </view>
         <text class="menu-text">版本</text>
-        <text class="menu-value">1.0.0</text>
+        <text class="menu-value">{{version}}</text>
       </view>
     </view>
   </view>

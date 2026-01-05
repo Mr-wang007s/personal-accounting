@@ -16,6 +16,7 @@ Page({
     ledgers: [] as LedgerDisplay[],
     avatarText: '',
     userIdDisplay: '',
+    version: '', // 小程序版本号
 
     // 新建账本弹窗
     showCreateModal: false,
@@ -29,7 +30,10 @@ Page({
   },
 
   onLoad() {
-    // 检查是否有特定操作
+    // 获取小程序版本号
+    const accountInfo = wx.getAccountInfoSync()
+    const version = accountInfo.miniProgram.version || '开发版'
+    this.setData({ version })
   },
 
   onShow() {
