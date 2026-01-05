@@ -15,6 +15,8 @@ export interface FormattedRecord {
   date: string
   note?: string
   createdAt: string
+  updatedAt: string
+  ledgerId: string
 }
 
 export interface Statistics {
@@ -142,10 +144,14 @@ export class RecordsService {
     }
   }
 
-  // 查询单条记录
+  // 查询单条记录（支持通过 id 或 clientId 查找）
   async findOne(userPhone: string, id: string): Promise<Record> {
     const record = await this.prisma.record.findFirst({
-      where: { id, userPhone, deletedAt: null },
+      where: {
+        userPhone,
+        deletedAt: null,
+        OR: [{ id }, { clientId: id }],
+      },
     })
 
     if (!record) {
@@ -161,10 +167,10 @@ export class RecordsService {
     id: string,
     dto: UpdateRecordDto,
   ): Promise<Record> {
-    await this.findOne(userPhone, id)
+    const existingRecord = await this.findOne(userPhone, id)
 
     const record = await this.prisma.record.update({
-      where: { id },
+      where: { id: existingRecord.id },
       data: {
         type: dto.type as RecordType | undefined,
         amount: dto.amount,
@@ -181,10 +187,10 @@ export class RecordsService {
 
   // 删除记录（软删除）
   async remove(userPhone: string, id: string): Promise<void> {
-    await this.findOne(userPhone, id)
+    const existingRecord = await this.findOne(userPhone, id)
 
     await this.prisma.record.update({
-      where: { id },
+      where: { id: existingRecord.id },
       data: {
         deletedAt: new Date(),
       },
@@ -386,6 +392,8 @@ export class RecordsService {
       date: record.date.toISOString().split('T')[0],
       note: record.note || undefined,
       createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+      ledgerId: record.ledgerId,
     }
   }
 

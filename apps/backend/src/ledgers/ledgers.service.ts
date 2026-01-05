@@ -4,8 +4,7 @@ import { CreateLedgerDto, UpdateLedgerDto } from './dto/ledger.dto'
 
 // 云端账本响应
 export interface CloudLedger {
-  serverId: string
-  clientId: string
+  id: string
   name: string
   icon?: string
   color?: string
@@ -124,8 +123,7 @@ export class LedgersService {
 
   private toCloudLedger(ledger: any): CloudLedger {
     return {
-      serverId: ledger.id,
-      clientId: ledger.clientId || ledger.id,
+      id: ledger.id,
       name: ledger.name,
       icon: ledger.icon || undefined,
       color: ledger.color || undefined,

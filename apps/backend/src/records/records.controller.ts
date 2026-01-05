@@ -47,6 +47,8 @@ export class RecordsController {
       date: record.date.toISOString().split('T')[0],
       note: record.note,
       createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+      ledgerId: record.ledgerId,
     }
   }
 
@@ -109,6 +111,8 @@ export class RecordsController {
       date: record.date.toISOString().split('T')[0],
       note: record.note,
       createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+      ledgerId: record.ledgerId,
     }
   }
 
@@ -129,6 +133,7 @@ export class RecordsController {
       note: record.note,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
+      ledgerId: record.ledgerId,
     }
   }
 

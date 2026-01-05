@@ -21,8 +21,7 @@ export interface PingResponse {
 
 // 云端账本
 export interface CloudLedger {
-  serverId: string
-  clientId: string
+  id: string
   name: string
   icon?: string
   color?: string
@@ -32,8 +31,7 @@ export interface CloudLedger {
 
 // 云端记录
 export interface CloudRecord {
-  serverId: string
-  clientId: string
+  id: string
   type: 'income' | 'expense'
   amount: number
   category: string

@@ -24,7 +24,7 @@ const DEFAULT_COLORS = [
 // 将云端账本转换为本地账本格式
 function cloudToLocal(cloud: CloudLedger): Ledger {
   return {
-    id: cloud.clientId,
+    id: cloud.id,
     name: cloud.name,
     icon: cloud.icon,
     color: cloud.color,

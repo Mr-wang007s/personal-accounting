@@ -15,7 +15,7 @@ const LOG_TAG = '[App]';
  */
 function transformCloudLedger(cloudLedger: CloudLedger): Ledger {
   return {
-    id: cloudLedger.clientId,
+    id: cloudLedger.id,
     name: cloudLedger.name,
     icon: cloudLedger.icon,
     color: cloudLedger.color,
@@ -29,7 +29,7 @@ function transformCloudLedger(cloudLedger: CloudLedger): Ledger {
  */
 function transformCloudRecord(cloudRecord: CloudRecord): Record {
   return {
-    id: cloudRecord.clientId,
+    id: cloudRecord.id,
     type: cloudRecord.type,
     amount: cloudRecord.amount,
     category: cloudRecord.category,
@@ -39,7 +39,6 @@ function transformCloudRecord(cloudRecord: CloudRecord): Record {
     updatedAt: cloudRecord.updatedAt,
     ledgerId: cloudRecord.ledgerId,
     syncStatus: 'synced' as const,
-    serverId: cloudRecord.serverId,
   };
 }
 

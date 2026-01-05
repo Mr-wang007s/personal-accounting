@@ -6,8 +6,7 @@ import { RecordType } from '@prisma/client'
 
 // 云端账本响应
 export interface CloudLedger {
-  serverId: string
-  clientId: string
+  id: string
   name: string
   icon?: string
   color?: string
@@ -17,8 +16,7 @@ export interface CloudLedger {
 
 // 云端记录响应
 export interface CloudRecord {
-  serverId: string
-  clientId: string
+  id: string
   type: 'income' | 'expense'
   amount: number
   category: string
@@ -235,8 +233,7 @@ export class SyncService {
     })
 
     const cloudLedgers: CloudLedger[] = ledgers.map((l) => ({
-      serverId: l.id,
-      clientId: l.clientId || l.id,
+      id: l.id,
       name: l.name,
       icon: l.icon || undefined,
       color: l.color || undefined,
@@ -251,8 +248,7 @@ export class SyncService {
     })
 
     const cloudRecords: CloudRecord[] = records.map((r) => ({
-      serverId: r.id,
-      clientId: r.clientId || r.id,
+      id: r.id,
       type: r.type as 'income' | 'expense',
       amount: Number(r.amount),
       category: r.category,

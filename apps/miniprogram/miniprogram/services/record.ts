@@ -14,7 +14,7 @@ import { apiClient, CloudRecord, CreateRecordRequest, UpdateRecordRequest } from
  */
 function transformCloudRecord(cloudRecord: CloudRecord): Record {
   return {
-    id: cloudRecord.clientId,
+    id: cloudRecord.id,
     type: cloudRecord.type,
     amount: cloudRecord.amount,
     category: cloudRecord.category,
@@ -24,7 +24,6 @@ function transformCloudRecord(cloudRecord: CloudRecord): Record {
     updatedAt: cloudRecord.updatedAt,
     ledgerId: cloudRecord.ledgerId,
     syncStatus: 'synced',
-    serverId: cloudRecord.serverId,
   }
 }
 

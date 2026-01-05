@@ -11,7 +11,7 @@ import { apiClient, CloudRecord } from './apiClient'
 // 将云端记录转换为本地记录格式
 function cloudToLocal(cloud: CloudRecord): Record {
   return {
-    id: cloud.clientId,
+    id: cloud.id,
     type: cloud.type,
     amount: cloud.amount,
     category: cloud.category,
@@ -21,7 +21,6 @@ function cloudToLocal(cloud: CloudRecord): Record {
     updatedAt: cloud.updatedAt,
     ledgerId: cloud.ledgerId,
     syncStatus: 'synced',
-    serverId: cloud.serverId,
   }
 }
 

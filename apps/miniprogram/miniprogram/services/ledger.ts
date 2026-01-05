@@ -11,7 +11,7 @@ import { apiClient, CloudLedger, CreateLedgerRequest, UpdateLedgerRequest } from
  */
 function transformCloudLedger(cloudLedger: CloudLedger): Ledger {
   return {
-    id: cloudLedger.clientId,
+    id: cloudLedger.id,
     name: cloudLedger.name,
     icon: cloudLedger.icon,
     color: cloudLedger.color,
