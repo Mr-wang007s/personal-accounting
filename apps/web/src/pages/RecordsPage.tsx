@@ -23,13 +23,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Switch } from '@/components/ui/switch'
 import { Header } from '@/components/layout/Header'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { CategoryIcon } from '@/components/common/CategoryIcon'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useRecords } from '@/context/RecordsContext'
-import { useSync } from '@/context/SyncContext'
 import { formatCurrency, formatDate, dayjs } from '@/lib/utils'
 import { getCategoryById, CHART_COLORS } from '@personal-accounting/shared/constants'
 import type { Record } from '@personal-accounting/shared/types'
@@ -41,11 +39,9 @@ interface RecordsPageProps {
 
 export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPageProps) {
   const { records, statistics, deleteRecord, refreshData } = useRecords()
-  const { deleteRecord: syncDeleteRecord, isRecordSynced, isConnected } = useSync()
   const [currentMonth, setCurrentMonth] = useState(dayjs())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState<Record | null>(null)
-  const [deleteFromCloud, setDeleteFromCloud] = useState(true)
   const [activeTab, setActiveTab] = useState('records')
 
   const monthStr = useMemo(() => {
@@ -113,25 +109,17 @@ export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPa
 
   const handleDeleteClick = (record: Record) => {
     setRecordToDelete(record)
-    setDeleteFromCloud(true)
     setDeleteDialogOpen(true)
   }
 
   const handleConfirmDelete = async () => {
     if (recordToDelete) {
-      const isSynced = isRecordSynced(recordToDelete.id)
-      if (isSynced && isConnected) {
-        await syncDeleteRecord(recordToDelete.id, deleteFromCloud)
-        refreshData()
-      } else {
-        deleteRecord(recordToDelete.id)
-      }
+      await deleteRecord(recordToDelete.id)
+      await refreshData()
       setDeleteDialogOpen(false)
       setRecordToDelete(null)
     }
   }
-
-  const recordToDeleteIsSynced = recordToDelete ? isRecordSynced(recordToDelete.id) : false
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {

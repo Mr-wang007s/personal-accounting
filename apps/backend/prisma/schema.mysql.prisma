@@ -1,4 +1,4 @@
-// Prisma Schema for Personal Accounting App - SQLite 本地开发版本
+// Prisma Schema for Personal Accounting App
 // 注意：此 schema 需与 packages/shared/src/types/index.ts 保持同步
 
 generator client {
@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -56,10 +56,10 @@ model Ledger {
 model Record {
   id        String     @id @default(cuid())
   type      RecordType
-  amount    Decimal
+  amount    Decimal    @db.Decimal(10, 2)
   category  String
   date      DateTime
-  note      String?
+  note      String?    @db.Text
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
   deletedAt DateTime?  @map("deleted_at") // 软删除

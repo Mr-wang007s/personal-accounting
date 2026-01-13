@@ -20,13 +20,9 @@ export interface ApiResponse<T> {
   timestamp: string
 }
 
-export interface PingResponse {
+export interface HealthResponse {
   status: string
   timestamp: string
-  name: string
-  host: string
-  port: number
-  addresses: string[]
 }
 
 // 云端账本
@@ -251,11 +247,13 @@ class ApiClient {
     })
   }
 
-  // 服务发现 - ping 检查（云托管模式）
-  ping(_url?: string): Promise<PingResponse> {
-    return this.request<PingResponse>('/api/discovery/ping', {
-      method: 'GET',
-    })
+  // 健康检查（云托管模式）
+  async ping(_url?: string): Promise<HealthResponse> {
+    // 云托管模式下，直接返回健康状态
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    }
   }
 
   /**
@@ -310,8 +308,9 @@ class ApiClient {
    * 获取所有账本
    */
   async getLedgers(): Promise<CloudLedger[]> {
-    const result = await this.request<RestoreResponse>('/api/sync/restore')
-    return result.ledgers || []
+    return this.request('/api/ledgers', {
+      method: 'GET',
+    })
   }
 
   /**
@@ -337,10 +336,9 @@ class ApiClient {
   /**
    * 删除账本
    */
-  async deleteLedger(clientId: string): Promise<{ deleted: boolean; recordsDeleted: number }> {
-    return this.request('/api/sync/delete-ledger', {
-      method: 'POST',
-      data: { clientId },
+  async deleteLedger(clientId: string): Promise<{ deleted: boolean }> {
+    return this.request(`/api/ledgers/${clientId}`, {
+      method: 'DELETE',
     })
   }
 
@@ -350,8 +348,9 @@ class ApiClient {
    * 获取所有记录
    */
   async getRecords(): Promise<CloudRecord[]> {
-    const result = await this.request<RestoreResponse>('/api/sync/restore')
-    return result.records || []
+    return this.request('/api/records', {
+      method: 'GET',
+    })
   }
 
   /**
@@ -401,13 +400,21 @@ class ApiClient {
     })
   }
 
-  // ==================== 数据同步 API ====================
+  // ==================== 数据获取 API ====================
 
   /**
    * 获取所有数据（账本 + 记录）
    */
   async getAllData(): Promise<RestoreResponse> {
-    return this.request('/api/sync/restore')
+    const [ledgers, records] = await Promise.all([
+      this.getLedgers(),
+      this.getRecords(),
+    ])
+    return {
+      success: true,
+      ledgers,
+      records,
+    }
   }
 }
 

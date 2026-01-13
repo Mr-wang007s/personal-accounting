@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Check, Calendar } from 'lucide-react'
+import { Check, Calendar, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,7 +20,7 @@ interface RecordFormPageProps {
 
 export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageProps) {
   const { addRecord, updateRecord } = useRecords()
-  const { currentLedger } = useLedger()
+  const { currentLedger, isLoading: ledgerLoading } = useLedger()
   const isEditMode = !!editRecord
   
   // 编辑模式下使用记录的类型，否则使用传入的类型
@@ -45,39 +45,42 @@ export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageP
   const categories = getCategoriesByType(recordType)
   const isIncome = recordType === 'income'
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!amount || !category) return
+    if (!isEditMode && !currentLedger) {
+      console.error('No current ledger available')
+      return
+    }
 
     setIsSubmitting(true)
     
-    if (isEditMode) {
-      // 编辑模式：更新记录
-      updateRecord(editRecord.id, {
-        amount: parseFloat(amount),
-        category,
-        date,
-        note: note || undefined,
-      })
-    } else {
-      // 新增模式
-      if (!currentLedger) {
-        console.error('No current ledger')
-        return
+    try {
+      if (isEditMode) {
+        // 编辑模式：更新记录
+        await updateRecord(editRecord.id, {
+          amount: parseFloat(amount),
+          category,
+          date,
+          note: note || undefined,
+        })
+      } else {
+        // 新增模式
+        await addRecord({
+          type: recordType,
+          amount: parseFloat(amount),
+          category,
+          date,
+          note: note || undefined,
+          ledgerId: currentLedger!.id,
+        })
       }
-      addRecord({
-        type: recordType,
-        amount: parseFloat(amount),
-        category,
-        date,
-        note: note || undefined,
-        ledgerId: currentLedger.id,
-      })
-    }
-
-    setTimeout(() => {
-      setIsSubmitting(false)
+      
       onNavigate(isEditMode ? 'records' : 'home')
-    }, 300)
+    } catch (error) {
+      console.error('保存失败:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleAmountChange = (value: string) => {
@@ -199,7 +202,7 @@ export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageP
         {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={!amount || !category || isSubmitting}
+          disabled={!amount || !category || isSubmitting || (!isEditMode && !currentLedger) || ledgerLoading}
           className={cn(
             'w-full h-14 mt-8 text-base font-semibold shadow-lg transition-all duration-300',
             isIncome
@@ -210,8 +213,13 @@ export function RecordFormPage({ type, onNavigate, editRecord }: RecordFormPageP
         >
           {isSubmitting ? (
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
               保存中...
+            </div>
+          ) : ledgerLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              加载中...
             </div>
           ) : (
             <div className="flex items-center gap-2">

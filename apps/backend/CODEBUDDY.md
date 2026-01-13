@@ -10,11 +10,17 @@ cp .env.example .env            # 创建环境配置
 pnpm db:generate                # 生成 Prisma Client
 pnpm db:migrate                 # 运行迁移
 
-# 开发
+# 开发（本地 SQLite）
+pnpm db:init-sqlite             # 初始化 SQLite 数据库
 pnpm dev                        # 热重载开发服务器
 pnpm dev:debug                  # 带调试器
 
-# 数据库
+# 数据库切换
+pnpm db:use-sqlite              # 切换到 SQLite（本地开发）
+pnpm db:use-mysql               # 切换到 MySQL（线上）
+pnpm db:init-sqlite             # 初始化 SQLite + 创建表
+
+# 数据库管理
 pnpm db:studio                  # Prisma Studio (http://localhost:5555)
 pnpm db:push                    # 推送 schema 变更（无迁移）
 pnpm db:seed                    # 填充测试数据
@@ -27,7 +33,7 @@ pnpm start:prod                 # 运行生产版本
 ## 技术栈
 
 - **NestJS 10** + TypeScript
-- **Prisma 6** + SQLite
+- **Prisma 6** + **SQLite**（本地）/ **MySQL**（线上）
 - **Passport** JWT 认证
 - **Swagger** API 文档 (`/api/docs`)
 
@@ -49,8 +55,7 @@ src/
 │   └── decorators/             # @Public(), @CurrentUser()
 ├── users/                      # 用户管理
 ├── records/                    # 记录 CRUD + 统计
-├── sync/                       # 多设备同步
-└── discovery/                  # 局域网发现
+└── ledgers/                    # 账本管理
 ```
 
 ## 全局管道
@@ -113,56 +118,74 @@ curl -X POST http://localhost:3000/api/auth/dev/login \
 | GET | `/monthly-trend` | 年度趋势 |
 | GET | `/category-breakdown` | 分类占比 |
 
-### Sync (`/api/sync`)
+### Ledgers (`/api/ledgers`)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/status` | 同步状态（clientVersion, serverVersion, needsSync） |
-| GET | `/pull?lastSyncVersion=N` | 拉取 N 版本后的变更 |
-| POST | `/push` | 推送变更 `{ created, updated, deleted }` |
-| GET | `/full` | 全量同步（首次/恢复） |
-
-### Discovery (`/api/discovery`)
-
-| 方法 | 路径 | 说明 | 认证 |
-|------|------|------|------|
-| GET | `/info` | 服务信息 | 公开 |
-| GET | `/ping` | 健康检查 | 公开 |
+| POST | `/` | 创建账本 |
+| GET | `/` | 获取账本列表 |
+| GET | `/:id` | 获取单个账本 |
+| PUT | `/:id` | 更新账本 |
+| DELETE | `/:id` | 软删除账本 |
 
 ## 数据库 Schema
 
 ```prisma
+// 本地开发使用 SQLite，线上使用 MySQL
+datasource db {
+  provider = "sqlite"  // 或 "mysql"
+  url      = env("DATABASE_URL")
+}
+
 model User {
   id        String   @id @default(cuid())
-  openid    String   @unique
-  unionid   String?  @unique
+  phone     String   @unique    // 手机号（主要标识）
+  openid    String?  @unique    // 微信 openid
+  unionid   String?  @unique    // 微信 unionid
   nickname  String?
   avatar    String?
+  password  String?             // Web 端密码
   records   Record[]
+  ledgers   Ledger[]
+}
+
+model Ledger {
+  id        String     @id @default(cuid())
+  name      String
+  icon      String?
+  color     String?
+  clientId  String?             // 客户端 ID
+  userPhone String              // 外键：用户手机号
+  user      User       @relation(...)
+  records   Record[]
+  deletedAt DateTime?           // 软删除
 }
 
 model Record {
-  id          String     @id @default(cuid())
-  userId      String
-  type        RecordType // income | expense
-  amount      Decimal
-  category    String
-  date        DateTime
-  note        String?
-  syncVersion Int        @default(0)
-  clientId    String?
-  deletedAt   DateTime?  // 软删除
-  user        User       @relation(...)
+  id        String     @id @default(cuid())
+  type      RecordType // income | expense
+  amount    Decimal    @db.Decimal(10, 2)
+  category  String
+  date      DateTime
+  note      String?
+  clientId  String?             // 客户端 ID
+  userPhone String              // 外键：用户手机号
+  ledgerId  String              // 外键：账本 ID
+  user      User       @relation(...)
+  ledger    Ledger     @relation(...)
+  deletedAt DateTime?           // 软删除
 }
 
-model SyncVersion {
-  userId        String
-  deviceId      String
-  serverVersion Int
-  lastSyncAt    DateTime
-  @@unique([userId, deviceId])
+enum RecordType {
+  income
+  expense
 }
 ```
+
+**设计要点**：
+- 使用 `phone` 作为用户主要标识和外键（用户注销重注册后数据不丢失）
+- 所有实体支持软删除（`deletedAt` 字段）
+- `clientId` 用于客户端同步时匹配本地记录
 
 ## 缓存服务
 
@@ -184,31 +207,30 @@ CacheService.keys.userStats(userId, dateRange)
 
 | 变量 | 必需 | 说明 |
 |------|------|------|
-| `DATABASE_URL` | 是 | SQLite 路径 (默认: `file:./dev.db`) |
+| `DATABASE_URL` | 是 | MySQL 连接字符串 |
 | `JWT_SECRET` | 是 | JWT 签名密钥 |
 | `JWT_EXPIRES_IN` | 否 | 令牌有效期 (默认: `7d`) |
 | `WECHAT_APP_ID` | 生产 | 微信小程序 AppID |
 | `WECHAT_APP_SECRET` | 生产 | 微信小程序 Secret |
 | `PORT` | 否 | 服务端口 (默认: `3000`) |
-| `ENABLE_DISCOVERY` | 否 | 局域网广播 (默认: `true`) |
 
-## 同步机制
+## 部署
 
-### 版本追踪
+### 腾讯云托管
 
-- 每条记录有 `syncVersion`，更新时递增
-- 客户端通过 `X-Device-Id` 头标识设备
-- `SyncVersion` 表记录每设备同步状态
+```bash
+# 使用 Dockerfile 部署
+docker build -t pa-api .
+```
 
-### 冲突处理
-
-```typescript
-// sync.service.ts
-if (existingRecord.syncVersion !== clientRecord.expectedVersion) {
-  // 版本冲突，比较时间戳决定
+**CloudBase 配置** (`cloudbaserc.json`):
+```json
+{
+  "envId": "my-100-app-7g9jwge5b3870b6a",
+  "cloudrun": { "name": "pa-api" }
 }
 ```
 
-### 软删除
+**生产地址**: https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com
 
-删除操作设置 `deletedAt` 而非物理删除，确保同步完整性。
+

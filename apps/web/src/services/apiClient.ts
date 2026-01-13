@@ -1,6 +1,6 @@
 /**
  * API 客户端 - 用于与后端通信
- * 重构：移除本地存储，所有数据直接通过 API 操作
+ * 重构：使用标准 RESTful API
  */
 
 export interface ApiResponse<T> {
@@ -8,15 +8,6 @@ export interface ApiResponse<T> {
   message: string
   data: T
   timestamp: string
-}
-
-export interface PingResponse {
-  status: string
-  timestamp: string
-  name: string
-  host: string
-  port: number
-  addresses: string[]
 }
 
 // 云端账本
@@ -77,13 +68,6 @@ export interface UpdateRecordRequest {
   note?: string
 }
 
-// 恢复响应（获取所有数据）
-export interface RestoreResponse {
-  success: boolean
-  ledgers: CloudLedger[]
-  records: CloudRecord[]
-}
-
 // 登录响应
 export interface LoginResponse {
   accessToken: string
@@ -97,18 +81,21 @@ export interface LoginResponse {
   isNewUser: boolean
 }
 
-// 存储键（仅保留必要的 token 和 deviceId）
+// 存储键
 const TOKEN_KEY = 'pa_token'
 const DEVICE_ID_KEY = 'pa_device_id'
+const BASE_URL_KEY = 'pa_base_url'
 
 class ApiClient {
-  private baseUrl: string | null = null
+  private baseUrl: string
   private token: string | null = null
   private deviceId: string
 
   constructor() {
     this.deviceId = this.getOrCreateDeviceId()
     this.token = localStorage.getItem(TOKEN_KEY)
+    // 默认使用本地后端，可通过 setBaseUrl 修改
+    this.baseUrl = localStorage.getItem(BASE_URL_KEY) || 'http://localhost:3000'
   }
 
   private getOrCreateDeviceId(): string {
@@ -126,9 +113,10 @@ class ApiClient {
 
   setBaseUrl(url: string): void {
     this.baseUrl = url.replace(/\/$/, '')
+    localStorage.setItem(BASE_URL_KEY, this.baseUrl)
   }
 
-  getBaseUrl(): string | null {
+  getBaseUrl(): string {
     return this.baseUrl
   }
 
@@ -149,10 +137,6 @@ class ApiClient {
     localStorage.removeItem(TOKEN_KEY)
   }
 
-  isConfigured(): boolean {
-    return this.baseUrl !== null
-  }
-
   isAuthenticated(): boolean {
     return this.getToken() !== null
   }
@@ -161,10 +145,6 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    if (!this.baseUrl) {
-      throw new Error('API base URL not configured')
-    }
-
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'X-Device-Id': this.deviceId,
@@ -189,31 +169,24 @@ class ApiClient {
     return result.data
   }
 
-  // 服务发现 - ping 检查
-  async ping(url?: string): Promise<PingResponse> {
-    const targetUrl = url || this.baseUrl
-    if (!targetUrl) {
-      throw new Error('No URL provided')
-    }
-    
-    const response = await fetch(`${targetUrl}/api/discovery/ping`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
+  // ==================== 认证 API ====================
 
-    if (!response.ok) {
-      throw new Error(`Server not reachable: ${response.status}`)
-    }
-
-    const result: ApiResponse<PingResponse> = await response.json()
-    return result.data
-  }
-
-  // 手机号登录
+  /**
+   * 手机号登录（开发模式，无需验证码）
+   */
   async phoneLogin(phone: string, nickname?: string): Promise<LoginResponse> {
     return this.request('/api/auth/phone/login', {
       method: 'POST',
       body: JSON.stringify({ phone, nickname }),
+    })
+  }
+
+  /**
+   * 获取当前用户信息
+   */
+  async getCurrentUser(): Promise<LoginResponse['user']> {
+    return this.request('/api/auth/me', {
+      method: 'GET',
     })
   }
 
@@ -223,8 +196,9 @@ class ApiClient {
    * 获取所有账本
    */
   async getLedgers(): Promise<CloudLedger[]> {
-    const result = await this.request<RestoreResponse>('/api/sync/restore')
-    return result.ledgers || []
+    return this.request('/api/ledgers', {
+      method: 'GET',
+    })
   }
 
   /**
@@ -240,8 +214,8 @@ class ApiClient {
   /**
    * 更新账本
    */
-  async updateLedger(clientId: string, data: UpdateLedgerRequest): Promise<CloudLedger> {
-    return this.request(`/api/ledgers/${clientId}`, {
+  async updateLedger(id: string, data: UpdateLedgerRequest): Promise<CloudLedger> {
+    return this.request(`/api/ledgers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
@@ -250,10 +224,9 @@ class ApiClient {
   /**
    * 删除账本
    */
-  async deleteLedger(clientId: string): Promise<{ deleted: boolean; recordsDeleted: number }> {
-    return this.request('/api/sync/delete-ledger', {
-      method: 'POST',
-      body: JSON.stringify({ clientId }),
+  async deleteLedger(id: string): Promise<{ deleted: boolean }> {
+    return this.request(`/api/ledgers/${id}`, {
+      method: 'DELETE',
     })
   }
 
@@ -263,16 +236,18 @@ class ApiClient {
    * 获取所有记录
    */
   async getRecords(): Promise<CloudRecord[]> {
-    const result = await this.request<RestoreResponse>('/api/sync/restore')
-    return result.records || []
+    return this.request('/api/records', {
+      method: 'GET',
+    })
   }
 
   /**
    * 获取指定账本的记录
    */
   async getRecordsByLedger(ledgerId: string): Promise<CloudRecord[]> {
-    const records = await this.getRecords()
-    return records.filter(r => r.ledgerId === ledgerId)
+    return this.request(`/api/records?ledgerId=${ledgerId}`, {
+      method: 'GET',
+    })
   }
 
   /**
@@ -288,8 +263,8 @@ class ApiClient {
   /**
    * 更新记录
    */
-  async updateRecord(clientId: string, data: UpdateRecordRequest): Promise<CloudRecord> {
-    return this.request(`/api/records/${clientId}`, {
+  async updateRecord(id: string, data: UpdateRecordRequest): Promise<CloudRecord> {
+    return this.request(`/api/records/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
@@ -298,8 +273,8 @@ class ApiClient {
   /**
    * 删除记录
    */
-  async deleteRecord(clientId: string): Promise<{ deleted: boolean }> {
-    return this.request(`/api/records/${clientId}`, {
+  async deleteRecord(id: string): Promise<{ deleted: boolean }> {
+    return this.request(`/api/records/${id}`, {
       method: 'DELETE',
     })
   }
@@ -307,20 +282,24 @@ class ApiClient {
   /**
    * 批量删除记录
    */
-  async deleteRecords(clientIds: string[]): Promise<{ deleted: number }> {
+  async deleteRecords(ids: string[]): Promise<{ deleted: number }> {
     return this.request('/api/records/batch-delete', {
       method: 'POST',
-      body: JSON.stringify({ clientIds }),
+      body: JSON.stringify({ ids }),
     })
   }
 
-  // ==================== 数据同步 API ====================
+  // ==================== 数据获取 API ====================
 
   /**
    * 获取所有数据（账本 + 记录）
    */
-  async getAllData(): Promise<RestoreResponse> {
-    return this.request('/api/sync/restore')
+  async getAllData(): Promise<{ ledgers: CloudLedger[]; records: CloudRecord[] }> {
+    const [ledgers, records] = await Promise.all([
+      this.getLedgers(),
+      this.getRecords(),
+    ])
+    return { ledgers, records }
   }
 }
 

@@ -1,6 +1,7 @@
 /**
  * 首页
- * 重构：使用 globalData 缓存数据，刷新时从云端加载
+ * 自动等待初始化完成后加载数据
+ * 无需引导页，新用户后端自动创建默认账本
  */
 import type { Record, Ledger } from '../../shared/types'
 import { getCategoryById, CATEGORY_COLORS } from '../../shared/constants'
@@ -24,11 +25,12 @@ Page({
     incomeDisplay: '0.00',
     expenseDisplay: '0.00',
     recentRecords: [] as RecordDisplay[],
-    isLoading: false,
+    isLoading: true,
+    hasError: false,
   },
 
   onLoad() {
-    this.checkInitialization()
+    this.waitForInitialization()
   },
 
   onShow() {
@@ -42,22 +44,48 @@ Page({
     }
   },
 
-  // 检查是否已初始化
-  async checkInitialization() {
+  // 等待应用初始化完成
+  async waitForInitialization() {
     const app = getApp<IAppOption>()
     
-    // 等待 app 初始化完成
-    if (app.initPromise) {
-      await app.initPromise
-    }
+    this.setData({ isLoading: true, hasError: false })
     
-    if (!app.globalData.isInitialized) {
-      // 跳转到引导页
-      wx.redirectTo({
-        url: '/pages/onboarding/onboarding'
-      })
-    } else {
-      this.loadData()
+    try {
+      // 等待 app 初始化完成
+      if (app.initPromise) {
+        await app.initPromise
+      }
+      
+      // 初始化完成后加载数据
+      if (app.globalData.isInitialized) {
+        this.loadData()
+      } else {
+        // 如果初始化失败，显示错误状态
+        this.setData({ isLoading: false, hasError: true })
+      }
+    } catch (error) {
+      console.error('[Index] 初始化等待失败:', error)
+      this.setData({ isLoading: false, hasError: true })
+    }
+  },
+
+  // 重试加载
+  async retryLoad() {
+    const app = getApp<IAppOption>()
+    
+    this.setData({ isLoading: true, hasError: false })
+    
+    try {
+      await app.initializeApp()
+      
+      if (app.globalData.isInitialized) {
+        this.loadData()
+      } else {
+        this.setData({ isLoading: false, hasError: true })
+      }
+    } catch (error) {
+      console.error('[Index] 重试失败:', error)
+      this.setData({ isLoading: false, hasError: true })
     }
   },
 
@@ -65,18 +93,22 @@ Page({
   async loadData() {
     const app = getApp<IAppOption>()
     
-    // 从云端刷新数据
-    this.setData({ isLoading: true })
+    this.setData({ isLoading: true, hasError: false })
+    
     try {
+      // 从云端刷新数据
       await app.refreshData()
     } catch (error) {
-      console.error('刷新数据失败:', error)
+      console.error('[Index] 刷新数据失败:', error)
+      // 继续使用缓存数据
     }
-    this.setData({ isLoading: false })
-
+    
     const { currentLedger, records } = app.globalData
 
-    if (!currentLedger) return
+    if (!currentLedger) {
+      this.setData({ isLoading: false })
+      return
+    }
 
     // 获取当前月份的记录
     const now = new Date()
@@ -118,7 +150,14 @@ Page({
       incomeDisplay: formatAmount(stats.totalIncome),
       expenseDisplay: formatAmount(stats.totalExpense),
       recentRecords,
+      isLoading: false,
     })
+  },
+
+  // 下拉刷新
+  async onPullDownRefresh() {
+    await this.loadData()
+    wx.stopPullDownRefresh()
   },
 
   // 切换账本

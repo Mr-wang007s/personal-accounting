@@ -129,13 +129,28 @@ Page({
 
   onLoad() {
     this.updateMonthStr()
+    this.waitForInitialization()
   },
 
   onShow() {
-    this.loadData()
+    const app = getApp<IAppOption>()
+    if (app.globalData.isInitialized) {
+      this.loadData()
+    }
     // 设置自定义 tabBar 选中状态
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       this.getTabBar().setData({ selected: 1 })
+    }
+  },
+
+  // 等待初始化完成
+  async waitForInitialization() {
+    const app = getApp<IAppOption>()
+    if (app.initPromise) {
+      await app.initPromise
+    }
+    if (app.globalData.isInitialized) {
+      this.loadData()
     }
   },
 

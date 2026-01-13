@@ -1,182 +1,104 @@
 /**
- * 同步上下文 - 简化版
- * 重构：移除本地存储同步逻辑，仅处理服务器连接和认证状态
+ * 认证上下文 - 管理登录状态
+ * 简化版：移除自动同步、本地存储等功能，直接使用 API
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { apiClient, LoginResponse } from '@/services/apiClient'
-import { ledgerService } from '@/services/ledgerService'
-import { recordService } from '@/services/recordService'
 
-// 存储键（仅保留必要的配置）
-const SERVER_URL_KEY = 'pa_server_url'
-
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
-
-interface SyncContextType {
+interface AuthContextType {
   // 状态
-  connectionState: ConnectionState
-  isConnected: boolean
   isAuthenticated: boolean
-  serverUrl: string | null
-  userPhone: string | null
+  isLoading: boolean
+  user: LoginResponse['user'] | null
   error: string | null
   
   // 操作
-  discoverServer: (url: string) => Promise<boolean>
-  login: (phone: string, nickname?: string) => Promise<{ success: boolean; isNewUser: boolean }>
-  disconnect: () => void
-  refreshAllData: () => Promise<void>
+  login: (phone: string) => Promise<boolean>
+  logout: () => void
 }
 
-const SyncContext = createContext<SyncContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
-  const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [serverUrl, setServerUrl] = useState<string | null>(null)
-  const [userPhone, setUserPhone] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<LoginResponse['user'] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // 刷新所有数据
-  const refreshAllData = useCallback(async () => {
-    if (!isAuthenticated) return
-    
-    try {
-      await ledgerService.refreshCache()
-      await recordService.refreshCache()
-    } catch (err) {
-      console.error('[SyncContext] 刷新数据失败:', err)
-    }
-  }, [isAuthenticated])
-
-  // 初始化
+  // 初始化 - 检查登录状态
   useEffect(() => {
     const init = async () => {
-      const savedUrl = localStorage.getItem(SERVER_URL_KEY)
-      const profile = ledgerService.getUserProfile()
+      setIsLoading(true)
       
-      if (savedUrl) {
-        setServerUrl(savedUrl)
-        apiClient.setBaseUrl(savedUrl)
-        
-        // 检查连接
-        setConnectionState('connecting')
+      if (apiClient.isAuthenticated()) {
         try {
-          await apiClient.ping(savedUrl)
-          setIsConnected(true)
-          setConnectionState('connected')
-          
-          // 检查认证
-          if (apiClient.isAuthenticated()) {
-            setIsAuthenticated(true)
-            setUserPhone(profile?.phone || null)
-          }
+          // 验证 token 有效性
+          await apiClient.getLedgers()
+          setIsAuthenticated(true)
         } catch {
-          setConnectionState('error')
-          setIsConnected(false)
+          // Token 无效，清除
+          apiClient.clearToken()
+          setIsAuthenticated(false)
         }
       }
+      
+      setIsLoading(false)
     }
 
     init()
   }, [])
 
-  // 发现并连接服务器
-  const discoverServer = useCallback(async (url: string): Promise<boolean> => {
-    setConnectionState('connecting')
+  // 登录
+  const login = useCallback(async (phone: string): Promise<boolean> => {
     setError(null)
+    setIsLoading(true)
     
     try {
-      const normalizedUrl = url.replace(/\/$/, '')
-      await apiClient.ping(normalizedUrl)
-      
-      // 保存服务器地址
-      localStorage.setItem(SERVER_URL_KEY, normalizedUrl)
-      apiClient.setBaseUrl(normalizedUrl)
-      
-      setServerUrl(normalizedUrl)
-      setIsConnected(true)
-      setConnectionState('connected')
-      
-      // 更新用户配置
-      ledgerService.updateUserProfile({ serverUrl: normalizedUrl })
-      
+      const result: LoginResponse = await apiClient.phoneLogin(phone)
+      apiClient.setToken(result.accessToken)
+      setUser(result.user)
+      setIsAuthenticated(true)
+      setIsLoading(false)
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : '连接服务器失败')
-      setConnectionState('error')
+      setError(err instanceof Error ? err.message : '登录失败')
+      setIsLoading(false)
       return false
     }
   }, [])
 
-  // 登录
-  const login = useCallback(async (phone: string, nickname?: string): Promise<{ success: boolean; isNewUser: boolean }> => {
-    setError(null)
-    
-    try {
-      const result: LoginResponse = await apiClient.phoneLogin(phone, nickname)
-      apiClient.setToken(result.accessToken)
-      
-      setIsAuthenticated(true)
-      setUserPhone(phone)
-      
-      // 更新用户配置
-      const existingProfile = ledgerService.getUserProfile()
-      if (existingProfile) {
-        ledgerService.updateUserProfile({ phone })
-      } else {
-        ledgerService.createUserProfile(nickname || '用户', phone)
-      }
-      
-      return { success: true, isNewUser: result.isNewUser }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '登录失败')
-      return { success: false, isNewUser: false }
-    }
-  }, [])
-
-  // 断开连接
-  const disconnect = useCallback(() => {
-    localStorage.removeItem(SERVER_URL_KEY)
+  // 登出
+  const logout = useCallback(() => {
     apiClient.clearToken()
-    
-    // 清除服务缓存
-    ledgerService.clearCache()
-    recordService.clearCache()
-    
-    setServerUrl(null)
-    setIsConnected(false)
+    localStorage.removeItem('pa_current_ledger_id')
     setIsAuthenticated(false)
-    setUserPhone(null)
-    setConnectionState('disconnected')
+    setUser(null)
   }, [])
 
   return (
-    <SyncContext.Provider
+    <AuthContext.Provider
       value={{
-        connectionState,
-        isConnected,
         isAuthenticated,
-        serverUrl,
-        userPhone,
+        isLoading,
+        user,
         error,
-        discoverServer,
         login,
-        disconnect,
-        refreshAllData,
+        logout,
       }}
     >
       {children}
-    </SyncContext.Provider>
+    </AuthContext.Provider>
   )
 }
 
 export function useSync() {
-  const context = useContext(SyncContext)
+  const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useSync must be used within a SyncProvider')
   }
   return context
 }
+
+// 兼容旧代码的别名
+export const useAuth = useSync

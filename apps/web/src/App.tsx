@@ -1,24 +1,22 @@
-import { useState, useEffect } from 'react'
-import { RecordsProvider, useRecords } from '@/context/RecordsContext'
+import { useState } from 'react'
 import { SyncProvider, useSync } from '@/context/SyncContext'
-import { LedgerProvider, useLedger } from '@/context/LedgerContext'
+import { LedgerProvider } from '@/context/LedgerContext'
+import { RecordsProvider } from '@/context/RecordsContext'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { HomePage } from '@/pages/HomePage'
 import { RecordFormPage } from '@/pages/RecordFormPage'
 import { RecordsPage } from '@/pages/RecordsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
-import { OnboardingPage } from '@/pages/OnboardingPage'
+import { LoginPage } from '@/pages/LoginPage'
+import { Loader2 } from 'lucide-react'
 import type { Record } from '@personal-accounting/shared/types'
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home')
   const [editingRecord, setEditingRecord] = useState<Record | null>(null)
-  const { refreshData } = useRecords()
-  const { syncState } = useSync()
-  const { isInitialized, refreshData: refreshLedger } = useLedger()
+  const { isAuthenticated, isLoading, error, login } = useSync()
 
   const handleNavigate = (page: string) => {
-    // 离开编辑页面时清除编辑状态
     if (currentPage === 'edit' && page !== 'edit') {
       setEditingRecord(null)
     }
@@ -30,21 +28,25 @@ function AppContent() {
     setCurrentPage('edit')
   }
 
-  // 同步成功后刷新数据
-  useEffect(() => {
-    if (syncState === 'success') {
-      refreshData()
-    }
-  }, [syncState, refreshData])
-
-  // 首次使用引导
-  if (!isInitialized) {
+  // 加载中
+  if (isLoading) {
     return (
-      <OnboardingPage 
-        onComplete={() => {
-          refreshLedger()
-          refreshData()
-        }} 
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 未登录 - 显示登录页
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={() => setCurrentPage('home')}
+        error={error}
+        onLogin={login}
       />
     )
   }
@@ -82,9 +84,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* 主内容区域 */}
       {renderPage()}
-      
       {showBottomNav && (
         <BottomNav currentPage={currentPage} onNavigate={handleNavigate} />
       )}
@@ -92,15 +92,21 @@ function AppContent() {
   )
 }
 
-function App() {
+function AuthenticatedApp() {
   return (
     <LedgerProvider>
-      <SyncProvider>
-        <RecordsProvider>
-          <AppContent />
-        </RecordsProvider>
-      </SyncProvider>
+      <RecordsProvider>
+        <AppContent />
+      </RecordsProvider>
     </LedgerProvider>
+  )
+}
+
+function App() {
+  return (
+    <SyncProvider>
+      <AuthenticatedApp />
+    </SyncProvider>
   )
 }
 

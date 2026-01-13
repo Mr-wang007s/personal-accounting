@@ -1,80 +1,96 @@
 <!--首页-->
 <view class="page-container">
-  <!-- 头部卡片 -->
-  <view class="header-card">
-    <view class="header-top">
-      <view class="ledger-info" bindtap="switchLedger">
-        <text class="ledger-icon">{{currentLedger.icon || '📒'}}</text>
-        <text class="ledger-name">{{currentLedger.name || '默认账本'}}</text>
-        <image class="arrow-icon" src="/assets/icons/chevron-down.png" mode="aspectFit"></image>
-      </view>
-      <text class="month-label">{{currentMonth}}月</text>
-    </view>
-    
-    <view class="balance-section">
-      <text class="balance-label">本月结余</text>
-      <view class="balance-amount">
-        <text class="currency">¥</text>
-        <text class="amount {{balance >= 0 ? 'positive' : 'negative'}}">{{balanceDisplay}}</text>
-      </view>
-    </view>
-    
-    <view class="summary-row">
-      <view class="summary-item">
-        <text class="summary-label">收入</text>
-        <text class="summary-value income">+{{incomeDisplay}}</text>
-      </view>
-      <view class="summary-divider"></view>
-      <view class="summary-item">
-        <text class="summary-label">支出</text>
-        <text class="summary-value expense">-{{expenseDisplay}}</text>
-      </view>
-    </view>
+  <!-- 加载状态 -->
+  <view class="loading-state" wx:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
   </view>
-  
-  <!-- 快捷操作 -->
-  <view class="quick-actions">
-    <view class="action-btn income-btn" bindtap="goToRecordIncome">
-      <view class="action-icon income-icon">
-        <image src="/assets/icons/plus.png" mode="aspectFit"></image>
-      </view>
-      <text class="action-text">记收入</text>
-    </view>
-    <view class="action-btn expense-btn" bindtap="goToRecordExpense">
-      <view class="action-icon expense-icon">
-        <image src="/assets/icons/minus.png" mode="aspectFit"></image>
-      </view>
-      <text class="action-text">记支出</text>
-    </view>
+
+  <!-- 错误状态 -->
+  <view class="error-state" wx:elif="{{hasError}}">
+    <image class="error-icon" src="/assets/icons/alert-circle.png" mode="aspectFit"></image>
+    <text class="error-text">加载失败</text>
+    <button class="retry-btn" bindtap="retryLoad">重试</button>
   </view>
-  
-  <!-- 最近记录 -->
-  <view class="recent-section">
-    <view class="section-header">
-      <text class="section-title">最近记录</text>
-      <view class="view-all" bindtap="goToRecords">
-        <text>查看全部</text>
-        <image src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
-      </view>
-    </view>
-    
-    <view class="records-list" wx:if="{{recentRecords.length > 0}}">
-      <view class="record-item" wx:for="{{recentRecords}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
-        <view class="record-icon {{item.type}}">
-          <image src="/assets/icons/category/{{item.categoryIcon}}.png" mode="aspectFit"></image>
+
+  <!-- 正常内容 -->
+  <block wx:else>
+    <!-- 头部卡片 -->
+    <view class="header-card">
+      <view class="header-top">
+        <view class="ledger-info" bindtap="switchLedger">
+          <text class="ledger-icon">{{currentLedger.icon || '📒'}}</text>
+          <text class="ledger-name">{{currentLedger.name || '默认账本'}}</text>
+          <image class="arrow-icon" src="/assets/icons/chevron-down.png" mode="aspectFit"></image>
         </view>
-        <view class="record-info">
-          <text class="record-category">{{item.categoryName}}</text>
-          <text class="record-note" wx:if="{{item.note}}">{{item.note}}</text>
-          <text class="record-date">{{item.dateLabel}}</text>
+        <text class="month-label">{{currentMonth}}月</text>
+      </view>
+      
+      <view class="balance-section">
+        <text class="balance-label">本月结余</text>
+        <view class="balance-amount">
+          <text class="currency">¥</text>
+          <text class="amount {{balance >= 0 ? 'positive' : 'negative'}}">{{balanceDisplay}}</text>
         </view>
-        <text class="record-amount {{item.type}}">{{item.type === 'income' ? '+' : '-'}}{{item.amountDisplay}}</text>
+      </view>
+      
+      <view class="summary-row">
+        <view class="summary-item">
+          <text class="summary-label">收入</text>
+          <text class="summary-value income">+{{incomeDisplay}}</text>
+        </view>
+        <view class="summary-divider"></view>
+        <view class="summary-item">
+          <text class="summary-label">支出</text>
+          <text class="summary-value expense">-{{expenseDisplay}}</text>
+        </view>
       </view>
     </view>
     
-    <view class="empty-state" wx:else>
-      <image src="/assets/icons/empty.png" mode="aspectFit"></image>
-      <text>暂无记录，开始记账吧</text>
+    <!-- 快捷操作 -->
+    <view class="quick-actions">
+      <view class="action-btn income-btn" bindtap="goToRecordIncome">
+        <view class="action-icon income-icon">
+          <image src="/assets/icons/plus.png" mode="aspectFit"></image>
+        </view>
+        <text class="action-text">记收入</text>
+      </view>
+      <view class="action-btn expense-btn" bindtap="goToRecordExpense">
+        <view class="action-icon expense-icon">
+          <image src="/assets/icons/minus.png" mode="aspectFit"></image>
+        </view>
+        <text class="action-text">记支出</text>
+      </view>
     </view>
-  </view>
+    
+    <!-- 最近记录 -->
+    <view class="recent-section">
+      <view class="section-header">
+        <text class="section-title">最近记录</text>
+        <view class="view-all" bindtap="goToRecords">
+          <text>查看全部</text>
+          <image src="/assets/icons/chevron-right.png" mode="aspectFit"></image>
+        </view>
+      </view>
+      
+      <view class="records-list" wx:if="{{recentRecords.length > 0}}">
+        <view class="record-item" wx:for="{{recentRecords}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
+          <view class="record-icon {{item.type}}">
+            <image src="/assets/icons/category/{{item.categoryIcon}}.png" mode="aspectFit"></image>
+          </view>
+          <view class="record-info">
+            <text class="record-category">{{item.categoryName}}</text>
+            <text class="record-note" wx:if="{{item.note}}">{{item.note}}</text>
+            <text class="record-date">{{item.dateLabel}}</text>
+          </view>
+          <text class="record-amount {{item.type}}">{{item.type === 'income' ? '+' : '-'}}{{item.amountDisplay}}</text>
+        </view>
+      </view>
+      
+      <view class="empty-state" wx:else>
+        <image src="/assets/icons/empty.png" mode="aspectFit"></image>
+        <text>暂无记录，开始记账吧</text>
+      </view>
+    </view>
+  </block>
 </view>

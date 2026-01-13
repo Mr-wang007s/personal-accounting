@@ -1,6 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { UsersService } from '../users/users.service'
+import { PrismaService } from '../prisma/prisma.service'
 import { WxCloudLoginDto } from './dto/wx-cloud-login.dto'
 import { TokenResponseDto } from './dto/token-response.dto'
 
@@ -11,14 +12,18 @@ export interface JwtPayload {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name)
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
+    @Inject(PrismaService) private prisma: PrismaService,
   ) {}
 
   /**
    * 微信云托管登录
    * 直接从 HTTP Header 获取 openid，无需 code2Session
+   * 新用户自动创建默认账本
    */
   async wxCloudLogin(
     headerOpenid: string | undefined,
@@ -41,13 +46,18 @@ export class AuthService {
 
     if (!user) {
       isNewUser = true
+      const phone = `wx_${openid}`
       user = await this.usersService.create({
-        phone: `wx_${openid}`,
+        phone,
         openid,
         unionid,
         nickname: dto.nickname,
         avatar: dto.avatar,
       })
+      
+      // 为新用户创建默认账本
+      await this.createDefaultLedger(phone)
+      this.logger.log(`[wxCloudLogin] 新用户注册，已创建默认账本: openid=${openid}`)
     } else if (dto.nickname || dto.avatar) {
       // 更新用户信息
       const updateData: { nickname?: string; avatar?: string; unionid?: string } = {}
@@ -79,6 +89,23 @@ export class AuthService {
       },
       isNewUser,
     }
+  }
+
+  /**
+   * 为新用户创建默认账本
+   */
+  private async createDefaultLedger(userPhone: string): Promise<void> {
+    const clientId = `ledger_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    
+    await this.prisma.ledger.create({
+      data: {
+        id: clientId,
+        userPhone,
+        name: '日常账本',
+        icon: '📒',
+        clientId,
+      },
+    })
   }
 
   // 刷新 Token

@@ -1,6 +1,7 @@
 /**
  * 个人中心页
- * 重构：使用 globalData 缓存数据，刷新时从云端加载
+ * 支持编辑头像和昵称
+ * 首次用户显示 openId，可点击编辑
  */
 import type { Ledger, UserProfile } from '../../shared/types'
 import { LedgerService } from '../../services/ledger'
@@ -16,7 +17,7 @@ Page({
     ledgers: [] as LedgerDisplay[],
     avatarText: '',
     userIdDisplay: '',
-    version: '', // 小程序版本号
+    version: '',
 
     // 新建账本弹窗
     showCreateModal: false,
@@ -24,9 +25,15 @@ Page({
     newLedgerIcon: '📒',
     ledgerIcons: ['📒', '💰', '🏠', '🚗', '✈️', '🎮', '🛒', '💼', '🎓', '❤️', '🌟', '📱'],
     
+    // 编辑用户信息弹窗
+    showEditUserModal: false,
+    editNickname: '',
+    editAvatarUrl: '',
+    
     // 加载状态
     isLoading: false,
     isCreating: false,
+    isSaving: false,
   },
 
   onLoad() {
@@ -65,10 +72,11 @@ Page({
       recordCount: records.filter(r => r.ledgerId === l.id).length,
     }))
 
-    // 生成头像文字
-    const avatarText = userProfile?.nickname ? userProfile.nickname.charAt(0).toUpperCase() : '?'
+    // 生成头像文字（使用昵称首字或 ID 首字）
+    const displayName = userProfile?.nickname || userProfile?.id || '?'
+    const avatarText = displayName.charAt(0).toUpperCase()
 
-    // 生成用户 ID 显示
+    // 生成用户 ID 显示（显示 openId 前8位）
     const userIdDisplay = userProfile?.id ? userProfile.id.slice(0, 8) : ''
 
     this.setData({
@@ -78,6 +86,62 @@ Page({
       avatarText,
       userIdDisplay,
     })
+  },
+
+  // 显示编辑用户信息弹窗
+  showEditUser() {
+    const { userProfile } = this.data
+    this.setData({
+      showEditUserModal: true,
+      editNickname: userProfile?.nickname || '',
+      editAvatarUrl: userProfile?.avatar || '',
+    })
+  },
+
+  // 隐藏编辑用户信息弹窗
+  hideEditUser() {
+    this.setData({ showEditUserModal: false })
+  },
+
+  // 输入昵称
+  onNicknameInput(e: WechatMiniprogram.Input) {
+    this.setData({ editNickname: e.detail.value })
+  },
+
+  // 选择头像
+  onChooseAvatar(e: WechatMiniprogram.CustomEvent<{ avatarUrl: string }>) {
+    const avatarUrl = e.detail.avatarUrl
+    if (avatarUrl) {
+      this.setData({ editAvatarUrl: avatarUrl })
+    }
+  },
+
+  // 保存用户信息
+  async saveUserInfo() {
+    const { editNickname, editAvatarUrl, isSaving } = this.data
+    
+    if (isSaving) return
+    
+    if (!editNickname.trim()) {
+      wx.showToast({ title: '请输入昵称', icon: 'none' })
+      return
+    }
+
+    this.setData({ isSaving: true })
+
+    try {
+      const app = getApp<IAppOption>()
+      await app.updateUserProfile(editNickname.trim(), editAvatarUrl)
+      
+      wx.showToast({ title: '保存成功', icon: 'success' })
+      this.hideEditUser()
+      this.loadData()
+    } catch (error) {
+      console.error('保存用户信息失败:', error)
+      wx.showToast({ title: '保存失败，请重试', icon: 'none' })
+    } finally {
+      this.setData({ isSaving: false })
+    }
   },
 
   // 切换账本

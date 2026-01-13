@@ -85,6 +85,20 @@
   opacity: 0.85;
 }
 
+/* 编辑提示 */
+.edit-hint {
+  position: relative;
+  z-index: 1;
+  padding: 16rpx;
+}
+
+.edit-hint image {
+  width: 36rpx;
+  height: 36rpx;
+  opacity: 0.8;
+  filter: brightness(0) invert(1);
+}
+
 /* 区块 - 优化卡片样式 */
 .section {
   background-color: var(--bg-primary);
@@ -434,5 +448,56 @@
   background: var(--text-muted);
   opacity: 0.6;
   box-shadow: none;
+}
+
+/* 头像选择表单 */
+.avatar-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatar-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+}
+
+.avatar-picker::after {
+  display: none;
+}
+
+.avatar-preview {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 4rpx solid var(--border-color);
+  margin-bottom: 16rpx;
+}
+
+.avatar-preview .avatar-image {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-preview .avatar-placeholder {
+  font-size: 64rpx;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.avatar-hint {
+  font-size: 24rpx;
+  color: var(--primary-color);
 }
 

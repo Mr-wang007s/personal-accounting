@@ -32,16 +32,19 @@ src/
 ├── lib/utils.ts               # 本地工具 (cn, formatCurrency)
 ├── context/
 │   ├── RecordsContext.tsx     # 记录状态 + CRUD
+│   ├── LedgerContext.tsx      # 账本状态管理
 │   └── SyncContext.tsx        # 同步状态 + 自动同步
 ├── services/
-│   ├── storageService.ts      # localStorage 持久层
-│   ├── syncService.ts         # 离线优先同步 + 冲突解决
-│   └── apiClient.ts           # HTTP 客户端
+│   ├── apiClient.ts           # HTTP 客户端
+│   ├── ledgerService.ts       # 账本服务
+│   └── recordService.ts       # 记录服务
 ├── pages/
 │   ├── HomePage.tsx           # 首页：余额、快捷操作、最近记录
 │   ├── RecordFormPage.tsx     # 新增/编辑收支
 │   ├── RecordsPage.tsx        # 月度账单列表
-│   └── StatisticsPage.tsx     # 图表、分类统计
+│   ├── StatisticsPage.tsx     # 图表、分类统计
+│   ├── ProfilePage.tsx        # 个人中心
+│   └── OnboardingPage.tsx     # 首次引导
 ├── components/
 │   ├── layout/                # BottomNav, Header, PageContainer
 │   ├── common/                # CategoryIcon, EmptyState
@@ -68,8 +71,17 @@ updateRecord(id, { amount: 200, category: 'transport' })
 deleteRecord(id)
 ```
 
-- 持久化到 localStorage (`storageService`)
-- 变更追踪 (`syncService.trackCreate/Update/Delete`)
+### LedgerContext
+
+```typescript
+const { ledgers, currentLedger, switchLedger, createLedger, updateLedger, deleteLedger } = useLedger()
+
+// 切换账本
+switchLedger(ledgerId)
+
+// 创建账本
+createLedger({ name: '家庭账本', icon: 'home' })
+```
 
 ### SyncContext
 
@@ -99,7 +111,7 @@ const {
 ```typescript
 // App.tsx
 const [currentPage, setCurrentPage] = useState('home')
-// 页面: 'home' | 'income' | 'expense' | 'edit' | 'records' | 'statistics'
+// 页面: 'home' | 'income' | 'expense' | 'edit' | 'records' | 'statistics' | 'profile' | 'onboarding'
 
 // 导航
 onNavigate('records')
@@ -124,6 +136,7 @@ import type { Record } from '@personal-accounting/shared/types'    // → packag
 | Key | 说明 |
 |-----|------|
 | `pa_records` | 记录数据 |
+| `pa_ledgers` | 账本数据 |
 | `pa_sync_meta` | 同步元数据 |
 | `pa_pending_changes` | 待同步变更 |
 | `pa_record_versions` | 记录版本追踪 |
@@ -148,6 +161,8 @@ if (localUpdatedAt > serverUpdatedAt) {
 | `RecordFormPage` | `type`, `onNavigate`, `editRecord?` | 新增/编辑表单 |
 | `RecordsPage` | `onNavigate`, `onEditRecord` | 账单列表、月份切换 |
 | `StatisticsPage` | `onNavigate` | 图表统计 |
+| `ProfilePage` | `onNavigate` | 个人中心、账本管理 |
+| `OnboardingPage` | `onComplete` | 首次使用引导 |
 
 ## E2E 测试
 
@@ -160,3 +175,9 @@ cd apps/web && npx playwright test e2e/accounting.spec.ts --grep "添加支出"
 ```
 
 测试覆盖：记录 CRUD、导航、表单验证、数据持久化。
+
+## 部署
+
+**生产地址**: https://my-100-app-7g9jwge5b3870b6a-1253552496.tcloudbaseapp.com/
+
+使用腾讯云 CloudBase 静态网站托管。

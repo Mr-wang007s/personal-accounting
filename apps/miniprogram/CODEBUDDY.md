@@ -38,10 +38,12 @@ miniprogram/
 │   ├── record.ts               # 记录服务（调用 API）
 │   └── ledger.ts               # 账本服务（调用 API）
 ├── shared/
+│   ├── index.ts                # 模块入口
 │   ├── types.ts                # 类型定义
 │   ├── constants.ts            # 分类、存储键等常量
 │   └── utils.ts                # 工具函数
 ├── business-logic/
+│   ├── index.ts                # 模块入口
 │   ├── records.ts              # 记录计算逻辑
 │   └── statistics.ts           # 统计计算逻辑
 ├── components/
@@ -61,7 +63,7 @@ miniprogram/
 | **分类详情** | `pages/category-detail` | 单分类记录列表 |
 | **引导页** | `pages/onboarding` | 首次使用引导 |
 
-## 数据架构（重构后）
+## 数据架构
 
 ### 核心原则
 
@@ -97,7 +99,7 @@ await app.refreshData()
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      微信云托管后端                          │
-│                    (PostgreSQL 数据库)                       │
+│                      (MySQL 数据库)                          │
 └─────────────────────────────────────────────────────────────┘
                               ▲
                               │ API 请求
@@ -208,6 +210,16 @@ LedgerService.getCurrentLedger()
 // 切换账本（更新 globalData）
 LedgerService.switchLedger(ledgerId)
 ```
+
+## 本地模块对应关系
+
+| 共享包 | 小程序模块 | 说明 |
+|-------|-----------|------|
+| `@personal-accounting/shared/types` | `shared/types.ts` | 类型定义 |
+| `@personal-accounting/shared/constants` | `shared/constants.ts` | 常量、分类 |
+| `@personal-accounting/shared/utils` | `shared/utils.ts` | 工具函数 |
+| `@personal-accounting/business-logic/records` | `business-logic/records.ts` | RecordCalculator |
+| `@personal-accounting/business-logic/statistics` | `business-logic/statistics.ts` | StatisticsService |
 
 ## 分类定义
 

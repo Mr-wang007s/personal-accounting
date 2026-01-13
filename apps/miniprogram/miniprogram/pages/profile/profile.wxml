@@ -1,14 +1,17 @@
 <!--个人中心页-->
 <view class="page-container">
   <!-- 用户信息卡片 -->
-  <view class="user-card">
+  <view class="user-card" bindtap="showEditUser">
     <view class="avatar">
       <image wx:if="{{userProfile.avatar}}" class="avatar-image" src="{{userProfile.avatar}}" mode="aspectFill"></image>
       <text wx:else>{{avatarText}}</text>
     </view>
     <view class="user-info">
-      <text class="nickname">{{userProfile.nickname || '用户'}}</text>
+      <text class="nickname">{{userProfile.nickname || userIdDisplay || '点击设置昵称'}}</text>
       <text class="user-id" wx:if="{{userIdDisplay}}">ID: {{userIdDisplay}}</text>
+    </view>
+    <view class="edit-hint">
+      <image src="/assets/icons/edit.png" mode="aspectFit"></image>
     </view>
   </view>
   
@@ -105,7 +108,47 @@
     </view>
     <view class="modal-footer">
       <button class="modal-btn cancel" bindtap="hideCreateLedger">取消</button>
-      <button class="modal-btn confirm" bindtap="createLedger" disabled="{{!newLedgerName}}">创建</button>
+      <button class="modal-btn confirm" bindtap="createLedger" disabled="{{!newLedgerName || isCreating}}">
+        {{isCreating ? '创建中...' : '创建'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 编辑用户信息弹窗 -->
+  <view class="modal-mask" wx:if="{{showEditUserModal}}" bindtap="hideEditUser"></view>
+  <view class="modal-content" wx:if="{{showEditUserModal}}">
+    <text class="modal-title">编辑个人信息</text>
+    <view class="modal-body">
+      <!-- 头像选择 -->
+      <view class="form-item avatar-form">
+        <text class="form-label">头像</text>
+        <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+          <view class="avatar-preview">
+            <image wx:if="{{editAvatarUrl}}" class="avatar-image" src="{{editAvatarUrl}}" mode="aspectFill"></image>
+            <text wx:else class="avatar-placeholder">{{avatarText}}</text>
+          </view>
+          <text class="avatar-hint">点击更换头像</text>
+        </button>
+      </view>
+      
+      <!-- 昵称输入 -->
+      <view class="form-item">
+        <text class="form-label">昵称</text>
+        <input 
+          class="form-input" 
+          type="nickname"
+          placeholder="请输入昵称" 
+          value="{{editNickname}}"
+          bindinput="onNicknameInput"
+          maxlength="20"
+        />
+      </view>
+    </view>
+    <view class="modal-footer">
+      <button class="modal-btn cancel" bindtap="hideEditUser">取消</button>
+      <button class="modal-btn confirm" bindtap="saveUserInfo" disabled="{{!editNickname || isSaving}}">
+        {{isSaving ? '保存中...' : '保存'}}
+      </button>
     </view>
   </view>
 

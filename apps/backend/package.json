@@ -19,7 +19,9 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "ts-node prisma/seed.ts"
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:sqlite": "cp prisma/schema.sqlite.prisma prisma/schema.prisma && prisma generate && prisma db push",
+    "db:mysql": "cp prisma/schema.mysql.prisma prisma/schema.prisma && prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

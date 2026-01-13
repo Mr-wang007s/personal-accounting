@@ -47,12 +47,8 @@ interface IAppOption {
   }
   initPromise: Promise<void> | null
   initializeApp(): Promise<void>
-  completeOnboarding(nickname: string, ledgerName: string, serverUrl?: string): Promise<{
-    userProfile: UserProfile
-    ledger: Ledger
-    registered: boolean
-  }>
-  refreshData(): void
+  refreshData(): Promise<void>
+  updateUserProfile(nickname?: string, avatar?: string): Promise<void>
 }
 
 // 声明全局类型
