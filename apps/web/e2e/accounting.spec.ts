@@ -460,8 +460,8 @@ test.describe('个人中心页', () => {
     // 验证页面标题
     await expect(page.getByRole('heading', { name: '我的' })).toBeVisible()
     
-    // 验证账本管理区域
-    await expect(page.getByText('我的账本').first()).toBeVisible()
+    // 等待账本加载完成 - 等待显示账本数量
+    await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
     
     // 验证退出登录按钮
     await expect(page.getByText('退出登录')).toBeVisible()
@@ -471,34 +471,43 @@ test.describe('个人中心页', () => {
     await page.locator('nav button').filter({ hasText: '我的' }).click()
     await page.waitForLoadState('networkidle')
     
-    // 点击账本区域展开
-    await page.locator('.cursor-pointer').filter({ hasText: '我的账本' }).first().click()
+    // 等待账本加载完成
+    await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+    
+    // 点击账本区域展开 - 使用包含账本数量文字的区域
+    await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
     
     // 验证展开后显示新建账本按钮
-    await expect(page.getByText('新建账本')).toBeVisible()
+    await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
   })
 
   test('应能创建新账本', async ({ page }) => {
     await page.locator('nav button').filter({ hasText: '我的' }).click()
     await page.waitForLoadState('networkidle')
     
+    // 等待账本加载完成
+    await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+    
+    // 获取当前账本数量
+    const ledgerCountText = await page.getByText(/\d+ 个账本/).textContent()
+    const currentCount = parseInt(ledgerCountText?.match(/\d+/)?.[0] || '0')
+    
     // 展开账本列表
-    await page.locator('.cursor-pointer').filter({ hasText: '我的账本' }).first().click()
+    await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
+    await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
     
     // 点击新建账本
     await page.getByText('新建账本').click()
     
-    // 输入账本名称
-    await page.locator('input[placeholder="输入账本名称"]').fill('测试账本')
+    // 使用唯一的账本名称
+    const uniqueName = `测试账本_${Date.now()}`
+    await page.locator('input[placeholder="输入账本名称"]').fill(uniqueName)
     
     // 点击创建
     await page.getByRole('button', { name: '创建' }).click()
     
-    // 等待创建完成
-    await page.waitForTimeout(500)
-    
-    // 验证新账本出现在列表中
-    await expect(page.getByText('测试账本')).toBeVisible()
+    // 等待创建完成 - 验证账本数量增加
+    await expect(page.getByText(`${currentCount + 1} 个账本`)).toBeVisible({ timeout: 5000 })
   })
 
   test('应能退出登录', async ({ page }) => {

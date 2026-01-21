@@ -506,15 +506,6 @@ export function RecordsPage({ onNavigate: _onNavigate, onEditRecord }: RecordsPa
                 确定要删除这条记录吗？此操作无法撤销。
               </DialogDescription>
             </DialogHeader>
-            {recordToDeleteIsSynced && isConnected && (
-              <div className="flex items-center justify-between py-3 px-1">
-                <span className="text-sm text-slate-600">同时删除云端数据</span>
-                <Switch
-                  checked={deleteFromCloud}
-                  onCheckedChange={setDeleteFromCloud}
-                />
-              </div>
-            )}
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
                 取消
