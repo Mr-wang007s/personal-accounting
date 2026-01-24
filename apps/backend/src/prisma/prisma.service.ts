@@ -32,12 +32,14 @@ export class PrismaService
   async printDatabaseStats() {
     try {
       const userCount = await this.user.count()
+      const authCount = await this.userAuth.count()
       const ledgerCount = await this.ledger.count()
       const recordCount = await this.record.count()
 
       console.log('========== 数据库统计 ==========')
       console.log(`📊 DATABASE_URL: ${process.env.DATABASE_URL || 'NOT SET'}`)
       console.log(`👥 用户数量: ${userCount}`)
+      console.log(`🔑 认证记录: ${authCount}`)
       console.log(`📒 账本数量: ${ledgerCount}`)
       console.log(`📝 记录数量: ${recordCount}`)
       
@@ -46,13 +48,12 @@ export class PrismaService
         const recentUsers = await this.user.findMany({
           take: 3,
           orderBy: { createdAt: 'desc' },
-          select: { id: true, phone: true, openid: true, nickname: true, createdAt: true },
+          select: { id: true, nickname: true, status: true, createdAt: true },
         })
         console.log('📋 最近用户:', recentUsers.map(u => ({
           id: u.id.substring(0, 8) + '...',
-          phone: u.phone,
-          openid: u.openid ? u.openid.substring(0, 10) + '...' : null,
           nickname: u.nickname,
+          status: u.status,
         })))
       }
       
@@ -69,6 +70,7 @@ export class PrismaService
     }
     await this.record.deleteMany()
     await this.ledger.deleteMany()
+    await this.userAuth.deleteMany()
     await this.user.deleteMany()
   }
 }

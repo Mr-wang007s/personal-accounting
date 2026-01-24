@@ -33,7 +33,7 @@ export class RecordsController {
   @Get()
   @ApiOperation({ summary: '获取记录列表' })
   async findAll(@CurrentUser() user: User, @Query() query: QueryRecordsDto) {
-    return this.recordsService.findAll(user.phone, query)
+    return this.recordsService.findAll(user.id, query)
   }
 
   /**
@@ -42,7 +42,7 @@ export class RecordsController {
   @Post()
   @ApiOperation({ summary: '创建记账记录' })
   async create(@CurrentUser() user: User, @Body() dto: CreateRecordDto) {
-    return this.recordsService.create(user.phone, dto)
+    return this.recordsService.create(user.id, dto)
   }
 
   /**
@@ -51,7 +51,7 @@ export class RecordsController {
   @Get(':id')
   @ApiOperation({ summary: '获取单条记录' })
   async findOne(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.recordsService.findOne(user.phone, id)
+    return this.recordsService.findOne(user.id, id)
   }
 
   /**
@@ -64,7 +64,7 @@ export class RecordsController {
     @Param('id') id: string,
     @Body() dto: UpdateRecordDto,
   ) {
-    return this.recordsService.update(user.phone, id, dto)
+    return this.recordsService.update(user.id, id, dto)
   }
 
   /**
@@ -75,7 +75,7 @@ export class RecordsController {
   @ApiOperation({ summary: '删除记录' })
   @ApiResponse({ status: 200, description: '删除成功' })
   async remove(@CurrentUser() user: User, @Param('id') id: string) {
-    await this.recordsService.remove(user.phone, id)
+    await this.recordsService.remove(user.id, id)
     return { deleted: true }
   }
 
@@ -86,7 +86,7 @@ export class RecordsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量删除记录' })
   async batchDelete(@CurrentUser() user: User, @Body('ids') ids: string[]) {
-    const count = await this.recordsService.removeMany(user.phone, ids)
+    const count = await this.recordsService.removeMany(user.id, ids)
     return { deleted: count }
   }
 }

@@ -211,14 +211,38 @@ class ApiClient {
   // ==================== 认证 API ====================
 
   /**
-   * 手机号登录
-   * @param phone 手机号
+   * 手机号/邮箱登录（开发/测试用，无验证码）
+   * @param phone 手机号或邮箱
    * @param nickname 昵称（可选）
    */
   async phoneLogin(phone: string, nickname?: string): Promise<LoginResponse> {
     return this.request('/api/auth/phone/login', {
       method: 'POST',
       data: { phone, nickname },
+    })
+  }
+
+  /**
+   * 发送邮箱验证码
+   * @param email 邮箱地址
+   */
+  async sendEmailCode(email: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/api/auth/email/send', {
+      method: 'POST',
+      data: { email },
+    })
+  }
+
+  /**
+   * 邮箱验证码登录
+   * @param email 邮箱地址
+   * @param code 验证码
+   * @param nickname 昵称（可选）
+   */
+  async emailLogin(email: string, code: string, nickname?: string): Promise<LoginResponse> {
+    return this.request('/api/auth/email/login', {
+      method: 'POST',
+      data: { email, code, nickname },
     })
   }
 

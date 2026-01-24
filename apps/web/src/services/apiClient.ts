@@ -182,6 +182,26 @@ class ApiClient {
   }
 
   /**
+   * 发送邮箱验证码
+   */
+  async sendEmailCode(email: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/api/auth/email/send', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  /**
+   * 邮箱验证码登录
+   */
+  async emailLogin(email: string, code: string, nickname?: string): Promise<LoginResponse> {
+    return this.request('/api/auth/email/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, nickname }),
+    })
+  }
+
+  /**
    * 获取当前用户信息
    */
   async getCurrentUser(): Promise<LoginResponse['user']> {

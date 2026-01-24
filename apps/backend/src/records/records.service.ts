@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { Record, RecordType, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { CreateRecordDto } from './dto/create-record.dto'
 import { UpdateRecordDto } from './dto/update-record.dto'
 import { QueryRecordsDto } from './dto/query-records.dto'
@@ -20,6 +20,22 @@ export interface CloudRecord {
   ledgerId: string
 }
 
+// 数据库记录类型
+interface DbRecord {
+  id: string
+  type: string
+  amount: Prisma.Decimal
+  category: string
+  date: Date
+  note: string | null
+  createdAt: Date
+  updatedAt: Date
+  deletedAt: Date | null
+  clientId: string | null
+  userId: string
+  ledgerId: string
+}
+
 @Injectable()
 export class RecordsService {
   private readonly logger = new Logger(RecordsService.name)
@@ -29,9 +45,9 @@ export class RecordsService {
   /**
    * 获取记录列表
    */
-  async findAll(userPhone: string, query: QueryRecordsDto): Promise<CloudRecord[]> {
+  async findAll(userId: string, query: QueryRecordsDto): Promise<CloudRecord[]> {
     const where: Prisma.RecordWhereInput = {
-      userPhone,
+      userId,
       deletedAt: null,
     }
 
@@ -42,7 +58,7 @@ export class RecordsService {
 
     // 类型筛选
     if (query.type) {
-      where.type = query.type as RecordType
+      where.type = query.type
     }
 
     // 分类筛选
@@ -66,19 +82,19 @@ export class RecordsService {
       orderBy: { date: 'desc' },
     })
 
-    return records.map((r) => this.toCloudRecord(r))
+    return records.map((r) => this.toCloudRecord(r as DbRecord))
   }
 
   /**
    * 创建记录（幂等：已存在则更新）
    */
-  async create(userPhone: string, dto: CreateRecordDto): Promise<CloudRecord> {
-    this.logger.log(`[create] userPhone=${userPhone}, ledgerId=${dto.ledgerId}`)
+  async create(userId: string, dto: CreateRecordDto): Promise<CloudRecord> {
+    this.logger.log(`[create] userId=${userId}, ledgerId=${dto.ledgerId}`)
 
     // 如果有 clientId，检查是否已存在
     if (dto.clientId) {
       const existing = await this.prisma.record.findFirst({
-        where: { userPhone, clientId: dto.clientId, deletedAt: null },
+        where: { userId, clientId: dto.clientId, deletedAt: null },
       })
 
       if (existing) {
@@ -86,7 +102,7 @@ export class RecordsService {
         const updated = await this.prisma.record.update({
           where: { id: existing.id },
           data: {
-            type: dto.type as RecordType,
+            type: dto.type,
             amount: dto.amount,
             category: dto.category,
             date: new Date(dto.date),
@@ -94,15 +110,15 @@ export class RecordsService {
           },
         })
         this.logger.log(`[create] 已存在，更新: id=${updated.id}`)
-        return this.toCloudRecord(updated)
+        return this.toCloudRecord(updated as DbRecord)
       }
     }
 
     // 创建新记录
     const record = await this.prisma.record.create({
       data: {
-        userPhone,
-        type: dto.type as RecordType,
+        userId,
+        type: dto.type,
         amount: dto.amount,
         category: dto.category,
         date: new Date(dto.date),
@@ -113,29 +129,29 @@ export class RecordsService {
     })
 
     this.logger.log(`[create] 创建成功: id=${record.id}`)
-    return this.toCloudRecord(record)
+    return this.toCloudRecord(record as DbRecord)
   }
 
   /**
    * 获取单条记录
    */
-  async findOne(userPhone: string, id: string): Promise<CloudRecord> {
-    const record = await this.findRecordByIdOrClientId(userPhone, id)
+  async findOne(userId: string, id: string): Promise<CloudRecord> {
+    const record = await this.findRecordByIdOrClientId(userId, id)
     return this.toCloudRecord(record)
   }
 
   /**
    * 更新记录
    */
-  async update(userPhone: string, id: string, dto: UpdateRecordDto): Promise<CloudRecord> {
-    this.logger.log(`[update] userPhone=${userPhone}, id=${id}`)
+  async update(userId: string, id: string, dto: UpdateRecordDto): Promise<CloudRecord> {
+    this.logger.log(`[update] userId=${userId}, id=${id}`)
 
-    const existing = await this.findRecordByIdOrClientId(userPhone, id)
+    const existing = await this.findRecordByIdOrClientId(userId, id)
 
     const record = await this.prisma.record.update({
       where: { id: existing.id },
       data: {
-        type: dto.type as RecordType | undefined,
+        type: dto.type,
         amount: dto.amount,
         category: dto.category,
         date: dto.date ? new Date(dto.date) : undefined,
@@ -144,16 +160,16 @@ export class RecordsService {
     })
 
     this.logger.log(`[update] 更新成功: id=${record.id}`)
-    return this.toCloudRecord(record)
+    return this.toCloudRecord(record as DbRecord)
   }
 
   /**
    * 删除记录（软删除）
    */
-  async remove(userPhone: string, id: string): Promise<void> {
-    this.logger.log(`[remove] userPhone=${userPhone}, id=${id}`)
+  async remove(userId: string, id: string): Promise<void> {
+    this.logger.log(`[remove] userId=${userId}, id=${id}`)
 
-    const existing = await this.findRecordByIdOrClientId(userPhone, id)
+    const existing = await this.findRecordByIdOrClientId(userId, id)
 
     await this.prisma.record.update({
       where: { id: existing.id },
@@ -166,13 +182,13 @@ export class RecordsService {
   /**
    * 批量删除记录
    */
-  async removeMany(userPhone: string, ids: string[]): Promise<number> {
-    this.logger.log(`[removeMany] userPhone=${userPhone}, count=${ids.length}`)
+  async removeMany(userId: string, ids: string[]): Promise<number> {
+    this.logger.log(`[removeMany] userId=${userId}, count=${ids.length}`)
 
     const result = await this.prisma.record.updateMany({
       where: {
         id: { in: ids },
-        userPhone,
+        userId,
         deletedAt: null,
       },
       data: { deletedAt: new Date() },
@@ -185,10 +201,10 @@ export class RecordsService {
   /**
    * 根据 id 或 clientId 查找记录
    */
-  private async findRecordByIdOrClientId(userPhone: string, id: string): Promise<Record> {
+  private async findRecordByIdOrClientId(userId: string, id: string): Promise<DbRecord> {
     const record = await this.prisma.record.findFirst({
       where: {
-        userPhone,
+        userId,
         deletedAt: null,
         OR: [{ id }, { clientId: id }],
       },
@@ -198,13 +214,13 @@ export class RecordsService {
       throw new NotFoundException(`记录不存在: ${id}`)
     }
 
-    return record
+    return record as DbRecord
   }
 
   /**
    * 转换为响应格式
    */
-  private toCloudRecord(record: Record): CloudRecord {
+  private toCloudRecord(record: DbRecord): CloudRecord {
     return {
       id: record.id,
       type: record.type as 'income' | 'expense',

@@ -68,6 +68,7 @@ export interface UserProfile {
   currentLedgerId: string
   createdAt: string
   updatedAt: string
+  email?: string // 用户邮箱（用于同步）
   phone?: string // 用户手机号（用于同步）
   serverUrl?: string // 同步服务器地址（云托管模式为 cloudrun）
 }
@@ -87,15 +88,62 @@ export interface PaginatedResponse<T> {
   pageSize: number
 }
 
+// ============================================
+// 用户认证系统类型（支持多种登录方式）
+// ============================================
+
+// 用户状态
+export type UserStatus = 'active' | 'inactive' | 'banned'
+
+// 认证类型
+export type AuthType = 
+  | 'email'     // 邮箱登录
+  | 'phone'     // 手机号登录
+  | 'wechat'    // 微信登录（小程序/公众号/开放平台）
+  | 'google'    // Google 登录
+  | 'github'    // GitHub 登录
+  | 'apple'     // Apple 登录
+  | 'username'  // 用户名密码登录
+
 // 用户类型（与 Prisma schema 保持一致）
 export interface User {
   id: string
-  phone: string // 手机号（主要标识，用于数据关联）
-  openid?: string // 微信 openid（可选）
-  unionid?: string // 微信 unionid（可选）
   nickname?: string
   avatar?: string
-  password?: string // 密码（可选，Web 端使用）
+  status: UserStatus
   createdAt: string
   updatedAt: string
+  // 关联的认证方式（可选，查询时带出）
+  auths?: UserAuth[]
+}
+
+// 用户认证凭证
+export interface UserAuth {
+  id: string
+  userId: string
+  authType: AuthType
+  identifier: string // 邮箱/手机号/第三方openid
+  credential?: string // 密码hash/access_token（不返回给前端）
+  provider?: string // 第三方提供商
+  unionid?: string // 微信 unionid
+  verified: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// 登录响应（不含敏感信息）
+export interface AuthUser {
+  id: string
+  nickname?: string
+  avatar?: string
+  status: UserStatus
+  // 当前登录方式
+  authType: AuthType
+  identifier: string // 当前登录使用的标识（邮箱/手机号等）
+  // 已绑定的登录方式列表
+  boundAuths: {
+    authType: AuthType
+    identifier: string
+    verified: boolean
+  }[]
 }

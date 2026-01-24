@@ -23,9 +23,9 @@ export class LedgersService {
   /**
    * 获取用户所有账本
    */
-  async findAll(userPhone: string): Promise<CloudLedger[]> {
+  async findAll(userId: string): Promise<CloudLedger[]> {
     const ledgers = await this.prisma.ledger.findMany({
-      where: { userPhone, deletedAt: null },
+      where: { userId, deletedAt: null },
       orderBy: { createdAt: 'asc' },
     })
     return ledgers.map((l) => this.toCloudLedger(l))
@@ -34,12 +34,12 @@ export class LedgersService {
   /**
    * 创建账本（幂等：已存在则更新）
    */
-  async create(userPhone: string, dto: CreateLedgerDto): Promise<CloudLedger> {
-    this.logger.log(`[create] userPhone=${userPhone}, clientId=${dto.clientId}`)
+  async create(userId: string, dto: CreateLedgerDto): Promise<CloudLedger> {
+    this.logger.log(`[create] userId=${userId}, clientId=${dto.clientId}`)
 
     // 检查是否已存在
     const existing = await this.prisma.ledger.findFirst({
-      where: { userPhone, clientId: dto.clientId, deletedAt: null },
+      where: { userId, clientId: dto.clientId, deletedAt: null },
     })
 
     if (existing) {
@@ -60,7 +60,7 @@ export class LedgersService {
     const created = await this.prisma.ledger.create({
       data: {
         id: dto.clientId,
-        userPhone,
+        userId,
         name: dto.name,
         icon: dto.icon,
         color: dto.color,
@@ -74,10 +74,10 @@ export class LedgersService {
   /**
    * 更新账本
    */
-  async update(userPhone: string, id: string, dto: UpdateLedgerDto): Promise<CloudLedger> {
-    this.logger.log(`[update] userPhone=${userPhone}, id=${id}`)
+  async update(userId: string, id: string, dto: UpdateLedgerDto): Promise<CloudLedger> {
+    this.logger.log(`[update] userId=${userId}, id=${id}`)
 
-    const ledger = await this.findLedgerByIdOrClientId(userPhone, id)
+    const ledger = await this.findLedgerByIdOrClientId(userId, id)
 
     const updated = await this.prisma.ledger.update({
       where: { id: ledger.id },
@@ -94,10 +94,10 @@ export class LedgersService {
   /**
    * 删除账本（软删除）
    */
-  async remove(userPhone: string, id: string): Promise<void> {
-    this.logger.log(`[remove] userPhone=${userPhone}, id=${id}`)
+  async remove(userId: string, id: string): Promise<void> {
+    this.logger.log(`[remove] userId=${userId}, id=${id}`)
 
-    const ledger = await this.findLedgerByIdOrClientId(userPhone, id)
+    const ledger = await this.findLedgerByIdOrClientId(userId, id)
 
     // 检查是否有关联的记录
     const recordCount = await this.prisma.record.count({
@@ -118,10 +118,10 @@ export class LedgersService {
   /**
    * 根据 id 或 clientId 查找账本
    */
-  private async findLedgerByIdOrClientId(userPhone: string, id: string) {
+  private async findLedgerByIdOrClientId(userId: string, id: string) {
     const ledger = await this.prisma.ledger.findFirst({
       where: {
-        userPhone,
+        userId,
         OR: [{ id }, { clientId: id }],
         deletedAt: null,
       },

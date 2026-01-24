@@ -30,7 +30,7 @@ export class LedgersController {
   @Get()
   @ApiOperation({ summary: '获取所有账本' })
   async findAll(@CurrentUser() user: User) {
-    return this.ledgersService.findAll(user.phone)
+    return this.ledgersService.findAll(user.id)
   }
 
   /**
@@ -39,7 +39,7 @@ export class LedgersController {
   @Post()
   @ApiOperation({ summary: '创建账本' })
   async create(@CurrentUser() user: User, @Body() dto: CreateLedgerDto) {
-    return this.ledgersService.create(user.phone, dto)
+    return this.ledgersService.create(user.id, dto)
   }
 
   /**
@@ -52,7 +52,7 @@ export class LedgersController {
     @Param('id') id: string,
     @Body() dto: UpdateLedgerDto,
   ) {
-    return this.ledgersService.update(user.phone, id, dto)
+    return this.ledgersService.update(user.id, id, dto)
   }
 
   /**
@@ -63,7 +63,7 @@ export class LedgersController {
   @ApiOperation({ summary: '删除账本' })
   @ApiResponse({ status: 200, description: '删除成功' })
   async remove(@CurrentUser() user: User, @Param('id') id: string) {
-    await this.ledgersService.remove(user.phone, id)
+    await this.ledgersService.remove(user.id, id)
     return { deleted: true }
   }
 }

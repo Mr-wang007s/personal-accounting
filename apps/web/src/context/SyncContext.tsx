@@ -15,6 +15,8 @@ interface AuthContextType {
   
   // 操作
   login: (phone: string) => Promise<boolean>
+  sendEmailCode: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>
+  emailLogin: (email: string, code: string) => Promise<boolean>
   logout: () => void
 }
 
@@ -49,13 +51,42 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     init()
   }, [])
 
-  // 登录
+  // 登录（无验证码，开发测试用）
   const login = useCallback(async (phone: string): Promise<boolean> => {
     setError(null)
     setIsLoading(true)
     
     try {
       const result: LoginResponse = await apiClient.phoneLogin(phone)
+      apiClient.setToken(result.accessToken)
+      setUser(result.user)
+      setIsAuthenticated(true)
+      setIsLoading(false)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '登录失败')
+      setIsLoading(false)
+      return false
+    }
+  }, [])
+
+  // 发送邮箱验证码
+  const sendEmailCode = useCallback(async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    try {
+      const result = await apiClient.sendEmailCode(email)
+      return { success: result.success, message: result.message }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : '发送失败' }
+    }
+  }, [])
+
+  // 邮箱验证码登录
+  const emailLogin = useCallback(async (email: string, code: string): Promise<boolean> => {
+    setError(null)
+    setIsLoading(true)
+    
+    try {
+      const result: LoginResponse = await apiClient.emailLogin(email, code)
       apiClient.setToken(result.accessToken)
       setUser(result.user)
       setIsAuthenticated(true)
@@ -84,6 +115,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         user,
         error,
         login,
+        sendEmailCode,
+        emailLogin,
         logout,
       }}
     >

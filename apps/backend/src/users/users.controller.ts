@@ -25,11 +25,14 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: '获取当前用户信息' })
   async getCurrentUser(@CurrentUser() user: User) {
+
+    const boundAuths = await this.usersService.getBoundAuths(user.id)
     return {
       id: user.id,
-      openid: user.openid,
       nickname: user.nickname,
       avatar: user.avatar,
+      status: user.status,
+      boundAuths,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     }
@@ -44,9 +47,9 @@ export class UsersController {
     const updated = await this.usersService.update(user.id, dto)
     return {
       id: updated.id,
-      openid: updated.openid,
       nickname: updated.nickname,
       avatar: updated.avatar,
+      status: updated.status,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
     }

@@ -18,8 +18,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
+    "@types/nodemailer": "^7.0.5",
     "playwright": "^1.57.0",
     "prettier": "^3.2.5",
+    "prisma": "5.22.0",
     "tsx": "^4.21.0",
     "turbo": "^2.3.0",
     "typescript": "^5.6.2"
@@ -27,5 +29,9 @@
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=9.0.0"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "nodemailer": "^7.0.12"
   }
 }

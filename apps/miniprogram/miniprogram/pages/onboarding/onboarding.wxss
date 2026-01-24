@@ -1,4 +1,4 @@
-/* 引导页样式 - 简化版 */
+/* 引导页样式 - 验证码登录 */
 .page-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
@@ -103,15 +103,66 @@
   margin-right: 16rpx;
 }
 
-.phone-input {
+.email-input {
   flex: 1;
   height: 96rpx;
   font-size: 32rpx;
   color: #111827;
 }
 
-.phone-input::placeholder {
+.email-input::placeholder {
   color: #9CA3AF;
+}
+
+/* 验证码输入组 */
+.code-wrapper {
+  padding-right: 8rpx;
+}
+
+.code-input {
+  flex: 1;
+  height: 96rpx;
+  font-size: 32rpx;
+  color: #111827;
+}
+
+.code-input::placeholder {
+  color: #9CA3AF;
+}
+
+/* 发送验证码按钮 */
+.send-code-btn {
+  flex-shrink: 0;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #6366F1;
+  background: #EEF2FF;
+  border: none;
+  border-radius: 16rpx;
+  white-space: nowrap;
+}
+
+.send-code-btn.disabled,
+.send-code-btn[disabled] {
+  color: #9CA3AF;
+  background: #F3F4F6;
+}
+
+.send-code-btn::after {
+  border: none;
+}
+
+/* 成功提示 */
+.success-tip {
+  background: #F0FDF4;
+  color: #16A34A;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  margin-bottom: 24rpx;
 }
 
 /* 错误提示 */

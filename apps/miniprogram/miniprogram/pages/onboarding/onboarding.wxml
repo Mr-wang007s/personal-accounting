@@ -1,4 +1,4 @@
-<!--首次使用引导页 - 手机号登录-->
+<!--首次使用引导页 - 邮箱验证码登录-->
 <view class="page-container">
   <view class="content">
     <!-- Logo 和标题 -->
@@ -12,22 +12,49 @@
     
     <!-- 登录卡片 -->
     <view class="login-card">
-      <text class="card-title">输入唯一标识</text>
+      <text class="card-title">邮箱登录</text>
       
-      <!-- 手机号输入 -->
+      <!-- 邮箱输入 -->
       <view class="input-group">
-        <text class="input-label">输入唯一标识</text>
+        <text class="input-label">邮箱地址</text>
         <view class="input-wrapper">
-          <text class="input-icon">📱</text>
+          <text class="input-icon">📧</text>
           <input 
-            type="number"
-            class="phone-input" 
-            placeholder="输入唯一标识" 
-            value="{{phone}}"
-            bindinput="onPhoneInput"
-            maxlength="11"
+            type="text"
+            class="email-input" 
+            placeholder="请输入邮箱地址" 
+            value="{{email}}"
+            bindinput="onEmailInput"
           />
         </view>
+      </view>
+      
+      <!-- 验证码输入 -->
+      <view class="input-group">
+        <text class="input-label">验证码</text>
+        <view class="input-wrapper code-wrapper">
+          <text class="input-icon">🔐</text>
+          <input 
+            type="number"
+            class="code-input" 
+            placeholder="请输入验证码" 
+            value="{{code}}"
+            bindinput="onCodeInput"
+            maxlength="6"
+          />
+          <button 
+            class="send-code-btn {{!canSendCode ? 'disabled' : ''}}"
+            disabled="{{!canSendCode || isSendingCode}}"
+            bindtap="handleSendCode"
+          >
+            {{isSendingCode ? '发送中...' : (countdown > 0 ? countdown + 's后重发' : '获取验证码')}}
+          </button>
+        </view>
+      </view>
+      
+      <!-- 成功提示 -->
+      <view class="success-tip" wx:if="{{successMsg}}">
+        <text>{{successMsg}}</text>
       </view>
       
       <!-- 错误提示 -->
@@ -37,9 +64,9 @@
       
       <!-- 登录按钮 -->
       <button 
-        class="login-btn {{!phone || phone.length !== 11 ? 'disabled' : ''}}" 
+        class="login-btn {{!canLogin ? 'disabled' : ''}}" 
         bindtap="handleLogin" 
-        disabled="{{!phone || phone.length !== 11 || isLoading}}"
+        disabled="{{!canLogin || isLoading}}"
       >
         {{isLoading ? '登录中...' : '开始记账'}}
       </button>

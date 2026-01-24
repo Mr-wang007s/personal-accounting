@@ -14,7 +14,7 @@ import type { Record } from '@personal-accounting/shared/types'
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('home')
   const [editingRecord, setEditingRecord] = useState<Record | null>(null)
-  const { isAuthenticated, isLoading, error, login } = useSync()
+  const { isAuthenticated, isLoading, error, login, sendEmailCode, emailLogin } = useSync()
 
   const handleNavigate = (page: string) => {
     if (currentPage === 'edit' && page !== 'edit') {
@@ -47,6 +47,8 @@ function AppContent() {
         onLoginSuccess={() => setCurrentPage('home')}
         error={error}
         onLogin={login}
+        onSendEmailCode={sendEmailCode}
+        onEmailLogin={emailLogin}
       />
     )
   }

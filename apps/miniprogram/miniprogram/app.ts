@@ -164,13 +164,13 @@ App<IAppOption>({
   },
 
   /**
-   * 手机号登录并加载数据
+   * 邮箱登录并加载数据（开发/测试用，无验证码）
    */
-  async loginWithPhone(phone: string, nickname?: string) {
-    console.log(`${LOG_TAG} 手机号登录...`);
+  async loginWithPhone(email: string, nickname?: string) {
+    console.log(`${LOG_TAG} 邮箱登录（无验证码）...`);
     
     try {
-      const loginResult = await authService.phoneLogin(phone, nickname);
+      const loginResult = await authService.phoneLogin(email, nickname);
 
       if (!loginResult.success) {
         console.error(`${LOG_TAG} 登录失败:`, loginResult.error);
@@ -186,6 +186,36 @@ App<IAppOption>({
       return { success: true, isNewUser: loginResult.isNewUser };
     } catch (error) {
       console.error(`${LOG_TAG} 登录失败:`, error);
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  /**
+   * 邮箱验证码登录并加载数据
+   * @param email 邮箱地址
+   * @param code 验证码
+   * @param nickname 昵称（可选）
+   */
+  async loginWithEmailCode(email: string, code: string, nickname?: string) {
+    console.log(`${LOG_TAG} 邮箱验证码登录...`);
+    
+    try {
+      const loginResult = await authService.emailLogin(email, code, nickname);
+
+      if (!loginResult.success) {
+        console.error(`${LOG_TAG} 邮箱验证码登录失败:`, loginResult.error);
+        return { success: false, error: loginResult.error };
+      }
+
+      this.globalData.isLoggedIn = true;
+      console.log(`${LOG_TAG} 邮箱验证码登录成功, isNewUser=${loginResult.isNewUser}`);
+
+      // 从云端加载数据
+      await this.loadDataFromCloud(loginResult.user);
+      
+      return { success: true, isNewUser: loginResult.isNewUser };
+    } catch (error) {
+      console.error(`${LOG_TAG} 邮箱验证码登录失败:`, error);
       return { success: false, error: (error as Error).message };
     }
   },
