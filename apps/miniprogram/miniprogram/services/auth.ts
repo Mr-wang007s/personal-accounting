@@ -124,17 +124,35 @@ class AuthService {
   }
 
   /**
-   * 自动登录（使用保存的邮箱）
+   * 自动登录（优先使用已存储的 token）
    */
   async autoLogin(): Promise<{
     success: boolean
     user?: LoginResponse['user']
   }> {
+    // 1. 首先检查是否有已存储的 token
+    if (apiClient.isAuthenticated()) {
+      try {
+        // 验证 token 是否有效
+        const user = await apiClient.getCurrentUser()
+        this.authState.isLoggedIn = true
+        this.authState.user = user
+        console.log('[AuthService] Token 有效，自动登录成功')
+        return { success: true, user }
+      } catch (error) {
+        // Token 无效，清除并继续尝试其他方式
+        console.log('[AuthService] Token 已过期，尝试重新登录')
+        apiClient.clearToken()
+      }
+    }
+
+    // 2. 如果没有有效 token，检查是否有保存的邮箱
     const savedEmail = this.getSavedEmail()
     if (!savedEmail) {
       return { success: false }
     }
 
+    // 3. 使用保存的邮箱重新登录（仅用于开发环境）
     try {
       const result = await apiClient.phoneLogin(savedEmail)
       apiClient.setToken(result.accessToken)

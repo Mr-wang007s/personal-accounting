@@ -25,8 +25,11 @@ Page({
     incomeDisplay: '0.00',
     expenseDisplay: '0.00',
     recentRecords: [] as RecordDisplay[],
-    isLoading: true,
+    // 渐进式加载状态
+    isInitializing: true,    // 初始化中（显示骨架屏）
+    isRefreshing: false,     // 数据刷新中（不阻塞UI）
     hasError: false,
+    contentReady: false,     // 内容准备好（用于动画）
   },
 
   onLoad() {
@@ -36,7 +39,7 @@ Page({
   onShow() {
     const app = getApp<IAppOption>()
     if (app.globalData.isInitialized) {
-      this.loadData()
+      this.loadData(false) // 非初始加载，仅刷新数据
     }
     // 设置自定义 tabBar 选中状态
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
@@ -48,7 +51,7 @@ Page({
   async waitForInitialization() {
     const app = getApp<IAppOption>()
     
-    this.setData({ isLoading: true, hasError: false })
+    this.setData({ isInitializing: true, hasError: false })
     
     try {
       // 等待 app 初始化完成
@@ -67,14 +70,14 @@ Page({
       
       // 初始化完成后加载数据
       if (app.globalData.isInitialized) {
-        this.loadData()
+        await this.loadData(true)
       } else {
         // 如果初始化失败，显示错误状态
-        this.setData({ isLoading: false, hasError: true })
+        this.setData({ isInitializing: false, hasError: true })
       }
     } catch (error) {
       console.error('[Index] 初始化等待失败:', error)
-      this.setData({ isLoading: false, hasError: true })
+      this.setData({ isInitializing: false, hasError: true })
     }
   },
 
@@ -82,27 +85,32 @@ Page({
   async retryLoad() {
     const app = getApp<IAppOption>()
     
-    this.setData({ isLoading: true, hasError: false })
+    this.setData({ isInitializing: true, hasError: false })
     
     try {
       await app.initializeApp()
       
       if (app.globalData.isInitialized) {
-        this.loadData()
+        await this.loadData(true)
       } else {
-        this.setData({ isLoading: false, hasError: true })
+        this.setData({ isInitializing: false, hasError: true })
       }
     } catch (error) {
       console.error('[Index] 重试失败:', error)
-      this.setData({ isLoading: false, hasError: true })
+      this.setData({ isInitializing: false, hasError: true })
     }
   },
 
   // 加载数据
-  async loadData() {
+  async loadData(isInitial = false) {
     const app = getApp<IAppOption>()
     
-    this.setData({ isLoading: true, hasError: false })
+    // 初始加载用 isInitializing，后续刷新用 isRefreshing
+    if (isInitial) {
+      this.setData({ hasError: false })
+    } else {
+      this.setData({ isRefreshing: true, hasError: false })
+    }
     
     try {
       // 从云端刷新数据
@@ -115,7 +123,11 @@ Page({
     const { currentLedger, records } = app.globalData
 
     if (!currentLedger) {
-      this.setData({ isLoading: false })
+      this.setData({ 
+        isInitializing: false, 
+        isRefreshing: false,
+        contentReady: true
+      })
       return
     }
 
@@ -159,8 +171,14 @@ Page({
       incomeDisplay: formatAmount(stats.totalIncome),
       expenseDisplay: formatAmount(stats.totalExpense),
       recentRecords,
-      isLoading: false,
+      isInitializing: false,
+      isRefreshing: false,
     })
+    
+    // 延迟触发内容动画
+    setTimeout(() => {
+      this.setData({ contentReady: true })
+    }, 50)
   },
 
   // 下拉刷新

@@ -1,37 +1,119 @@
-/* 首页样式 */
+/* 首页样式 - 渐进式加载优化 */
 .page-container {
   min-height: 100vh;
   background-color: var(--bg-secondary);
   padding-bottom: 180rpx;
 }
 
-/* 加载状态 */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  padding: 80rpx 32rpx;
+/* ==================== 骨架屏样式 ==================== */
+.skeleton-text {
+  height: 28rpx;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.15) 25%, 
+    rgba(255, 255, 255, 0.3) 50%, 
+    rgba(255, 255, 255, 0.15) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8rpx;
+  width: 100rpx;
 }
 
-.loading-spinner {
-  width: 64rpx;
-  height: 64rpx;
-  border: 4rpx solid #E2E8F0;
-  border-top-color: #6366F1;
+.skeleton-text.small {
+  height: 24rpx;
+  width: 80rpx;
+}
+
+.skeleton-amount {
+  height: 80rpx;
+  width: 200rpx;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.15) 25%, 
+    rgba(255, 255, 255, 0.3) 50%, 
+    rgba(255, 255, 255, 0.15) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12rpx;
+}
+
+.skeleton-icon {
+  background: linear-gradient(90deg, 
+    rgba(0, 0, 0, 0.05) 25%, 
+    rgba(0, 0, 0, 0.1) 50%, 
+    rgba(0, 0, 0, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-item .skeleton-text {
+  background: linear-gradient(90deg, 
+    rgba(0, 0, 0, 0.05) 25%, 
+    rgba(0, 0, 0, 0.1) 50%, 
+    rgba(0, 0, 0, 0.05) 75%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ==================== 渐进式显示动画 ==================== */
+.header-card,
+.quick-actions,
+.recent-section {
+  opacity: 0.6;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.header-card.content-visible,
+.quick-actions.content-visible,
+.recent-section.content-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.record-item {
+  opacity: 0;
+  transform: translateX(-10rpx);
+}
+
+.record-item.item-visible {
+  animation: slideIn 0.25s ease forwards;
+}
+
+@keyframes slideIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ==================== 刷新指示器 ==================== */
+.refresh-indicator {
+  position: absolute;
+  top: 20rpx;
+  right: 32rpx;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+
+.refresh-indicator.visible {
+  opacity: 1;
+}
+
+.mini-spinner {
+  width: 32rpx;
+  height: 32rpx;
+  border: 3rpx solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loading-text {
-  margin-top: 24rpx;
-  font-size: 28rpx;
-  color: var(--text-secondary);
 }
 
 /* 错误状态 */
@@ -490,4 +572,9 @@
 .empty-state text {
   color: var(--text-muted);
   font-size: 28rpx;
+}
+
+/* ==================== 动画关键帧 ==================== */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
