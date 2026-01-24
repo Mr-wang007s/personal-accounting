@@ -139,6 +139,13 @@ export class EmailService {
     // 更新发送计数
     this.updateSendCount(email)
 
+    // E2E 测试模式：跳过真实邮件发送，直接返回验证码
+    const isE2ETest = this.configService.get<string>('E2E_TEST') === 'true'
+    if (isE2ETest) {
+      this.logger.warn(`[E2E] 测试模式验证码: ${email} => ${code}`)
+      return { success: true, message: `[开发模式] 验证码: ${code}` }
+    }
+
     // 发送邮件
     if (this.transporter) {
       try {
