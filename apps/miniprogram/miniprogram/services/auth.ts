@@ -11,6 +11,9 @@ export interface AuthState {
   user: LoginResponse['user'] | null
 }
 
+// 存储键
+const USER_PHONE_KEY = 'pa_user_phone'
+
 class AuthService {
   private authState: AuthState = {
     isLoggedIn: false,
@@ -39,25 +42,62 @@ class AuthService {
   }
 
   /**
-   * 微信云托管自动登录
-   * @param nickname 用户昵称（可选）
-   * @param avatar 用户头像（可选）
+   * 获取保存的手机号
    */
-  async autoLogin(nickname?: string, avatar?: string): Promise<{
+  getSavedPhone(): string | null {
+    return wx.getStorageSync(USER_PHONE_KEY) || null
+  }
+
+  /**
+   * 手机号登录
+   * @param phone 手机号
+   * @param nickname 用户昵称（可选）
+   */
+  async phoneLogin(phone: string, nickname?: string): Promise<{
     success: boolean
     user?: LoginResponse['user']
     isNewUser?: boolean
+    error?: string
   }> {
     try {
-      const result = await apiClient.wxCloudLogin(nickname, avatar)
+      const result = await apiClient.phoneLogin(phone, nickname)
       apiClient.setToken(result.accessToken)
+      
+      // 保存手机号用于下次自动登录
+      wx.setStorageSync(USER_PHONE_KEY, phone)
       
       this.authState.isLoggedIn = true
       this.authState.user = result.user
 
       return { success: true, user: result.user, isNewUser: result.isNewUser }
     } catch (error) {
-      console.error('[AuthService] 云托管登录失败:', error)
+      console.error('[AuthService] 手机号登录失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * 自动登录（使用保存的手机号）
+   */
+  async autoLogin(): Promise<{
+    success: boolean
+    user?: LoginResponse['user']
+  }> {
+    const savedPhone = this.getSavedPhone()
+    if (!savedPhone) {
+      return { success: false }
+    }
+
+    try {
+      const result = await apiClient.phoneLogin(savedPhone)
+      apiClient.setToken(result.accessToken)
+      
+      this.authState.isLoggedIn = true
+      this.authState.user = result.user
+
+      return { success: true, user: result.user }
+    } catch (error) {
+      console.error('[AuthService] 自动登录失败:', error)
       return { success: false }
     }
   }
@@ -67,6 +107,7 @@ class AuthService {
    */
   logout(): void {
     apiClient.clearToken()
+    wx.removeStorageSync(USER_PHONE_KEY)
     this.authState.isLoggedIn = false
     this.authState.user = null
   }

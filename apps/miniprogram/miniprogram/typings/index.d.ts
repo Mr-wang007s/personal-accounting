@@ -47,6 +47,7 @@ interface IAppOption {
   }
   initPromise: Promise<void> | null
   initializeApp(): Promise<void>
+  loginWithPhone(phone: string, nickname?: string): Promise<{ success: boolean; isNewUser?: boolean; error?: string }>
   refreshData(): Promise<void>
   updateUserProfile(nickname?: string, avatar?: string): Promise<void>
 }

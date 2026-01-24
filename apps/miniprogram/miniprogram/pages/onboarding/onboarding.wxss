@@ -1,7 +1,7 @@
-/* 引导页样式 - 微信授权版 */
+/* 引导页样式 - 简化版 */
 .page-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
   display: flex;
   flex-direction: column;
 }
@@ -10,219 +10,151 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 60rpx 48rpx 80rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
 }
 
-/* 欢迎区域 */
-.welcome-section {
+/* Logo 和标题 */
+.header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 48rpx;
+  margin-bottom: 64rpx;
 }
 
-.welcome-icon {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
+.logo {
+  width: 160rpx;
+  height: 160rpx;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border-radius: 32rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24rpx;
+  margin-bottom: 32rpx;
 }
 
-.welcome-icon text {
-  font-size: 60rpx;
+.logo-icon {
+  font-size: 80rpx;
 }
 
-.welcome-title {
-  font-size: 40rpx;
+.title {
+  font-size: 48rpx;
   font-weight: 700;
   color: #FFFFFF;
-  margin-bottom: 12rpx;
+  margin-bottom: 16rpx;
 }
 
-.welcome-desc {
+.subtitle {
   font-size: 28rpx;
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* 用户信息区域 */
-.user-info-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 48rpx;
-  padding: 40rpx;
-  background-color: rgba(255, 255, 255, 0.15);
-  border-radius: 24rpx;
-}
-
-/* 头像选择按钮 */
-.avatar-btn {
-  width: 160rpx;
-  height: 160rpx;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border: none;
-  position: relative;
-}
-
-.avatar-btn::after {
-  display: none;
-}
-
-.avatar-image {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: 50%;
-  border: 6rpx solid rgba(255, 255, 255, 0.5);
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.avatar-edit-icon {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 50%;
-  background-color: #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
-}
-
-.avatar-edit-icon text {
-  font-size: 24rpx;
-}
-
-.avatar-hint {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 16rpx;
-}
-
-/* 昵称输入 */
-.nickname-section {
+/* 登录卡片 */
+.login-card {
   width: 100%;
-  margin-top: 32rpx;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 48rpx;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.15);
 }
 
-.nickname-input {
-  width: 100%;
-  height: 96rpx;
-  line-height: 96rpx;
-  background-color: #FFFFFF;
-  border-radius: 16rpx;
-  font-size: 32rpx;
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.nickname-input::placeholder {
-  color: #9CA3AF;
-}
-
-/* 账本设置区域 */
-.ledger-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #FFFFFF;
-  margin-bottom: 24rpx;
-  text-align: center;
-}
-
-.ledger-input {
-  width: 100%;
-  height: 96rpx;
-  line-height: 96rpx;
-  background-color: #FFFFFF;
-  border-radius: 16rpx;
-  font-size: 32rpx;
-  text-align: center;
-  box-sizing: border-box;
-  margin-bottom: 24rpx;
-}
-
-.ledger-input::placeholder {
-  color: #9CA3AF;
-}
-
-/* 图标选择 */
-.icon-section {
-  margin-bottom: 24rpx;
-}
-
-.icon-label {
-  font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.8);
+.card-title {
   display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1F2937;
   text-align: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 48rpx;
 }
 
-.icon-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16rpx;
+/* 输入组 */
+.input-group {
+  margin-bottom: 32rpx;
 }
 
-.icon-item {
-  aspect-ratio: 1;
+.input-label {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 16rpx;
+}
+
+.input-wrapper {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 12rpx;
-  border: 3rpx solid transparent;
+  background: #F9FAFB;
+  border: 2rpx solid #E5E7EB;
+  border-radius: 24rpx;
+  padding: 0 24rpx;
+  height: 96rpx;
   transition: all 0.2s;
 }
 
-.icon-item.selected {
-  background-color: #FFFFFF;
-  border-color: #FFFFFF;
+.input-wrapper:focus-within {
+  border-color: #6366F1;
+  background: #FFFFFF;
 }
 
-.icon-item text {
-  font-size: 40rpx;
+.input-icon {
+  font-size: 36rpx;
+  margin-right: 16rpx;
 }
 
-/* 云同步提示 */
-.sync-hint {
-  text-align: center;
-  padding: 20rpx 0;
+.phone-input {
+  flex: 1;
+  height: 96rpx;
+  font-size: 32rpx;
+  color: #111827;
 }
 
-.hint-text {
-  font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.8);
+.phone-input::placeholder {
+  color: #9CA3AF;
 }
 
-/* 开始按钮 */
-.start-btn {
-  width: 100%;
-  padding: 32rpx;
-  background-color: #FFFFFF;
+/* 错误提示 */
+.error-tip {
+  background: #FEF2F2;
+  color: #DC2626;
+  padding: 20rpx 24rpx;
   border-radius: 16rpx;
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #6366F1;
-  border: none;
-  margin-top: auto;
+  font-size: 26rpx;
+  margin-bottom: 32rpx;
 }
 
-.start-btn.disabled,
-.start-btn[disabled] {
-  background-color: rgba(255, 255, 255, 0.5);
-  color: rgba(99, 102, 241, 0.5);
+/* 登录按钮 */
+.login-btn {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #6366F1;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 24rpx;
+  border: none;
+  margin-bottom: 24rpx;
+}
+
+.login-btn.disabled,
+.login-btn[disabled] {
+  background: #C7D2FE;
+  color: #FFFFFF;
+}
+
+/* 提示信息 */
+.hint {
+  display: block;
+  font-size: 26rpx;
+  color: #9CA3AF;
+  text-align: center;
+}
+
+/* 底部信息 */
+.footer {
+  margin-top: 48rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
 }

@@ -56,6 +56,15 @@ Page({
         await app.initPromise
       }
       
+      // 检查是否已登录
+      if (!app.globalData.isLoggedIn) {
+        // 未登录，跳转到登录页
+        wx.redirectTo({
+          url: '/pages/onboarding/onboarding'
+        })
+        return
+      }
+      
       // 初始化完成后加载数据
       if (app.globalData.isInitialized) {
         this.loadData()

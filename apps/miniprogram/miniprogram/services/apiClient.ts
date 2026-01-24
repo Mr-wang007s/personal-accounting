@@ -211,13 +211,14 @@ class ApiClient {
   // ==================== 认证 API ====================
 
   /**
-   * 微信云托管自动登录
-   * 云托管会自动在请求头中注入用户的 openid 等信息
+   * 手机号登录
+   * @param phone 手机号
+   * @param nickname 昵称（可选）
    */
-  async wxCloudLogin(nickname?: string, avatar?: string): Promise<LoginResponse> {
-    return this.request('/api/auth/wx-cloud/login', {
+  async phoneLogin(phone: string, nickname?: string): Promise<LoginResponse> {
+    return this.request('/api/auth/phone/login', {
       method: 'POST',
-      data: { nickname, avatar },
+      data: { phone, nickname },
     })
   }
 

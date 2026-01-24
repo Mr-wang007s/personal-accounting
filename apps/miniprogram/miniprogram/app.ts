@@ -81,24 +81,25 @@ App<IAppOption>({
 
   /**
    * 应用初始化入口
-   * 自动登录 → 加载数据
+   * 自动登录（如果有保存的手机号）→ 加载数据
    * 新用户后端会自动创建默认账本
    */
   async initializeApp() {
     console.log(`${LOG_TAG} 开始初始化...`);
     
     try {
-      // 1. 自动登录（云托管会自动获取 openid）
+      // 1. 尝试自动登录（使用保存的手机号）
       const loginResult = await authService.autoLogin();
 
       if (!loginResult.success) {
-        console.error(`${LOG_TAG} 登录失败:`, loginResult);
-        wx.showToast({ title: '登录失败，请重试', icon: 'none' });
+        // 未登录，需要跳转到登录页
+        console.log(`${LOG_TAG} 未保存手机号，需要登录`);
+        this.globalData.isInitialized = true;
         return;
       }
 
       this.globalData.isLoggedIn = true;
-      console.log(`${LOG_TAG} 登录成功, isNewUser=${loginResult.isNewUser}`);
+      console.log(`${LOG_TAG} 自动登录成功`);
 
       // 2. 从云端加载所有数据
       await this.loadDataFromCloud(loginResult.user);
@@ -106,6 +107,7 @@ App<IAppOption>({
       console.log(`${LOG_TAG} 初始化完成`);
     } catch (error) {
       console.error(`${LOG_TAG} 初始化失败:`, error);
+      this.globalData.isInitialized = true;
       wx.showToast({ title: '加载失败，请重试', icon: 'none' });
     }
   },
@@ -161,6 +163,33 @@ App<IAppOption>({
   },
 
   /**
+   * 手机号登录并加载数据
+   */
+  async loginWithPhone(phone: string, nickname?: string) {
+    console.log(`${LOG_TAG} 手机号登录...`);
+    
+    try {
+      const loginResult = await authService.phoneLogin(phone, nickname);
+
+      if (!loginResult.success) {
+        console.error(`${LOG_TAG} 登录失败:`, loginResult.error);
+        return { success: false, error: loginResult.error };
+      }
+
+      this.globalData.isLoggedIn = true;
+      console.log(`${LOG_TAG} 登录成功, isNewUser=${loginResult.isNewUser}`);
+
+      // 从云端加载数据
+      await this.loadDataFromCloud(loginResult.user);
+      
+      return { success: true, isNewUser: loginResult.isNewUser };
+    } catch (error) {
+      console.error(`${LOG_TAG} 登录失败:`, error);
+      return { success: false, error: (error as Error).message };
+    }
+  },
+
+  /**
    * 刷新全局数据（从云端重新加载）
    */
   async refreshData() {
@@ -204,9 +233,6 @@ App<IAppOption>({
     if (!this.globalData.userProfile) return;
     
     try {
-      // 调用后端更新用户信息
-      await authService.autoLogin(nickname, avatar);
-      
       // 更新本地状态
       if (nickname) {
         this.globalData.userProfile.nickname = nickname;
