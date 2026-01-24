@@ -94,6 +94,11 @@ export interface LoginResponse {
 // 存储键
 const DEVICE_ID_KEY = 'pa_device_id'
 const TOKEN_KEY = 'pa_token'
+const TOKEN_EXPIRE_KEY = 'pa_token_expire'
+
+// Token 有效期（毫秒）- 7天，提前1天刷新
+const TOKEN_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000
+const TOKEN_REFRESH_THRESHOLD_MS = 1 * 24 * 60 * 60 * 1000
 
 // callContainer 返回结果类型
 interface CallContainerResult<T> {
@@ -105,12 +110,16 @@ interface CallContainerResult<T> {
 
 class ApiClient {
   private token: string | null = null
+  private tokenExpireTime: number = 0
   private deviceId: string
   private cloudInitialized = false
+  private isRefreshing = false
+  private refreshPromise: Promise<boolean> | null = null
 
   constructor() {
     this.deviceId = this.getOrCreateDeviceId()
     this.token = wx.getStorageSync(TOKEN_KEY) || null
+    this.tokenExpireTime = wx.getStorageSync(TOKEN_EXPIRE_KEY) || 0
     this.initCloud()
   }
 
@@ -143,7 +152,9 @@ class ApiClient {
 
   setToken(token: string): void {
     this.token = token
+    this.tokenExpireTime = Date.now() + TOKEN_LIFETIME_MS
     wx.setStorageSync(TOKEN_KEY, token)
+    wx.setStorageSync(TOKEN_EXPIRE_KEY, this.tokenExpireTime)
   }
 
   getToken(): string | null {
@@ -152,7 +163,9 @@ class ApiClient {
 
   clearToken(): void {
     this.token = null
+    this.tokenExpireTime = 0
     wx.removeStorageSync(TOKEN_KEY)
+    wx.removeStorageSync(TOKEN_EXPIRE_KEY)
   }
 
   isAuthenticated(): boolean {
@@ -160,13 +173,38 @@ class ApiClient {
   }
 
   /**
-   * 通用请求方法 - 使用 wx.cloud.callContainer
+   * 检查 token 是否需要刷新（距离过期不足1天）
    */
-  private request<T>(path: string, options: {
+  shouldRefreshToken(): boolean {
+    if (!this.token || !this.tokenExpireTime) return false
+    const timeUntilExpire = this.tokenExpireTime - Date.now()
+    return timeUntilExpire > 0 && timeUntilExpire < TOKEN_REFRESH_THRESHOLD_MS
+  }
+
+  /**
+   * 检查 token 是否已过期
+   */
+  isTokenExpired(): boolean {
+    if (!this.token || !this.tokenExpireTime) return true
+    return Date.now() >= this.tokenExpireTime
+  }
+
+  /**
+   * 通用请求方法 - 使用 wx.cloud.callContainer
+   * 支持自动刷新 token
+   */
+  private async request<T>(path: string, options: {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
     data?: unknown
     header?: Record<string, string>
+    skipAutoRefresh?: boolean  // 跳过自动刷新（用于 refresh 接口本身）
   } = {}): Promise<T> {
+    // 自动刷新 token（如果需要且不是 refresh 请求本身）
+    if (!options.skipAutoRefresh && this.shouldRefreshToken()) {
+      console.log('[ApiClient] Token 即将过期，尝试刷新...')
+      await this.tryRefreshToken()
+    }
+
     return new Promise((resolve, reject) => {
       const header: Record<string, string> = {
         'X-WX-SERVICE': CLOUD_CONFIG.service,
@@ -195,6 +233,19 @@ class ApiClient {
             } else {
               resolve(responseData as T)
             }
+          } else if (res.statusCode === 401 && !options.skipAutoRefresh) {
+            // Token 失效，尝试刷新后重试
+            console.log('[ApiClient] 收到 401，尝试刷新 token 后重试...')
+            this.tryRefreshToken().then(success => {
+              if (success) {
+                // 重试请求
+                this.request<T>(path, { ...options, skipAutoRefresh: true })
+                  .then(resolve)
+                  .catch(reject)
+              } else {
+                reject(new Error('登录已过期，请重新登录'))
+              }
+            })
           } else {
             const error = res.data as { message?: string }
             reject(new Error(error?.message || `HTTP ${res.statusCode}`))
@@ -208,6 +259,49 @@ class ApiClient {
     })
   }
 
+  /**
+   * 尝试刷新 token
+   * 使用锁机制避免并发刷新
+   */
+  private async tryRefreshToken(): Promise<boolean> {
+    // 如果已经在刷新，等待刷新完成
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise
+    }
+
+    // 如果没有 token，无法刷新
+    if (!this.token) {
+      return false
+    }
+
+    this.isRefreshing = true
+    this.refreshPromise = this.doRefreshToken()
+
+    try {
+      return await this.refreshPromise
+    } finally {
+      this.isRefreshing = false
+      this.refreshPromise = null
+    }
+  }
+
+  /**
+   * 执行 token 刷新
+   */
+  private async doRefreshToken(): Promise<boolean> {
+    try {
+      const result = await this.refreshToken()
+      this.setToken(result.accessToken)
+      console.log('[ApiClient] Token 刷新成功')
+      return true
+    } catch (error) {
+      console.error('[ApiClient] Token 刷新失败:', error)
+      // 刷新失败，清除 token
+      this.clearToken()
+      return false
+    }
+  }
+
   // ==================== 认证 API ====================
 
   /**
@@ -219,6 +313,7 @@ class ApiClient {
     return this.request('/api/auth/phone/login', {
       method: 'POST',
       data: { phone, nickname },
+      skipAutoRefresh: true,
     })
   }
 
@@ -230,6 +325,7 @@ class ApiClient {
     return this.request('/api/auth/email/send', {
       method: 'POST',
       data: { email },
+      skipAutoRefresh: true,
     })
   }
 
@@ -243,6 +339,7 @@ class ApiClient {
     return this.request('/api/auth/email/login', {
       method: 'POST',
       data: { email, code, nickname },
+      skipAutoRefresh: true,
     })
   }
 
@@ -252,6 +349,16 @@ class ApiClient {
   async getCurrentUser(): Promise<LoginResponse['user']> {
     return this.request('/api/auth/me', {
       method: 'GET',
+    })
+  }
+
+  /**
+   * 刷新 Token
+   */
+  async refreshToken(): Promise<LoginResponse> {
+    return this.request('/api/auth/refresh', {
+      method: 'POST',
+      skipAutoRefresh: true,  // 刷新请求本身不触发自动刷新
     })
   }
 

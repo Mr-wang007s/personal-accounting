@@ -124,37 +124,65 @@ class AuthService {
   }
 
   /**
-   * 自动登录（优先使用已存储的 token）
+   * 自动登录（优先使用已存储的 token，支持自动刷新）
    */
   async autoLogin(): Promise<{
     success: boolean
     user?: LoginResponse['user']
   }> {
-    // 1. 首先检查是否有已存储的 token
-    if (apiClient.isAuthenticated()) {
-      try {
-        // 验证 token 是否有效
-        const user = await apiClient.getCurrentUser()
-        this.authState.isLoggedIn = true
-        this.authState.user = user
-        console.log('[AuthService] Token 有效，自动登录成功')
-        return { success: true, user }
-      } catch (error) {
-        // Token 无效，清除并继续尝试其他方式
-        console.log('[AuthService] Token 已过期，尝试重新登录')
-        apiClient.clearToken()
-      }
-    }
-
-    // 2. 如果没有有效 token，检查是否有保存的邮箱
-    const savedEmail = this.getSavedEmail()
-    if (!savedEmail) {
+    // 检查是否有已存储的 token
+    if (!apiClient.isAuthenticated()) {
       return { success: false }
     }
 
-    // 3. 使用保存的邮箱重新登录（仅用于开发环境）
+    // 1. 检查 token 是否已过期
+    if (apiClient.isTokenExpired()) {
+      console.log('[AuthService] Token 已过期')
+      apiClient.clearToken()
+      return { success: false }
+    }
+
+    // 2. 检查是否需要刷新（距离过期不足1天）
+    if (apiClient.shouldRefreshToken()) {
+      console.log('[AuthService] Token 即将过期，尝试刷新...')
+      try {
+        const refreshResult = await apiClient.refreshToken()
+        apiClient.setToken(refreshResult.accessToken)
+        this.authState.isLoggedIn = true
+        this.authState.user = refreshResult.user
+        console.log('[AuthService] Token 刷新成功')
+        return { success: true, user: refreshResult.user }
+      } catch (error) {
+        console.log('[AuthService] Token 刷新失败，尝试验证现有 token')
+        // 刷新失败，继续尝试使用现有 token
+      }
+    }
+
+    // 3. 验证 token 是否有效
     try {
-      const result = await apiClient.phoneLogin(savedEmail)
+      const user = await apiClient.getCurrentUser()
+      this.authState.isLoggedIn = true
+      this.authState.user = user
+      console.log('[AuthService] Token 有效，自动登录成功')
+      return { success: true, user }
+    } catch (error) {
+      // Token 无效，清除
+      console.log('[AuthService] Token 验证失败，清除 token')
+      apiClient.clearToken()
+      return { success: false }
+    }
+  }
+
+  /**
+   * 手动刷新 token
+   */
+  async refreshToken(): Promise<{
+    success: boolean
+    user?: LoginResponse['user']
+    error?: string
+  }> {
+    try {
+      const result = await apiClient.refreshToken()
       apiClient.setToken(result.accessToken)
       
       this.authState.isLoggedIn = true
@@ -162,8 +190,8 @@ class AuthService {
 
       return { success: true, user: result.user }
     } catch (error) {
-      console.error('[AuthService] 自动登录失败:', error)
-      return { success: false }
+      console.error('[AuthService] 刷新 Token 失败:', error)
+      return { success: false, error: (error as Error).message }
     }
   }
 
