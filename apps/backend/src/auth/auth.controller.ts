@@ -6,19 +6,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Headers,
 } from '@nestjs/common'
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse,
-  ApiHeader,
-} from '@nestjs/swagger'
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger'
 import { AuthService } from './auth.service'
-import { WxCloudLoginDto } from './dto/wx-cloud-login.dto'
-import { DevLoginDto } from './dto/dev-login.dto'
-import { TokenResponseDto } from './dto/token-response.dto'
+import { PhoneLoginDto } from './dto/phone-login.dto'
+import { LoginResponseDto } from './dto/login-response.dto'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { CurrentUser } from './decorators/current-user.decorator'
 import { User } from '@prisma/client'
@@ -28,51 +20,44 @@ import { User } from '@prisma/client'
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('wx-cloud/login')
+  /**
+   * 手机号登录（暂未接入验证平台，只需手机号）
+   */
+  @Post('phone/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '微信云托管登录（从 Header 获取 openid）' })
-  @ApiHeader({ name: 'X-WX-OPENID', description: '微信 openid（云托管自动注入）', required: true })
-  @ApiHeader({ name: 'X-WX-UNIONID', description: '微信 unionid（云托管自动注入）', required: false })
-  @ApiResponse({ status: 200, type: TokenResponseDto })
-  async wxCloudLogin(
-    @Headers('x-wx-openid') openid: string,
-    @Headers('x-wx-unionid') unionid: string,
-    @Body() dto: WxCloudLoginDto,
-  ): Promise<TokenResponseDto> {
-    return this.authService.wxCloudLogin(openid, unionid, dto)
+  @ApiOperation({ summary: '手机号登录/注册' })
+  @ApiResponse({ status: 200, type: LoginResponseDto })
+  async phoneLogin(@Body() dto: PhoneLoginDto): Promise<LoginResponseDto> {
+    return this.authService.phoneLogin(dto.phone, dto.nickname)
   }
 
-  @Post('refresh')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '刷新 Token' })
-  @ApiResponse({ status: 200, type: TokenResponseDto })
-  async refreshToken(@CurrentUser() user: User): Promise<TokenResponseDto> {
-    return this.authService.refreshToken(user.id)
-  }
-
-  @Get('profile')
+  /**
+   * 获取当前用户信息
+   */
+  @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '获取当前用户信息' })
-  async getProfile(@CurrentUser() user: User) {
+  async getMe(@CurrentUser() user: User) {
     return {
       id: user.id,
       phone: user.phone,
       openid: user.openid,
       nickname: user.nickname,
       avatar: user.avatar,
-      createdAt: user.createdAt,
     }
   }
 
-  // 手机号登录/注册接口（保留用于开发测试）
-  @Post('phone/login')
+  /**
+   * 刷新 Token
+   */
+  @Post('refresh')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '手机号登录/注册' })
-  @ApiResponse({ status: 200, type: TokenResponseDto })
-  async phoneLogin(@Body() dto: DevLoginDto): Promise<TokenResponseDto> {
-    return this.authService.phoneLogin(dto.phone, dto.nickname)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '刷新 Token' })
+  @ApiResponse({ status: 200, type: LoginResponseDto })
+  async refreshToken(@CurrentUser() user: User): Promise<LoginResponseDto> {
+    return this.authService.refreshToken(user.id)
   }
 }

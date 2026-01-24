@@ -1,9 +1,9 @@
 /**
  * 记录服务 - 记账记录相关操作
- * 重构：移除本地存储，所有操作直接通过 API 完成
+ * 重构：简化代码，所有操作直接通过 API 完成
  */
 import type { Record, RecordType, GroupedRecords, Statistics } from '../shared/types'
-import { generateId, getNowISO, getDateLabel } from '../shared/utils'
+import { generateId, getDateLabel } from '../shared/utils'
 import { getCategoryById } from '../shared/constants'
 import { RecordCalculator } from '../business-logic/records'
 import { StatisticsService } from '../business-logic/statistics'
@@ -40,7 +40,6 @@ export const RecordService = {
     ledgerId: string
   }): Promise<Record> {
     const clientId = generateId()
-    const now = getNowISO()
 
     const request: CreateRecordRequest = {
       clientId,
@@ -88,7 +87,6 @@ export const RecordService = {
 
   /**
    * 获取当前账本的记录（从缓存的 globalData）
-   * 注意：这个方法使用 app.globalData 中的缓存数据
    */
   getRecordsByLedger(ledgerId: string): Record[] {
     const app = getApp<IAppOption>()
@@ -108,7 +106,7 @@ export const RecordService = {
   },
 
   /**
-   * 按日期分组记录（使用 business-logic）
+   * 按日期分组记录
    */
   groupRecordsByDate(records: Record[]): GroupedRecords[] {
     const groups = RecordCalculator.groupByDate(records)
@@ -129,17 +127,16 @@ export const RecordService = {
       })
     })
 
-    // 按日期降序排序
     return result.sort((a, b) => b.date.localeCompare(a.date))
   },
 
   /**
-   * 计算统计数据（使用 business-logic）
+   * 计算统计数据
    */
   calculateStatistics(records: Record[]): Statistics {
     const stats = StatisticsService.getStatistics(records)
     
-    // 为分类添加 name 字段（小程序需要）
+    // 为分类添加 name 字段
     stats.categoryBreakdown = stats.categoryBreakdown.map((item) => {
       const cat = getCategoryById(item.category)
       return {
@@ -152,9 +149,7 @@ export const RecordService = {
   },
 
   /**
-   * 计算月度趋势（使用 business-logic）
-   * @param ledgerId 账本ID
-   * @param months 月数，默认6个月
+   * 计算月度趋势
    */
   calculateMonthlyTrend(ledgerId: string, months: number = 6) {
     const records = this.getRecordsByLedger(ledgerId)
@@ -162,7 +157,7 @@ export const RecordService = {
   },
 
   /**
-   * 获取月度统计（使用 business-logic）
+   * 获取月度统计
    */
   getMonthlyStatistics(ledgerId: string, year: number, month: number): Statistics {
     const records = this.getRecordsByLedger(ledgerId)

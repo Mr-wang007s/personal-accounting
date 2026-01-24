@@ -2,7 +2,7 @@
  * API 客户端 - 用于与后端通信
  * 微信云托管版本 - 使用 wx.cloud.callContainer
  * 
- * 重构：移除本地存储，所有数据直接通过 API 操作
+ * 重构：简化接口，移除冗余代码
  */
 
 /// <reference path="../typings/wx.d.ts" />
@@ -10,18 +10,13 @@
 // 云托管配置
 const CLOUD_CONFIG = {
   env: 'prod-5gqmub7sd1872233',
-  service: 'express-g8es',
+  service: 'pa-api',  // 新的云托管服务名
 }
 
 export interface ApiResponse<T> {
   code: number
   message: string
   data: T
-  timestamp: string
-}
-
-export interface HealthResponse {
-  status: string
   timestamp: string
 }
 
@@ -83,13 +78,6 @@ export interface UpdateRecordRequest {
   note?: string
 }
 
-// 恢复响应（获取所有数据）
-export interface RestoreResponse {
-  success: boolean
-  ledgers: CloudLedger[]
-  records: CloudRecord[]
-}
-
 // 登录响应
 export interface LoginResponse {
   accessToken: string
@@ -103,15 +91,7 @@ export interface LoginResponse {
   isNewUser: boolean
 }
 
-// 微信云托管用户信息（从请求头自动获取）
-export interface WxCloudUserInfo {
-  openid: string
-  unionid?: string
-  nickname?: string
-  phone?: string
-}
-
-// 存储键（仅保留必要的 token 和 deviceId）
+// 存储键
 const DEVICE_ID_KEY = 'pa_device_id'
 const TOKEN_KEY = 'pa_token'
 
@@ -161,17 +141,6 @@ class ApiClient {
     return this.deviceId
   }
 
-  // 兼容旧代码，但云托管不需要设置 baseUrl
-  setBaseUrl(_url: string): void {
-    // 云托管模式下不需要设置 baseUrl
-    console.log('[ApiClient] 云托管模式，忽略 setBaseUrl')
-  }
-
-  getBaseUrl(): string | null {
-    // 返回云托管标识
-    return `cloudrun://${CLOUD_CONFIG.service}`
-  }
-
   setToken(token: string): void {
     this.token = token
     wx.setStorageSync(TOKEN_KEY, token)
@@ -184,11 +153,6 @@ class ApiClient {
   clearToken(): void {
     this.token = null
     wx.removeStorageSync(TOKEN_KEY)
-  }
-
-  // 云托管模式始终已配置
-  isConfigured(): boolean {
-    return true
   }
 
   isAuthenticated(): boolean {
@@ -225,13 +189,10 @@ class ApiClient {
         data: options.data || '',
         success: (res: CallContainerResult<T>) => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            // 检查返回数据格式
             const responseData = res.data
             if (responseData && typeof responseData === 'object' && 'data' in responseData) {
-              // 标准 ApiResponse 格式
               resolve((responseData as ApiResponse<T>).data)
             } else {
-              // 直接返回数据
               resolve(responseData as T)
             }
           } else {
@@ -247,58 +208,25 @@ class ApiClient {
     })
   }
 
-  // 健康检查（云托管模式）
-  async ping(_url?: string): Promise<HealthResponse> {
-    // 云托管模式下，直接返回健康状态
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-    }
-  }
+  // ==================== 认证 API ====================
 
   /**
    * 微信云托管自动登录
    * 云托管会自动在请求头中注入用户的 openid 等信息
-   * 如果云托管未注入 openid，可以传入 code 通过 code2Session 获取
-   * @param nickname 用户昵称（从微信获取）
-   * @param avatar 用户头像（从微信获取）
-   * @param code wx.login 获取的临时登录凭证（可选）
    */
-  async wxCloudLogin(nickname?: string, avatar?: string, code?: string): Promise<LoginResponse> {
+  async wxCloudLogin(nickname?: string, avatar?: string): Promise<LoginResponse> {
     return this.request('/api/auth/wx-cloud/login', {
       method: 'POST',
-      data: { nickname, avatar, code },
+      data: { nickname, avatar },
     })
   }
 
   /**
-   * 标准微信登录（使用 code2Session）
-   * @param code wx.login 获取的临时登录凭证
-   * @param nickname 用户昵称
-   * @param avatar 用户头像
-   */
-  async wechatLogin(code: string, nickname?: string, avatar?: string): Promise<LoginResponse> {
-    return this.request('/api/auth/wechat/login', {
-      method: 'POST',
-      data: { code, nickname, avatar },
-    })
-  }
-
-  /**
-   * 获取当前用户信息（云托管模式）
-   * 后端根据请求头中的 openid 返回用户信息
+   * 获取当前用户信息
    */
   async getCurrentUser(): Promise<LoginResponse['user']> {
     return this.request('/api/auth/me', {
       method: 'GET',
-    })
-  }
-
-  // 手机号登录（保留兼容）
-  async phoneLogin(phone: string, nickname?: string): Promise<LoginResponse> {
-    return this.request('/api/auth/phone/login', {
-      method: 'POST',
-      data: { phone, nickname },
     })
   }
 
@@ -326,8 +254,8 @@ class ApiClient {
   /**
    * 更新账本
    */
-  async updateLedger(clientId: string, data: UpdateLedgerRequest): Promise<CloudLedger> {
-    return this.request(`/api/ledgers/${clientId}`, {
+  async updateLedger(id: string, data: UpdateLedgerRequest): Promise<CloudLedger> {
+    return this.request(`/api/ledgers/${id}`, {
       method: 'PUT',
       data,
     })
@@ -336,8 +264,8 @@ class ApiClient {
   /**
    * 删除账本
    */
-  async deleteLedger(clientId: string): Promise<{ deleted: boolean }> {
-    return this.request(`/api/ledgers/${clientId}`, {
+  async deleteLedger(id: string): Promise<{ deleted: boolean }> {
+    return this.request(`/api/ledgers/${id}`, {
       method: 'DELETE',
     })
   }
@@ -357,8 +285,9 @@ class ApiClient {
    * 获取指定账本的记录
    */
   async getRecordsByLedger(ledgerId: string): Promise<CloudRecord[]> {
-    const records = await this.getRecords()
-    return records.filter(r => r.ledgerId === ledgerId)
+    return this.request(`/api/records?ledgerId=${ledgerId}`, {
+      method: 'GET',
+    })
   }
 
   /**
@@ -374,8 +303,8 @@ class ApiClient {
   /**
    * 更新记录
    */
-  async updateRecord(clientId: string, data: UpdateRecordRequest): Promise<CloudRecord> {
-    return this.request(`/api/records/${clientId}`, {
+  async updateRecord(id: string, data: UpdateRecordRequest): Promise<CloudRecord> {
+    return this.request(`/api/records/${id}`, {
       method: 'PUT',
       data,
     })
@@ -384,8 +313,8 @@ class ApiClient {
   /**
    * 删除记录
    */
-  async deleteRecord(clientId: string): Promise<{ deleted: boolean }> {
-    return this.request(`/api/records/${clientId}`, {
+  async deleteRecord(id: string): Promise<{ deleted: boolean }> {
+    return this.request(`/api/records/${id}`, {
       method: 'DELETE',
     })
   }
@@ -393,10 +322,10 @@ class ApiClient {
   /**
    * 批量删除记录
    */
-  async deleteRecords(clientIds: string[]): Promise<{ deleted: number }> {
+  async deleteRecords(ids: string[]): Promise<{ deleted: number }> {
     return this.request('/api/records/batch-delete', {
       method: 'POST',
-      data: { clientIds },
+      data: { ids },
     })
   }
 
@@ -405,16 +334,12 @@ class ApiClient {
   /**
    * 获取所有数据（账本 + 记录）
    */
-  async getAllData(): Promise<RestoreResponse> {
+  async getAllData(): Promise<{ ledgers: CloudLedger[]; records: CloudRecord[] }> {
     const [ledgers, records] = await Promise.all([
       this.getLedgers(),
       this.getRecords(),
     ])
-    return {
-      success: true,
-      ledgers,
-      records,
-    }
+    return { ledgers, records }
   }
 }
 

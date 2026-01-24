@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { PrismaModule } from './prisma/prisma.module'
-import { CacheModule } from './cache/cache.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { RecordsModule } from './records/records.module'
@@ -27,7 +26,6 @@ import { join } from 'path'
       },
     ]),
     PrismaModule,
-    CacheModule,
     AuthModule,
     UsersModule,
     RecordsModule,

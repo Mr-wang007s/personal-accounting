@@ -49,7 +49,7 @@
     "disableSWC": true
   },
   "appid": "wxf098ecb7ce1f732e",
-  "libVersion": "3.3.4",
+  "libVersion": "3.13.1",
   "srcMiniprogramRoot": "miniprogram/",
   "condition": {},
   "simulatorPluginLibVersion": {},

@@ -70,18 +70,6 @@ class AuthService {
     this.authState.isLoggedIn = false
     this.authState.user = null
   }
-
-  /**
-   * 检查云托管连接
-   */
-  async checkConnection(): Promise<boolean> {
-    try {
-      await apiClient.ping()
-      return true
-    } catch {
-      return false
-    }
-  }
 }
 
 export const authService = new AuthService()

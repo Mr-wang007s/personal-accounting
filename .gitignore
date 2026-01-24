@@ -34,6 +34,7 @@ test-results
 playwright-report
 e2e/test-results
 e2e/report
+web/report/data/*
 
 # Caches
 .vite

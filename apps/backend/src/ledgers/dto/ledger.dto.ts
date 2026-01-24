@@ -1,14 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsString, IsOptional, IsDateString } from 'class-validator'
+import { IsString, IsOptional, IsNotEmpty } from 'class-validator'
 
-// 创建账本 DTO
+/**
+ * 创建账本 DTO
+ */
 export class CreateLedgerDto {
   @ApiProperty({ description: '客户端 ID（本地唯一标识）' })
   @IsString()
+  @IsNotEmpty()
   clientId: string
 
   @ApiProperty({ description: '账本名称' })
   @IsString()
+  @IsNotEmpty()
   name: string
 
   @ApiPropertyOptional({ description: '图标' })
@@ -20,14 +24,11 @@ export class CreateLedgerDto {
   @IsString()
   @IsOptional()
   color?: string
-
-  @ApiPropertyOptional({ description: '创建时间' })
-  @IsDateString()
-  @IsOptional()
-  createdAt?: string
 }
 
-// 更新账本 DTO
+/**
+ * 更新账本 DTO
+ */
 export class UpdateLedgerDto {
   @ApiPropertyOptional({ description: '账本名称' })
   @IsString()

@@ -4,7 +4,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
-import type { Record, Statistics, DateRange, CategoryStat, MonthlyData } from '@personal-accounting/shared/types'
+import type { Record, Statistics, CategoryStat, MonthlyData } from '@personal-accounting/shared/types'
 import { getCategoryById } from '@personal-accounting/shared/constants'
 import { dayjs } from '@personal-accounting/shared/utils'
 import { apiClient, CloudRecord } from '@/services/apiClient'

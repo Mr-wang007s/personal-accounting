@@ -1,45 +1,69 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Req } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
-import { LedgersService, CloudLedger } from './ledgers.service'
+import { CurrentUser } from '../auth/decorators/current-user.decorator'
+import { User } from '@prisma/client'
+import { LedgersService } from './ledgers.service'
 import { CreateLedgerDto, UpdateLedgerDto } from './dto/ledger.dto'
 
-@ApiTags('ledgers')
+@ApiTags('账本')
 @Controller('ledgers')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class LedgersController {
   constructor(private readonly ledgersService: LedgersService) {}
 
-  @Post()
-  @ApiOperation({ summary: '创建账本' })
-  async create(@Req() req: any, @Body() dto: CreateLedgerDto): Promise<CloudLedger> {
-    const userPhone = req.user.phone
-    return this.ledgersService.create(userPhone, dto)
-  }
-
+  /**
+   * 获取所有账本
+   */
   @Get()
   @ApiOperation({ summary: '获取所有账本' })
-  async findAll(@Req() req: any): Promise<CloudLedger[]> {
-    const userPhone = req.user.phone
-    return this.ledgersService.findAll(userPhone)
+  async findAll(@CurrentUser() user: User) {
+    return this.ledgersService.findAll(user.phone)
   }
 
-  @Get(':clientId')
-  @ApiOperation({ summary: '获取单个账本' })
-  async findOne(@Req() req: any, @Param('clientId') clientId: string): Promise<CloudLedger> {
-    const userPhone = req.user.phone
-    return this.ledgersService.findOne(userPhone, clientId)
+  /**
+   * 创建账本
+   */
+  @Post()
+  @ApiOperation({ summary: '创建账本' })
+  async create(@CurrentUser() user: User, @Body() dto: CreateLedgerDto) {
+    return this.ledgersService.create(user.phone, dto)
   }
 
-  @Put(':clientId')
+  /**
+   * 更新账本
+   */
+  @Put(':id')
   @ApiOperation({ summary: '更新账本' })
   async update(
-    @Req() req: any,
-    @Param('clientId') clientId: string,
+    @CurrentUser() user: User,
+    @Param('id') id: string,
     @Body() dto: UpdateLedgerDto,
-  ): Promise<CloudLedger> {
-    const userPhone = req.user.phone
-    return this.ledgersService.update(userPhone, clientId, dto)
+  ) {
+    return this.ledgersService.update(user.phone, id, dto)
+  }
+
+  /**
+   * 删除账本
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '删除账本' })
+  @ApiResponse({ status: 200, description: '删除成功' })
+  async remove(@CurrentUser() user: User, @Param('id') id: string) {
+    await this.ledgersService.remove(user.phone, id)
+    return { deleted: true }
   }
 }

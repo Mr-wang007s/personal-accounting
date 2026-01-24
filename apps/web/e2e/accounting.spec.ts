@@ -1,49 +1,48 @@
 import { test, expect, Page } from '@playwright/test'
 
 /**
- * 个人记账应用 E2E 测试
+ * 个人记账应用 BDD E2E 测试
  * 技术栈: React + Vite + TypeScript + Tailwind + Radix UI
  * 
- * 测试策略：模拟真实用户使用流程
- * 后端：需要启动后端服务 (localhost:3000)
+ * BDD 测试策略：
+ * - Given: 设置测试前置条件
+ * - When: 执行用户操作
+ * - Then: 验证预期结果
+ * 
+ * 后端依赖：需要启动后端服务 (localhost:3000)
  */
 
 const TEST_PHONE = '13800138000'
 
+// ==================== 辅助函数 ====================
+
 /**
  * 完成登录流程
+ * Given 用户在登录页
+ * When 用户输入手机号并点击登录
+ * Then 用户进入首页
  */
 async function login(page: Page, phone = TEST_PHONE) {
-  // 等待登录页加载
   await page.waitForSelector('text=手机号登录', { timeout: 10000 })
-  
-  // 输入手机号
   await page.locator('input[placeholder*="手机号"]').fill(phone)
-  
-  // 点击登录按钮
   await page.getByRole('button', { name: '开始记账' }).click()
-  
-  // 等待登录完成，进入首页
   await page.waitForSelector('text=我的账本', { timeout: 15000 })
 }
 
 /**
- * 初始化测试环境（清除 token 并登录）
+ * 初始化测试环境（清除登录状态并重新登录）
  */
 async function initializeTestEnv(page: Page) {
   await page.goto('/')
-  await page.evaluate(() => {
-    localStorage.clear()
-  })
+  await page.evaluate(() => localStorage.clear())
   await page.reload()
   await page.waitForLoadState('networkidle')
   await login(page)
-  // 等待账本加载完成
   await page.waitForTimeout(1000)
 }
 
 /**
- * 辅助函数：添加测试记录
+ * 添加测试记录
  */
 async function addTestRecord(
   page: Page, 
@@ -52,500 +51,606 @@ async function addTestRecord(
   category: string,
   note?: string
 ) {
-  // 点击对应按钮
   await page.getByRole('button', { name: type === 'income' ? '记收入' : '记支出' }).click()
   await page.waitForLoadState('networkidle')
-  
-  // 填写表单 - 使用 inputMode="decimal" 的 input
   await page.locator('input[inputmode="decimal"]').fill(amount)
-  
-  // 选择分类 - 在 grid 布局中选择
   await page.locator('.grid.grid-cols-5 button').filter({ hasText: category }).click()
-  
-  // 填写备注（如果有）
   if (note) {
     await page.locator('input[placeholder="添加备注..."]').fill(note)
   }
-  
-  // 保存
   await page.getByRole('button', { name: '保存记录' }).click()
-  
-  // 等待保存完成并返回首页
   await page.waitForSelector('text=我的账本', { timeout: 10000 })
 }
 
-test.describe('登录功能', () => {
+/**
+ * 导航到指定页面
+ */
+async function navigateTo(page: Page, tabName: '首页' | '记账' | '账单' | '我的') {
+  await page.locator('nav button').filter({ hasText: tabName }).click()
+  await page.waitForLoadState('networkidle')
+}
+
+// ==================== Feature: 用户认证 ====================
+
+test.describe('Feature: 用户认证', () => {
   
-  test('应正确显示登录页', async ({ page }) => {
-    await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证登录页显示
-    await expect(page.getByRole('heading', { name: '手机号登录' })).toBeVisible()
-    await expect(page.locator('input[placeholder*="手机号"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: '开始记账' })).toBeVisible()
+  test.describe('Scenario: 显示登录页面', () => {
+    test('Given 用户首次访问应用, Then 应显示登录页面', async ({ page }) => {
+      // Given: 用户首次访问应用（清除登录状态）
+      await page.goto('/')
+      await page.evaluate(() => localStorage.clear())
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 应显示登录页面所有元素
+      await expect(page.getByRole('heading', { name: '手机号登录' })).toBeVisible()
+      await expect(page.locator('input[placeholder*="手机号"]')).toBeVisible()
+      await expect(page.getByRole('button', { name: '开始记账' })).toBeVisible()
+    })
   })
 
-  test('应能成功登录', async ({ page }) => {
-    await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    
-    // 输入手机号
-    await page.locator('input[placeholder*="手机号"]').fill(TEST_PHONE)
-    
-    // 点击登录
-    await page.getByRole('button', { name: '开始记账' }).click()
-    
-    // 验证进入首页
-    await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible({ timeout: 15000 })
+  test.describe('Scenario: 手机号登录成功', () => {
+    test('Given 用户在登录页, When 输入有效手机号并点击登录, Then 成功进入首页', async ({ page }) => {
+      // Given: 用户在登录页
+      await page.goto('/')
+      await page.evaluate(() => localStorage.clear())
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+      
+      // When: 输入手机号并点击登录
+      await page.locator('input[placeholder*="手机号"]').fill(TEST_PHONE)
+      await page.getByRole('button', { name: '开始记账' }).click()
+      
+      // Then: 成功进入首页
+      await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible({ timeout: 15000 })
+    })
   })
 
-  test('登录后刷新页面应保持登录状态', async ({ page }) => {
-    await initializeTestEnv(page)
-    
-    // 刷新页面
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    
-    // 应该直接进入首页，不需要重新登录
-    await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible({ timeout: 10000 })
+  test.describe('Scenario: 登录状态持久化', () => {
+    test('Given 用户已登录, When 刷新页面, Then 应保持登录状态', async ({ page }) => {
+      // Given: 用户已登录
+      await initializeTestEnv(page)
+      
+      // When: 刷新页面
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 应保持登录状态，直接进入首页
+      await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible({ timeout: 10000 })
+    })
+  })
+
+  test.describe('Scenario: 退出登录', () => {
+    test('Given 用户已登录, When 点击退出登录, Then 返回登录页', async ({ page }) => {
+      // Given: 用户已登录并进入我的页面
+      await initializeTestEnv(page)
+      await navigateTo(page, '我的')
+      
+      // When: 设置对话框自动确认，点击退出登录
+      page.on('dialog', dialog => dialog.accept())
+      await page.getByText('退出登录').click()
+      
+      // Then: 返回登录页
+      await expect(page.getByRole('heading', { name: '手机号登录' })).toBeVisible({ timeout: 5000 })
+    })
   })
 })
 
-test.describe('首页功能', () => {
+// ==================== Feature: 首页功能 ====================
+
+test.describe('Feature: 首页功能', () => {
   
   test.beforeEach(async ({ page }) => {
     await initializeTestEnv(page)
   })
   
-  test('应正确显示首页所有元素', async ({ page }) => {
-    // 验证标题
-    await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
-    
-    // 验证余额卡片
-    await expect(page.getByText('当前余额')).toBeVisible()
-    
-    // 验证快捷入口
-    await expect(page.getByRole('button', { name: '记收入' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '记支出' })).toBeVisible()
-    
-    // 验证底部导航 - 4 个按钮：首页、记账、账单、我的
-    await expect(page.locator('nav button').filter({ hasText: '首页' })).toBeVisible()
-    await expect(page.locator('nav button').filter({ hasText: '记账' })).toBeVisible()
-    await expect(page.locator('nav button').filter({ hasText: '账单' })).toBeVisible()
-    await expect(page.locator('nav button').filter({ hasText: '我的' })).toBeVisible()
+  test.describe('Scenario: 首页布局展示', () => {
+    test('Given 用户已登录, Then 首页应显示所有核心元素', async ({ page }) => {
+      // Then: 验证首页所有核心元素
+      await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
+      await expect(page.getByText('当前余额')).toBeVisible()
+      await expect(page.getByRole('button', { name: '记收入' })).toBeVisible()
+      await expect(page.getByRole('button', { name: '记支出' })).toBeVisible()
+      
+      // 验证底部导航
+      await expect(page.locator('nav button').filter({ hasText: '首页' })).toBeVisible()
+      await expect(page.locator('nav button').filter({ hasText: '记账' })).toBeVisible()
+      await expect(page.locator('nav button').filter({ hasText: '账单' })).toBeVisible()
+      await expect(page.locator('nav button').filter({ hasText: '我的' })).toBeVisible()
+    })
+  })
+
+  test.describe('Scenario: 余额卡片显示', () => {
+    test('Given 用户有收支记录, Then 余额卡片应正确显示收入、支出、余额', async ({ page }) => {
+      // Given: 添加测试数据
+      await addTestRecord(page, 'income', '1000', '工资')
+      await addTestRecord(page, 'expense', '200', '餐饮')
+      
+      // Then: 余额卡片应显示
+      const balanceCard = page.locator('.bg-gradient-to-br').first()
+      await expect(balanceCard).toBeVisible()
+      await expect(page.getByText('当前余额')).toBeVisible()
+      await expect(page.getByText('收入').first()).toBeVisible()
+      await expect(page.getByText('支出').first()).toBeVisible()
+    })
+  })
+
+  test.describe('Scenario: 最近记录展示', () => {
+    test('Given 用户有记录, Then 首页应显示最近记录', async ({ page }) => {
+      // Given: 添加测试记录
+      await addTestRecord(page, 'expense', '50', '餐饮', '午餐')
+      
+      // Then: 首页应显示该记录
+      await expect(page.getByText('最近记录')).toBeVisible()
+      await expect(page.locator('main').getByText('餐饮').first()).toBeVisible()
+    })
   })
 })
 
-test.describe('记账功能', () => {
+// ==================== Feature: 记账功能 ====================
+
+test.describe('Feature: 记支出', () => {
   
   test.beforeEach(async ({ page }) => {
     await initializeTestEnv(page)
   })
-  
-  test('应能成功添加支出记录', async ({ page }) => {
-    // 点击记支出
-    await page.getByRole('button', { name: '记支出' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证页面标题
-    await expect(page.getByRole('heading', { name: '记支出' })).toBeVisible()
-    
-    // 填写表单
-    await page.locator('input[inputmode="decimal"]').fill('88.50')
-    await page.locator('.grid.grid-cols-5 button').filter({ hasText: '餐饮' }).click()
-    await page.locator('input[placeholder="添加备注..."]').fill('午餐')
-    
-    // 验证保存按钮可用
-    const saveBtn = page.getByRole('button', { name: '保存记录' })
-    await expect(saveBtn).toBeEnabled()
-    
-    // 保存
-    await saveBtn.click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证返回首页并显示记录
-    await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
-    await expect(page.locator('main').getByText('餐饮').first()).toBeVisible()
+
+  test.describe('Scenario: 记录一笔支出', () => {
+    test('Given 用户在首页, When 完整填写支出表单并保存, Then 支出记录成功创建', async ({ page }) => {
+      // When: 点击记支出
+      await page.getByRole('button', { name: '记支出' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 进入记支出页面
+      await expect(page.getByRole('heading', { name: '记支出' })).toBeVisible()
+      
+      // When: 填写表单
+      await page.locator('input[inputmode="decimal"]').fill('88.50')
+      await page.locator('.grid.grid-cols-5 button').filter({ hasText: '餐饮' }).click()
+      await page.locator('input[placeholder="添加备注..."]').fill('午餐')
+      
+      // Then: 保存按钮可用
+      const saveBtn = page.getByRole('button', { name: '保存记录' })
+      await expect(saveBtn).toBeEnabled()
+      
+      // When: 保存
+      await saveBtn.click()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 返回首页并显示记录
+      await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
+      await expect(page.locator('main').getByText('餐饮').first()).toBeVisible()
+    })
   })
 
-  test('应能成功添加收入记录', async ({ page }) => {
-    // 点击记收入
-    await page.getByRole('button', { name: '记收入' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证页面标题
-    await expect(page.getByRole('heading', { name: '记收入' })).toBeVisible()
-    
-    // 填写表单
-    await page.locator('input[inputmode="decimal"]').fill('5000')
-    await page.locator('.grid.grid-cols-5 button').filter({ hasText: '工资' }).click()
-    await page.locator('input[placeholder="添加备注..."]').fill('12月工资')
-    
-    // 保存
-    await page.getByRole('button', { name: '保存记录' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证返回首页并显示记录
-    await expect(page.locator('main').getByText('工资').first()).toBeVisible()
-  })
-
-  test('表单验证 - 金额和分类必填', async ({ page }) => {
-    await page.getByRole('button', { name: '记支出' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    const saveBtn = page.getByRole('button', { name: '保存记录' })
-    
-    // 初始状态禁用
-    await expect(saveBtn).toBeDisabled()
-    
-    // 只填金额
-    await page.locator('input[inputmode="decimal"]').fill('100')
-    await expect(saveBtn).toBeDisabled()
-    
-    // 选择分类后启用
-    await page.locator('.grid.grid-cols-5 button').filter({ hasText: '餐饮' }).click()
-    await expect(saveBtn).toBeEnabled()
-    
-    // 清空金额后禁用
-    await page.locator('input[inputmode="decimal"]').fill('')
-    await expect(saveBtn).toBeDisabled()
-  })
-
-  test('日期选择功能', async ({ page }) => {
-    await page.getByRole('button', { name: '记支出' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证日期输入框存在
-    const dateInput = page.locator('input[type="date"]')
-    await expect(dateInput).toBeVisible()
-    
-    // 验证默认是今天
-    const today = new Date().toISOString().split('T')[0]
-    await expect(dateInput).toHaveValue(today)
-    
-    // 修改日期
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
-    await dateInput.fill(yesterday)
-    await expect(dateInput).toHaveValue(yesterday)
+  test.describe('Scenario: 支出分类选择', () => {
+    test('Given 用户在记支出页, When 选择不同分类, Then 分类应正确切换', async ({ page }) => {
+      await page.getByRole('button', { name: '记支出' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      // When: 选择餐饮分类
+      await page.locator('.grid.grid-cols-5 button').filter({ hasText: '餐饮' }).click()
+      
+      // Then: 餐饮分类应被选中（有选中样式）
+      await expect(page.locator('.grid.grid-cols-5 button').filter({ hasText: '餐饮' })).toHaveClass(/ring-2/)
+      
+      // When: 切换到交通分类
+      await page.locator('.grid.grid-cols-5 button').filter({ hasText: '交通' }).click()
+      
+      // Then: 交通分类应被选中
+      await expect(page.locator('.grid.grid-cols-5 button').filter({ hasText: '交通' })).toHaveClass(/ring-2/)
+    })
   })
 })
 
-test.describe('账单列表页', () => {
+test.describe('Feature: 记收入', () => {
   
   test.beforeEach(async ({ page }) => {
     await initializeTestEnv(page)
-    // 先添加测试数据
+  })
+
+  test.describe('Scenario: 记录一笔收入', () => {
+    test('Given 用户在首页, When 完整填写收入表单并保存, Then 收入记录成功创建', async ({ page }) => {
+      // When: 点击记收入
+      await page.getByRole('button', { name: '记收入' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 进入记收入页面
+      await expect(page.getByRole('heading', { name: '记收入' })).toBeVisible()
+      
+      // When: 填写表单
+      await page.locator('input[inputmode="decimal"]').fill('5000')
+      await page.locator('.grid.grid-cols-5 button').filter({ hasText: '工资' }).click()
+      await page.locator('input[placeholder="添加备注..."]').fill('12月工资')
+      
+      // When: 保存
+      await page.getByRole('button', { name: '保存记录' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 返回首页并显示记录
+      await expect(page.locator('main').getByText('工资').first()).toBeVisible()
+    })
+  })
+})
+
+test.describe('Feature: 记账表单验证', () => {
+  
+  test.beforeEach(async ({ page }) => {
+    await initializeTestEnv(page)
+  })
+
+  test.describe('Scenario: 金额和分类必填验证', () => {
+    test('Given 用户在记账页, When 未填写必填字段, Then 保存按钮应禁用', async ({ page }) => {
+      await page.getByRole('button', { name: '记支出' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      const saveBtn = page.getByRole('button', { name: '保存记录' })
+      
+      // Then: 初始状态禁用
+      await expect(saveBtn).toBeDisabled()
+      
+      // When: 只填金额
+      await page.locator('input[inputmode="decimal"]').fill('100')
+      
+      // Then: 仍然禁用
+      await expect(saveBtn).toBeDisabled()
+      
+      // When: 选择分类
+      await page.locator('.grid.grid-cols-5 button').filter({ hasText: '餐饮' }).click()
+      
+      // Then: 启用
+      await expect(saveBtn).toBeEnabled()
+      
+      // When: 清空金额
+      await page.locator('input[inputmode="decimal"]').fill('')
+      
+      // Then: 再次禁用
+      await expect(saveBtn).toBeDisabled()
+    })
+  })
+
+  test.describe('Scenario: 日期选择功能', () => {
+    test('Given 用户在记账页, When 修改日期, Then 日期应正确更新', async ({ page }) => {
+      await page.getByRole('button', { name: '记支出' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      const dateInput = page.locator('input[type="date"]')
+      
+      // Then: 日期输入框存在
+      await expect(dateInput).toBeVisible()
+      
+      // Then: 默认是今天
+      const today = new Date().toISOString().split('T')[0]
+      await expect(dateInput).toHaveValue(today)
+      
+      // When: 修改为昨天
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+      await dateInput.fill(yesterday)
+      
+      // Then: 日期更新
+      await expect(dateInput).toHaveValue(yesterday)
+    })
+  })
+})
+
+// ==================== Feature: 账单功能 ====================
+
+test.describe('Feature: 账单列表', () => {
+  
+  test.beforeEach(async ({ page }) => {
+    await initializeTestEnv(page)
     await addTestRecord(page, 'expense', '50', '餐饮')
     await addTestRecord(page, 'income', '1000', '工资')
   })
 
-  test('应正确显示账单列表', async ({ page }) => {
-    // 导航到账单页
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证页面标题
-    await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
-    
-    // 验证默认显示账单明细 Tab
-    await expect(page.getByRole('tab', { name: '账单明细' })).toHaveAttribute('data-state', 'active')
-    
-    // 验证月份选择器
-    const currentMonth = new Date().toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
+  test.describe('Scenario: 账单列表展示', () => {
+    test('Given 用户有收支记录, When 进入账单页, Then 应显示账单列表', async ({ page }) => {
+      // When: 导航到账单页
+      await navigateTo(page, '账单')
+      
+      // Then: 验证页面标题
+      await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
+      
+      // Then: 验证账单明细 Tab 激活
+      await expect(page.getByRole('tab', { name: '账单明细' })).toHaveAttribute('data-state', 'active')
+      
+      // Then: 验证月份选择器
+      const currentMonth = new Date().toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+      })
+      await expect(page.getByText(currentMonth).first()).toBeVisible()
+      
+      // Then: 验证月度汇总
+      await expect(page.getByText('收入').first()).toBeVisible()
+      await expect(page.getByText('支出').first()).toBeVisible()
+      await expect(page.getByText('结余')).toBeVisible()
     })
-    await expect(page.getByText(currentMonth).first()).toBeVisible()
-    
-    // 验证月度汇总
-    await expect(page.getByText('收入').first()).toBeVisible()
-    await expect(page.getByText('支出').first()).toBeVisible()
-    await expect(page.getByText('结余')).toBeVisible()
   })
 
-  test('月份切换功能', async ({ page }) => {
-    // 进入账单页
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证当前月份显示
-    const currentMonth = new Date().toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
+  test.describe('Scenario: 月份切换', () => {
+    test('Given 用户在账单页, When 切换月份, Then 应显示对应月份数据', async ({ page }) => {
+      await navigateTo(page, '账单')
+      
+      const currentMonth = new Date().toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+      })
+      
+      // Then: 验证当前月份
+      await expect(page.getByText(currentMonth).first()).toBeVisible()
+      
+      // When: 点击上一月
+      await page.locator('button').filter({ has: page.locator('.lucide-chevron-left') }).click()
+      await page.waitForTimeout(300)
+      
+      // When: 点击下一月回到当前月
+      await page.locator('button').filter({ has: page.locator('.lucide-chevron-right') }).click()
+      
+      // Then: 显示当前月
+      await expect(page.getByText(currentMonth).first()).toBeVisible()
     })
-    await expect(page.getByText(currentMonth).first()).toBeVisible()
-    
-    // 点击上一月按钮
-    await page.locator('button').filter({ has: page.locator('.lucide-chevron-left') }).click()
-    
-    // 等待月份切换
-    await page.waitForTimeout(300)
-    
-    // 点击下一月回到当前月
-    await page.locator('button').filter({ has: page.locator('.lucide-chevron-right') }).click()
-    await expect(page.getByText(currentMonth).first()).toBeVisible()
   })
 })
 
-test.describe('统计分析页', () => {
+test.describe('Feature: 统计分析', () => {
   
   test.beforeEach(async ({ page }) => {
     await initializeTestEnv(page)
-    // 先添加测试数据
     await addTestRecord(page, 'expense', '100', '餐饮')
     await addTestRecord(page, 'expense', '200', '交通')
     await addTestRecord(page, 'income', '5000', '工资')
   })
 
-  test('应正确显示统计数据', async ({ page }) => {
-    // 导航到账单页
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 切换到统计分析 Tab
-    await page.getByRole('tab', { name: '统计分析' }).click()
-    
-    // 验证 Tab 状态
-    await expect(page.getByRole('tab', { name: '统计分析' })).toHaveAttribute('data-state', 'active')
-    
-    // 验证汇总卡片
-    await expect(page.getByText('总收入')).toBeVisible()
-    await expect(page.getByText('总支出')).toBeVisible()
-    
-    // 验证内部 Tab 切换
-    await expect(page.getByRole('tab', { name: '收支趋势' })).toBeVisible()
-    await expect(page.getByRole('tab', { name: '分类占比' })).toBeVisible()
+  test.describe('Scenario: 统计数据展示', () => {
+    test('Given 用户有收支记录, When 查看统计分析, Then 应正确显示统计数据', async ({ page }) => {
+      // When: 进入账单页并切换到统计分析
+      await navigateTo(page, '账单')
+      await page.getByRole('tab', { name: '统计分析' }).click()
+      
+      // Then: 统计分析 Tab 激活
+      await expect(page.getByRole('tab', { name: '统计分析' })).toHaveAttribute('data-state', 'active')
+      
+      // Then: 显示汇总卡片
+      await expect(page.getByText('总收入')).toBeVisible()
+      await expect(page.getByText('总支出')).toBeVisible()
+      
+      // Then: 显示内部 Tab
+      await expect(page.getByRole('tab', { name: '收支趋势' })).toBeVisible()
+      await expect(page.getByRole('tab', { name: '分类占比' })).toBeVisible()
+    })
   })
 
-  test('应能切换统计内部 Tab', async ({ page }) => {
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 切换到统计分析 Tab
-    await page.getByRole('tab', { name: '统计分析' }).click()
-    
-    // 点击分类占比 Tab
-    await page.getByRole('tab', { name: '分类占比' }).click()
-    
-    // 验证 Tab 状态
-    await expect(page.getByRole('tab', { name: '分类占比' })).toHaveAttribute('data-state', 'active')
+  test.describe('Scenario: 分类占比切换', () => {
+    test('Given 用户在统计分析页, When 切换到分类占比, Then 应显示分类占比数据', async ({ page }) => {
+      await navigateTo(page, '账单')
+      await page.getByRole('tab', { name: '统计分析' }).click()
+      
+      // When: 切换到分类占比
+      await page.getByRole('tab', { name: '分类占比' }).click()
+      
+      // Then: 分类占比 Tab 激活
+      await expect(page.getByRole('tab', { name: '分类占比' })).toHaveAttribute('data-state', 'active')
+    })
   })
 })
 
-test.describe('导航功能', () => {
-  
-  test.beforeEach(async ({ page }) => {
-    await initializeTestEnv(page)
-  })
-  
-  test('底部导航应正确切换页面', async ({ page }) => {
-    // 首页 -> 账单
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
-    
-    // 账单 -> 我的
-    await page.locator('nav button').filter({ hasText: '我的' }).click()
-    await expect(page.getByRole('heading', { name: '我的' })).toBeVisible()
-    
-    // 我的 -> 首页
-    await page.locator('nav button').filter({ hasText: '首页' }).click()
-    await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
-  })
+// ==================== Feature: 编辑记录 ====================
 
-  test('记账导航打开记账页面', async ({ page }) => {
-    // 点击底部导航的记账按钮
-    await page.locator('nav button').filter({ hasText: '记账' }).click()
-    
-    // 应该打开支出记账页面（默认）
-    await expect(page.getByRole('heading', { name: '记支出' })).toBeVisible()
-  })
-
-  test('记账页面返回按钮应正常工作', async ({ page }) => {
-    // 进入记支出页面
-    await page.getByRole('button', { name: '记支出' }).click()
-    await expect(page.getByRole('heading', { name: '记支出' })).toBeVisible()
-    
-    // 点击返回按钮 (header 中的第一个按钮)
-    await page.locator('header button').first().click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证返回首页
-    await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
+test.describe('Feature: 编辑记录', () => {
+  
+  test.describe('Scenario: 编辑已有记录', () => {
+    test('Given 用户有一条记录, When 编辑记录内容, Then 记录应成功更新', async ({ page }) => {
+      // Given: 创建测试记录
+      await initializeTestEnv(page)
+      await addTestRecord(page, 'expense', '100', '餐饮', '原始备注')
+      
+      // When: 进入账单页
+      await navigateTo(page, '账单')
+      
+      // When: 点击记录进入编辑页面
+      await page.locator('.group').filter({ hasText: '餐饮' }).first().click()
+      
+      // Then: 进入编辑页面
+      await expect(page.getByRole('heading', { name: '编辑账单' })).toBeVisible()
+      
+      // When: 修改金额和备注
+      await page.locator('input[inputmode="decimal"]').fill('200')
+      await page.locator('input[placeholder="添加备注..."]').fill('修改后的备注')
+      
+      // When: 保存修改
+      await page.getByRole('button', { name: '保存修改' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 返回账单页
+      await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
+    })
   })
 })
 
-test.describe('编辑记录功能', () => {
+// ==================== Feature: 删除记录 ====================
+
+test.describe('Feature: 删除记录', () => {
   
-  test('应能编辑已有记录', async ({ page }) => {
-    await initializeTestEnv(page)
-    await addTestRecord(page, 'expense', '100', '餐饮', '原始备注')
-    
-    // 进入账单页
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 点击记录卡片进入编辑页面
-    await page.locator('.group').filter({ hasText: '餐饮' }).first().click()
-    
-    // 验证进入编辑页面
-    await expect(page.getByRole('heading', { name: '编辑账单' })).toBeVisible()
-    
-    // 修改金额
-    const amountInput = page.locator('input[inputmode="decimal"]')
-    await amountInput.fill('200')
-    
-    // 修改备注
-    const noteInput = page.locator('input[placeholder="添加备注..."]')
-    await noteInput.fill('修改后的备注')
-    
-    // 保存修改
-    await page.getByRole('button', { name: '保存修改' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证返回账单页
-    await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
+  test.describe('Scenario: 删除单条记录', () => {
+    test('Given 用户有多条记录, When 删除一条记录, Then 该记录应从列表中移除', async ({ page }) => {
+      // Given: 创建测试记录
+      await initializeTestEnv(page)
+      await addTestRecord(page, 'expense', '100', '餐饮', '待删除')
+      await addTestRecord(page, 'expense', '50', '交通', '保留')
+      
+      // When: 进入账单页
+      await navigateTo(page, '账单')
+      
+      // Then: 验证有2条记录
+      await expect(page.locator('.group').filter({ hasText: '餐饮' }).first()).toBeVisible()
+      await expect(page.locator('.group').filter({ hasText: '交通' }).first()).toBeVisible()
+      
+      // When: 悬停并点击删除按钮
+      const mealRecord = page.locator('.group').filter({ hasText: '餐饮' }).first()
+      await mealRecord.hover()
+      await mealRecord.locator('button').filter({ has: page.locator('.lucide-trash-2') }).click()
+      
+      // Then: 显示确认对话框
+      await expect(page.getByText('确认删除')).toBeVisible()
+      
+      // When: 确认删除
+      await page.getByRole('button', { name: '删除' }).click()
+      await page.waitForTimeout(500)
+      
+      // Then: 餐饮记录已删除，交通记录仍在
+      await expect(page.locator('.group').filter({ hasText: '交通' }).first()).toBeVisible()
+    })
   })
 })
 
-test.describe('删除记录功能', () => {
-  
-  test('应能删除记录', async ({ page }) => {
-    await initializeTestEnv(page)
-    await addTestRecord(page, 'expense', '100', '餐饮', '待删除')
-    await addTestRecord(page, 'expense', '50', '交通', '保留')
-    
-    // 进入账单页
-    await page.locator('nav button').filter({ hasText: '账单' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证有2条记录
-    await expect(page.locator('.group').filter({ hasText: '餐饮' }).first()).toBeVisible()
-    await expect(page.locator('.group').filter({ hasText: '交通' }).first()).toBeVisible()
-    
-    // 悬停显示删除按钮并点击
-    const mealRecord = page.locator('.group').filter({ hasText: '餐饮' }).first()
-    await mealRecord.hover()
-    
-    // 点击删除按钮（带 Trash2 图标的按钮）
-    await mealRecord.locator('button').filter({ has: page.locator('.lucide-trash-2') }).click()
-    
-    // 确认删除对话框
-    await expect(page.getByText('确认删除')).toBeVisible()
-    await page.getByRole('button', { name: '删除' }).click()
-    
-    // 等待删除完成
-    await page.waitForTimeout(500)
-    
-    // 验证餐饮记录已删除，交通记录仍在
-    await expect(page.locator('.group').filter({ hasText: '交通' }).first()).toBeVisible()
-  })
-})
+// ==================== Feature: 我的页面 ====================
 
-test.describe('个人中心页', () => {
+test.describe('Feature: 我的页面', () => {
   
   test.beforeEach(async ({ page }) => {
     await initializeTestEnv(page)
   })
 
-  test('应正确显示个人中心', async ({ page }) => {
-    // 导航到我的页面
-    await page.locator('nav button').filter({ hasText: '我的' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 验证页面标题
-    await expect(page.getByRole('heading', { name: '我的' })).toBeVisible()
-    
-    // 等待账本加载完成 - 等待显示账本数量
-    await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
-    
-    // 验证退出登录按钮
-    await expect(page.getByText('退出登录')).toBeVisible()
+  test.describe('Scenario: 个人中心展示', () => {
+    test('Given 用户已登录, When 进入我的页面, Then 应正确显示个人信息', async ({ page }) => {
+      // When: 导航到我的页面
+      await navigateTo(page, '我的')
+      
+      // Then: 验证页面标题
+      await expect(page.getByRole('heading', { name: '我的' })).toBeVisible()
+      
+      // Then: 等待账本加载完成
+      await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+      
+      // Then: 验证退出登录按钮
+      await expect(page.getByText('退出登录')).toBeVisible()
+    })
   })
 
-  test('账本管理 - 展开账本列表', async ({ page }) => {
-    await page.locator('nav button').filter({ hasText: '我的' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 等待账本加载完成
-    await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
-    
-    // 点击账本区域展开 - 使用包含账本数量文字的区域
-    await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
-    
-    // 验证展开后显示新建账本按钮
-    await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
+  test.describe('Scenario: 展开账本列表', () => {
+    test('Given 用户在我的页面, When 点击账本区域, Then 应展开账本列表', async ({ page }) => {
+      await navigateTo(page, '我的')
+      
+      // Then: 等待账本加载
+      await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+      
+      // When: 点击展开账本列表
+      await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
+      
+      // Then: 显示新建账本按钮
+      await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
+    })
   })
 
-  test('应能创建新账本', async ({ page }) => {
-    await page.locator('nav button').filter({ hasText: '我的' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 等待账本加载完成
-    await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
-    
-    // 获取当前账本数量
-    const ledgerCountText = await page.getByText(/\d+ 个账本/).textContent()
-    const currentCount = parseInt(ledgerCountText?.match(/\d+/)?.[0] || '0')
-    
-    // 展开账本列表
-    await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
-    await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
-    
-    // 点击新建账本
-    await page.getByText('新建账本').click()
-    
-    // 使用唯一的账本名称
-    const uniqueName = `测试账本_${Date.now()}`
-    await page.locator('input[placeholder="输入账本名称"]').fill(uniqueName)
-    
-    // 点击创建
-    await page.getByRole('button', { name: '创建' }).click()
-    
-    // 等待创建完成 - 验证账本数量增加
-    await expect(page.getByText(`${currentCount + 1} 个账本`)).toBeVisible({ timeout: 5000 })
-  })
-
-  test('应能退出登录', async ({ page }) => {
-    await page.locator('nav button').filter({ hasText: '我的' }).click()
-    await page.waitForLoadState('networkidle')
-    
-    // 设置 dialog 处理
-    page.on('dialog', dialog => dialog.accept())
-    
-    // 点击退出登录
-    await page.getByText('退出登录').click()
-    
-    // 验证返回登录页
-    await expect(page.getByRole('heading', { name: '手机号登录' })).toBeVisible({ timeout: 5000 })
+  test.describe('Scenario: 创建新账本', () => {
+    test('Given 用户在我的页面, When 创建新账本, Then 账本数量应增加', async ({ page }) => {
+      await navigateTo(page, '我的')
+      
+      // Then: 等待账本加载
+      await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+      
+      // Given: 获取当前账本数量
+      const ledgerCountText = await page.getByText(/\d+ 个账本/).textContent()
+      const currentCount = parseInt(ledgerCountText?.match(/\d+/)?.[0] || '0')
+      
+      // When: 展开账本列表
+      await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
+      await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
+      
+      // When: 点击新建账本
+      await page.getByText('新建账本').click()
+      
+      // When: 输入账本名称
+      const uniqueName = `测试账本_${Date.now()}`
+      await page.locator('input[placeholder="输入账本名称"]').fill(uniqueName)
+      
+      // When: 创建
+      await page.getByRole('button', { name: '创建' }).click()
+      
+      // Then: 账本数量增加
+      await expect(page.getByText(`${currentCount + 1} 个账本`)).toBeVisible({ timeout: 5000 })
+    })
   })
 })
 
-/**
- * 完整用户流程测试 - 模拟真实用户完整使用场景
- */
-test.describe('完整用户流程', () => {
+// ==================== Feature: 导航功能 ====================
+
+test.describe('Feature: 导航功能', () => {
   
-  test('完整流程：登录 -> 记支出 -> 记收入 -> 查看账单 -> 查看统计', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
+    await initializeTestEnv(page)
+  })
+  
+  test.describe('Scenario: 底部导航切换', () => {
+    test('Given 用户在首页, When 点击底部导航, Then 应正确切换页面', async ({ page }) => {
+      // When: 首页 -> 账单
+      await navigateTo(page, '账单')
+      await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
+      
+      // When: 账单 -> 我的
+      await navigateTo(page, '我的')
+      await expect(page.getByRole('heading', { name: '我的' })).toBeVisible()
+      
+      // When: 我的 -> 首页
+      await navigateTo(page, '首页')
+      await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
+    })
+  })
+
+  test.describe('Scenario: 记账导航', () => {
+    test('Given 用户在首页, When 点击底部记账按钮, Then 应打开记支出页面', async ({ page }) => {
+      // When: 点击记账
+      await navigateTo(page, '记账')
+      
+      // Then: 打开默认的支出记账页面
+      await expect(page.getByRole('heading', { name: '记支出' })).toBeVisible()
+    })
+  })
+
+  test.describe('Scenario: 返回导航', () => {
+    test('Given 用户在记账页, When 点击返回, Then 应返回首页', async ({ page }) => {
+      // Given: 进入记支出页面
+      await page.getByRole('button', { name: '记支出' }).click()
+      await expect(page.getByRole('heading', { name: '记支出' })).toBeVisible()
+      
+      // When: 点击返回
+      await page.locator('header button').first().click()
+      await page.waitForLoadState('networkidle')
+      
+      // Then: 返回首页
+      await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
+    })
+  })
+})
+
+// ==================== Feature: 完整用户流程 ====================
+
+test.describe('Feature: 完整用户流程（端到端场景）', () => {
+  
+  test('Scenario: 新用户完整使用流程', async ({ page }) => {
+    /**
+     * Given 新用户首次访问应用
+     * When 用户完成登录、记支出、记收入、查看账单、查看统计
+     * Then 所有功能正常运行
+     */
+    
+    // Given: 清除登录状态
     await page.goto('/')
     await page.evaluate(() => localStorage.clear())
     await page.reload()
     await page.waitForLoadState('networkidle')
 
-    // ========== 步骤1: 登录 ==========
-    await test.step('登录', async () => {
+    // ========== Step 1: 登录 ==========
+    await test.step('Given 新用户访问登录页, When 输入手机号登录, Then 成功进入首页', async () => {
       await expect(page.getByRole('heading', { name: '手机号登录' })).toBeVisible()
       await page.locator('input[placeholder*="手机号"]').fill(TEST_PHONE)
       await page.getByRole('button', { name: '开始记账' }).click()
       await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible({ timeout: 15000 })
     })
 
-    // ========== 步骤2: 记一笔支出 ==========
-    await test.step('记一笔支出', async () => {
+    // ========== Step 2: 记一笔支出（餐饮） ==========
+    await test.step('Given 用户在首页, When 记录一笔餐饮支出, Then 支出记录创建成功', async () => {
       await page.getByRole('button', { name: '记支出' }).click()
       await page.waitForLoadState('networkidle')
       
@@ -562,8 +667,8 @@ test.describe('完整用户流程', () => {
       await expect(page.locator('main').getByText('餐饮').first()).toBeVisible()
     })
 
-    // ========== 步骤3: 再记一笔支出 ==========
-    await test.step('再记一笔交通支出', async () => {
+    // ========== Step 3: 记一笔支出（交通） ==========
+    await test.step('Given 用户在首页, When 记录一笔交通支出, Then 支出记录创建成功', async () => {
       await page.getByRole('button', { name: '记支出' }).click()
       await page.waitForLoadState('networkidle')
       
@@ -577,8 +682,8 @@ test.describe('完整用户流程', () => {
       await expect(page.locator('main').getByText('交通').first()).toBeVisible()
     })
 
-    // ========== 步骤4: 记一笔收入 ==========
-    await test.step('记一笔工资收入', async () => {
+    // ========== Step 4: 记一笔收入 ==========
+    await test.step('Given 用户在首页, When 记录一笔工资收入, Then 收入记录创建成功', async () => {
       await page.getByRole('button', { name: '记收入' }).click()
       await page.waitForLoadState('networkidle')
       
@@ -594,33 +699,29 @@ test.describe('完整用户流程', () => {
       await expect(page.locator('main').getByText('工资').first()).toBeVisible()
     })
 
-    // ========== 步骤5: 查看账单列表 ==========
-    await test.step('查看账单列表', async () => {
+    // ========== Step 5: 查看账单列表 ==========
+    await test.step('Given 用户有多条记录, When 进入账单页, Then 显示所有记录和汇总', async () => {
       await page.locator('nav button').filter({ hasText: '账单' }).click()
       await page.waitForLoadState('networkidle')
       
       await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
       
-      // 验证月度汇总显示
+      // 验证月度汇总
       await expect(page.getByText('收入').first()).toBeVisible()
       await expect(page.getByText('支出').first()).toBeVisible()
       await expect(page.getByText('结余')).toBeVisible()
       
-      // 验证记录列表显示 - 应该有3条记录
+      // 验证记录列表
       await expect(page.locator('.group').filter({ hasText: '餐饮' }).first()).toBeVisible()
       await expect(page.locator('.group').filter({ hasText: '交通' }).first()).toBeVisible()
       await expect(page.locator('.group').filter({ hasText: '工资' }).first()).toBeVisible()
     })
 
-    // ========== 步骤6: 查看统计分析 ==========
-    await test.step('查看统计分析', async () => {
-      // 切换到统计分析 Tab
+    // ========== Step 6: 查看统计分析 ==========
+    await test.step('Given 用户在账单页, When 切换到统计分析, Then 显示统计数据', async () => {
       await page.getByRole('tab', { name: '统计分析' }).click()
       
-      // 验证 Tab 状态
       await expect(page.getByRole('tab', { name: '统计分析' })).toHaveAttribute('data-state', 'active')
-      
-      // 验证总收入/总支出显示
       await expect(page.getByText('总收入')).toBeVisible()
       await expect(page.getByText('总支出')).toBeVisible()
       
@@ -629,37 +730,113 @@ test.describe('完整用户流程', () => {
       await expect(page.getByRole('tab', { name: '分类占比' })).toHaveAttribute('data-state', 'active')
     })
 
-    // ========== 步骤7: 返回首页验证余额 ==========
-    await test.step('返回首页验证余额', async () => {
+    // ========== Step 7: 查看我的页面 ==========
+    await test.step('Given 用户完成记账, When 进入我的页面, Then 显示账本和用户信息', async () => {
+      await page.locator('nav button').filter({ hasText: '我的' }).click()
+      await page.waitForLoadState('networkidle')
+      
+      await expect(page.getByRole('heading', { name: '我的' })).toBeVisible()
+      await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+    })
+
+    // ========== Step 8: 返回首页验证余额 ==========
+    await test.step('Given 用户完成全部操作, When 返回首页, Then 余额正确显示', async () => {
       await page.locator('nav button').filter({ hasText: '首页' }).click()
       await page.waitForLoadState('networkidle')
       
       await expect(page.getByRole('heading', { name: '我的账本' })).toBeVisible()
       
-      // 验证余额卡片显示
       const balanceCard = page.locator('.bg-gradient-to-br').first()
       await expect(balanceCard).toBeVisible()
     })
   })
-})
 
-test.describe('响应式布局', () => {
-  
-  test('移动端布局正确显示', async ({ page }) => {
+  test('Scenario: 编辑和删除记录流程', async ({ page }) => {
+    /**
+     * Given 用户已有记录
+     * When 用户编辑并删除记录
+     * Then 记录正确更新和删除
+     */
+    
     await initializeTestEnv(page)
     
-    // Playwright 配置已设置为 Pixel 5 设备
-    // 验证底部导航可见
-    await expect(page.locator('nav button').filter({ hasText: '首页' })).toBeVisible()
-    await expect(page.locator('nav button').filter({ hasText: '记账' })).toBeVisible()
-    await expect(page.locator('nav button').filter({ hasText: '账单' })).toBeVisible()
-    await expect(page.locator('nav button').filter({ hasText: '我的' })).toBeVisible()
+    // Given: 创建测试记录
+    await addTestRecord(page, 'expense', '100', '餐饮', '测试记录')
     
-    // 验证卡片布局
-    await expect(page.locator('.bg-gradient-to-br').first()).toBeVisible()
+    // Step 1: 编辑记录
+    await test.step('Given 用户有一条记录, When 修改金额, Then 记录更新成功', async () => {
+      await navigateTo(page, '账单')
+      await page.locator('.group').filter({ hasText: '餐饮' }).first().click()
+      
+      await expect(page.getByRole('heading', { name: '编辑账单' })).toBeVisible()
+      await page.locator('input[inputmode="decimal"]').fill('150')
+      await page.getByRole('button', { name: '保存修改' }).click()
+      
+      await expect(page.getByRole('heading', { name: '账单' })).toBeVisible()
+    })
     
-    // 验证快捷按钮 2 列布局
-    const quickActions = page.locator('.grid.grid-cols-2')
-    await expect(quickActions).toBeVisible()
+    // Step 2: 删除记录
+    await test.step('Given 用户有一条记录, When 删除记录, Then 记录从列表移除', async () => {
+      const record = page.locator('.group').filter({ hasText: '餐饮' }).first()
+      await record.hover()
+      await record.locator('button').filter({ has: page.locator('.lucide-trash-2') }).click()
+      
+      await expect(page.getByText('确认删除')).toBeVisible()
+      await page.getByRole('button', { name: '删除' }).click()
+      
+      await page.waitForTimeout(500)
+    })
+  })
+
+  test('Scenario: 账本管理流程', async ({ page }) => {
+    /**
+     * Given 用户已登录
+     * When 用户创建新账本
+     * Then 账本创建成功并可切换
+     */
+    
+    await initializeTestEnv(page)
+    await navigateTo(page, '我的')
+    
+    await test.step('Given 用户在我的页面, When 创建新账本, Then 账本列表更新', async () => {
+      // 等待账本加载
+      await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+      
+      // 获取当前数量
+      const countText = await page.getByText(/\d+ 个账本/).textContent()
+      const currentCount = parseInt(countText?.match(/\d+/)?.[0] || '0')
+      
+      // 展开并创建
+      await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
+      await page.getByText('新建账本').click()
+      await page.locator('input[placeholder="输入账本名称"]').fill(`BDD测试账本_${Date.now()}`)
+      await page.getByRole('button', { name: '创建' }).click()
+      
+      // 验证数量增加
+      await expect(page.getByText(`${currentCount + 1} 个账本`)).toBeVisible({ timeout: 5000 })
+    })
+  })
+})
+
+// ==================== Feature: 响应式布局 ====================
+
+test.describe('Feature: 响应式布局', () => {
+  
+  test.describe('Scenario: 移动端布局', () => {
+    test('Given 用户使用移动设备, Then 应正确显示移动端布局', async ({ page }) => {
+      await initializeTestEnv(page)
+      
+      // Then: 底部导航可见
+      await expect(page.locator('nav button').filter({ hasText: '首页' })).toBeVisible()
+      await expect(page.locator('nav button').filter({ hasText: '记账' })).toBeVisible()
+      await expect(page.locator('nav button').filter({ hasText: '账单' })).toBeVisible()
+      await expect(page.locator('nav button').filter({ hasText: '我的' })).toBeVisible()
+      
+      // Then: 卡片布局可见
+      await expect(page.locator('.bg-gradient-to-br').first()).toBeVisible()
+      
+      // Then: 快捷按钮 2 列布局
+      await expect(page.locator('.grid.grid-cols-2')).toBeVisible()
+    })
   })
 })

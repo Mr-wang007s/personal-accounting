@@ -2,8 +2,7 @@ import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/commo
 import { JwtService } from '@nestjs/jwt'
 import { UsersService } from '../users/users.service'
 import { PrismaService } from '../prisma/prisma.service'
-import { WxCloudLoginDto } from './dto/wx-cloud-login.dto'
-import { TokenResponseDto } from './dto/token-response.dto'
+import { LoginResponseDto } from './dto/login-response.dto'
 
 export interface JwtPayload {
   sub: string // userId
@@ -21,53 +20,25 @@ export class AuthService {
   ) {}
 
   /**
-   * 微信云托管登录
-   * 直接从 HTTP Header 获取 openid，无需 code2Session
+   * 手机号登录/注册
+   * 暂未接入短信验证平台，只需手机号即可登录
    * 新用户自动创建默认账本
    */
-  async wxCloudLogin(
-    headerOpenid: string | undefined,
-    headerUnionid: string | undefined,
-    dto: WxCloudLoginDto,
-  ): Promise<TokenResponseDto> {
-    const openid = headerOpenid
-    const unionid = headerUnionid
-
-    // 云托管必须注入 openid
-    if (!openid) {
-      throw new UnauthorizedException(
-        '无法获取用户身份，请确保通过微信云托管访问',
-      )
-    }
-
-    // 查找或创建用户
-    let user = await this.usersService.findByOpenid(openid)
+  async phoneLogin(phone: string, nickname?: string): Promise<LoginResponseDto> {
+    let user = await this.usersService.findByPhone(phone)
     let isNewUser = false
 
     if (!user) {
+      // 新用户注册
       isNewUser = true
-      const phone = `wx_${openid}`
       user = await this.usersService.create({
         phone,
-        openid,
-        unionid,
-        nickname: dto.nickname,
-        avatar: dto.avatar,
+        nickname: nickname || `用户${phone.slice(-4)}`,
       })
-      
+
       // 为新用户创建默认账本
       await this.createDefaultLedger(phone)
-      this.logger.log(`[wxCloudLogin] 新用户注册，已创建默认账本: openid=${openid}`)
-    } else if (dto.nickname || dto.avatar) {
-      // 更新用户信息
-      const updateData: { nickname?: string; avatar?: string; unionid?: string } = {}
-      if (dto.nickname) updateData.nickname = dto.nickname
-      if (dto.avatar) updateData.avatar = dto.avatar
-      if (unionid && !user.unionid) updateData.unionid = unionid
-      
-      if (Object.keys(updateData).length > 0) {
-        user = await this.usersService.update(user.id, updateData)
-      }
+      this.logger.log(`[phoneLogin] 新用户注册: phone=${phone}`)
     }
 
     // 生成 JWT
@@ -83,9 +54,9 @@ export class AuthService {
       user: {
         id: user.id,
         phone: user.phone,
-        openid: user.openid,
-        nickname: user.nickname,
-        avatar: user.avatar,
+        openid: user.openid || undefined,
+        nickname: user.nickname || undefined,
+        avatar: user.avatar || undefined,
       },
       isNewUser,
     }
@@ -96,7 +67,7 @@ export class AuthService {
    */
   private async createDefaultLedger(userPhone: string): Promise<void> {
     const clientId = `ledger_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-    
+
     await this.prisma.ledger.create({
       data: {
         id: clientId,
@@ -106,14 +77,18 @@ export class AuthService {
         clientId,
       },
     })
+
+    this.logger.log(`[createDefaultLedger] 已创建默认账本: userPhone=${userPhone}`)
   }
 
-  // 刷新 Token
-  async refreshToken(userId: string): Promise<TokenResponseDto> {
+  /**
+   * 刷新 Token
+   */
+  async refreshToken(userId: string): Promise<LoginResponseDto> {
     const user = await this.usersService.findById(userId)
 
     if (!user) {
-      throw new UnauthorizedException('User not found')
+      throw new UnauthorizedException('用户不存在')
     }
 
     const payload: JwtPayload = {
@@ -128,55 +103,24 @@ export class AuthService {
       user: {
         id: user.id,
         phone: user.phone,
-        openid: user.openid,
-        nickname: user.nickname,
-        avatar: user.avatar,
+        openid: user.openid || undefined,
+        nickname: user.nickname || undefined,
+        avatar: user.avatar || undefined,
       },
       isNewUser: false,
     }
   }
 
-  // 验证 Token
+  /**
+   * 验证 Token（供 JwtStrategy 调用）
+   */
   async validateToken(payload: JwtPayload) {
     const user = await this.usersService.findById(payload.sub)
 
     if (!user) {
-      throw new UnauthorizedException('User not found')
+      throw new UnauthorizedException('用户不存在')
     }
 
     return user
-  }
-
-  // 手机号登录/注册（保留用于开发测试）
-  async phoneLogin(phone: string, nickname?: string): Promise<TokenResponseDto> {
-    let user = await this.usersService.findByPhone(phone)
-    let isNewUser = false
-
-    if (!user) {
-      isNewUser = true
-      user = await this.usersService.create({
-        phone,
-        nickname: nickname || `用户${phone.slice(-4)}`,
-      })
-    }
-
-    const payload: JwtPayload = {
-      sub: user.id,
-      phone: user.phone,
-    }
-
-    const accessToken = this.jwtService.sign(payload)
-
-    return {
-      accessToken,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        openid: user.openid,
-        nickname: user.nickname,
-        avatar: user.avatar,
-      },
-      isNewUser,
-    }
   }
 }
