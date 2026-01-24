@@ -11,7 +11,10 @@ const STORAGE_KEYS = {
   CURRENT_LEDGER: 'pa_current_ledger',
   USER_PROFILE: 'pa_user_profile',
   SYNC_META: 'pa_sync_meta',
-  AUTO_SYNC: 'pa_auto_sync'
+  AUTO_SYNC: 'pa_auto_sync',
+  TOKEN: 'pa_token',
+  PHONE: 'pa_phone',
+  SERVER_URL: 'pa_server_url'
 }
 
 class StorageService {
@@ -126,6 +129,51 @@ class StorageService {
   async setAutoSync(enabled: boolean): Promise<void> {
     if (!this.store) return
     await this.store.put(STORAGE_KEYS.AUTO_SYNC, enabled)
+    await this.store.flush()
+  }
+
+  // ========== 认证相关 ==========
+
+  async getToken(): Promise<string | null> {
+    if (!this.store) return null
+    const token = await this.store.get(STORAGE_KEYS.TOKEN, '')
+    return (token as string) || null
+  }
+
+  async saveToken(token: string): Promise<void> {
+    if (!this.store) return
+    await this.store.put(STORAGE_KEYS.TOKEN, token)
+    await this.store.flush()
+  }
+
+  async getPhone(): Promise<string | null> {
+    if (!this.store) return null
+    const phone = await this.store.get(STORAGE_KEYS.PHONE, '')
+    return (phone as string) || null
+  }
+
+  async savePhone(phone: string): Promise<void> {
+    if (!this.store) return
+    await this.store.put(STORAGE_KEYS.PHONE, phone)
+    await this.store.flush()
+  }
+
+  async getServerUrl(): Promise<string | null> {
+    if (!this.store) return null
+    const url = await this.store.get(STORAGE_KEYS.SERVER_URL, '')
+    return (url as string) || null
+  }
+
+  async saveServerUrl(url: string): Promise<void> {
+    if (!this.store) return
+    await this.store.put(STORAGE_KEYS.SERVER_URL, url)
+    await this.store.flush()
+  }
+
+  async clearAuth(): Promise<void> {
+    if (!this.store) return
+    await this.store.delete(STORAGE_KEYS.TOKEN)
+    await this.store.delete(STORAGE_KEYS.PHONE)
     await this.store.flush()
   }
 

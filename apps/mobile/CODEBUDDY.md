@@ -69,13 +69,20 @@ lib/
 | 页面 | 文件 | 功能 |
 |------|------|------|
 | **启动页** | `splash_screen.dart` | 初始化、自动登录检查 |
-| **登录页** | `login_screen.dart` | 手机号登录 |
+| **登录页** | `login_screen.dart` | 手机号登录（简化版，只需输入手机号） |
 | **主页** | `home_screen.dart` | 底部导航容器 (记录/统计/我的) |
 | **记账** | `add_record_screen.dart` | 新增/编辑收支表单 |
 | **记录列表** | `records_screen.dart` | 月度账单、筛选 |
 | **记录详情** | `record_detail_screen.dart` | 查看/编辑/删除记录 |
 | **统计** | `statistics_screen.dart` | 饼图、折线图、分类统计 |
 | **个人中心** | `profile_screen.dart` | 账本管理、同步、设置 |
+
+## 云托管配置
+
+默认服务器地址（可在登录页面修改）：
+```
+https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com/api
+```
 
 ## 状态管理
 
@@ -100,8 +107,9 @@ final auth = context.watch<AuthProvider>();
 
 auth.isLoggedIn          // 是否已登录
 auth.user                // 当前用户
-auth.login(phone, code)  // 登录
+auth.loginWithPhone(phone)  // 手机号登录（简化版）
 auth.logout()            // 登出
+auth.setServerUrl(url)   // 设置服务器地址
 ```
 
 ### LedgerProvider

@@ -66,11 +66,19 @@ entry/src/main/
 
 | 页面 | 文件 | 功能 |
 |------|------|------|
+| **登录页** | `LoginPage.ets` | 手机号登录（简化版，只需输入手机号） |
 | **主页** | `Index.ets` | 底部导航容器，包含明细/统计/我的三个 Tab |
 | **记账** | `RecordFormPage.ets` | 新增/编辑收支表单 |
 | **记录列表** | `RecordsPage.ets` | 月度账单、按日期分组 |
 | **统计** | `StatisticsPage.ets` | 分类统计、进度条展示 |
 | **个人中心** | `ProfilePage.ets` | 账本管理、同步设置 |
+
+## 云托管配置
+
+默认服务器地址（可在登录页面修改）：
+```
+https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com/api
+```
 
 ## 状态管理
 
@@ -130,6 +138,15 @@ import { storageService } from '../services'
 
 // 初始化（在 LedgerViewModel.initialize 中调用）
 await storageService.init(context)
+
+// 认证相关
+await storageService.getToken()
+await storageService.saveToken(token)
+await storageService.getPhone()
+await storageService.savePhone(phone)
+await storageService.getServerUrl()
+await storageService.saveServerUrl(url)
+await storageService.clearAuth()
 
 // 记录操作
 await storageService.getRecords()
@@ -254,12 +271,12 @@ class AppColors {
 | 分类统计 | ✅ | ✅ | ✅ |
 | 多账本管理 | ✅ | ✅ | ✅ |
 | 本地存储 | ✅ | ✅ | ✅ |
-| 云端同步 | 🚧 | ✅ | ✅ |
+| 云端同步 | ✅ | ✅ | ✅ |
+| 手机号登录 | ✅ | ✅ | ✅ |
 | 深色模式 | 🚧 | ❌ | ✅ |
 
 ## 待完善功能
 
-- [ ] 云端同步服务
 - [ ] 深色模式支持
 - [ ] 图表可视化 (饼图、折线图)
 - [ ] 首次引导页
