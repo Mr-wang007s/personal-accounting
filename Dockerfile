@@ -84,7 +84,7 @@ RUN echo '#!/bin/sh' > /app/apps/backend/start.sh && \
     echo 'echo "========== Database Setup =========="' >> /app/apps/backend/start.sh && \
     echo 'echo "DATABASE_URL: $DATABASE_URL"' >> /app/apps/backend/start.sh && \
     echo 'echo "Syncing database schema..."' >> /app/apps/backend/start.sh && \
-    echo 'npx prisma db push --schema=prisma/schema.prisma --accept-data-loss --skip-generate 2>&1 || echo "Warning: db push failed, continuing..."' >> /app/apps/backend/start.sh && \
+    echo 'npx prisma db push --schema=prisma/schema.prisma --force-reset --accept-data-loss --skip-generate 2>&1 || echo "Warning: db push failed, continuing..."' >> /app/apps/backend/start.sh && \
     echo 'echo "=================================="' >> /app/apps/backend/start.sh && \
     echo 'echo "Starting application..."' >> /app/apps/backend/start.sh && \
     echo 'exec node dist/main.js' >> /app/apps/backend/start.sh && \
