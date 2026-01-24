@@ -77,21 +77,29 @@ app.useGlobalInterceptors(
 
 ## 认证
 
+### 登录方式
+
+**手机号登录** (`POST /api/auth/phone/login`)
+- 小程序和 Web 端统一使用此接口
+- 新用户自动注册并创建默认账本
+- 返回 JWT 令牌用于后续请求认证
+
 ### 流程
 
 1. 默认所有路由需要 JWT（全局 `JwtAuthGuard`）
 2. `@Public()` 装饰器跳过认证
 3. `@CurrentUser()` 获取当前用户
 
-### 开发登录
+### 开发测试
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/dev/login \
+# 手机号登录
+curl -X POST http://localhost:3000/api/auth/phone/login \
   -H "Content-Type: application/json" \
-  -d '{"openid": "test_user"}'
+  -d '{"phone": "13800138000"}'
 ```
 
-返回：`{ accessToken, user }`
+返回：`{ accessToken, user, isNewUser }`
 
 ## API 端点
 
@@ -99,10 +107,35 @@ curl -X POST http://localhost:3000/api/auth/dev/login \
 
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
-| POST | `/wechat/login` | 微信登录 | 公开 |
-| POST | `/dev/login` | 开发登录 | 公开 |
+| POST | `/phone/login` | 手机号登录/注册 | 公开 |
 | POST | `/refresh` | 刷新令牌 | 需要 |
-| GET | `/profile` | 当前用户 | 需要 |
+| GET | `/me` | 获取当前用户信息 | 需要 |
+
+**手机号登录请求**：
+```json
+POST /api/auth/phone/login
+{
+  "phone": "13800138000",
+  "nickname": "用户昵称"  // 可选，默认取手机号后4位
+}
+```
+
+**登录响应**：
+```json
+{
+  "accessToken": "eyJhbG...",
+  "user": {
+    "id": "cuid...",
+    "phone": "13800138000",
+    "nickname": "用户8000"
+  },
+  "isNewUser": true  // 是否为新注册用户
+}
+```
+
+**说明**：
+- 新用户首次登录会自动注册并创建默认账本
+- 小程序和 Web 端使用相同的登录接口
 
 ### Records (`/api/records`)
 

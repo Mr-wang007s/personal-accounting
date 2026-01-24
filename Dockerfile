@@ -24,8 +24,8 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @personal-accounting/shared build
 RUN pnpm --filter @personal-accounting/business-logic build
 
-# Generate Prisma client
-RUN cd apps/backend && npx prisma generate
+# Generate Prisma client (use MySQL schema for production)
+RUN cd apps/backend && cp prisma/schema.mysql.prisma prisma/schema.prisma && npx prisma generate
 
 # Build backend
 RUN pnpm --filter @personal-accounting/backend build

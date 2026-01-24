@@ -15,8 +15,19 @@ npm install             # 安装依赖
 
 - **原生小程序** + **TypeScript**
 - **自定义 TabBar** 底部导航
-- **微信云托管** 后端服务
+- **微信云托管** 后端服务（`wx.cloud.callContainer`）
 - **纯云端数据** 所有数据直接通过 API 操作，无本地存储
+- **手机号登录** 与 Web 端统一的认证方式
+
+## 云托管配置
+
+```typescript
+// services/apiClient.ts
+const CLOUD_CONFIG = {
+  env: 'my-100-app-7g9jwge5b3870b6a',  // CloudBase 环境 ID
+  service: 'pa-api',                    // 云托管服务名
+}
+```
 
 ## 目录结构
 
@@ -61,7 +72,7 @@ miniprogram/
 | **记账** | `pages/record` | 新增/编辑收支表单 |
 | **我的** | `pages/profile` | 登录、账本管理 |
 | **分类详情** | `pages/category-detail` | 单分类记录列表 |
-| **引导页** | `pages/onboarding` | 首次使用引导 |
+| **引导页** | `pages/onboarding` | 手机号登录页（简化版，只需输入手机号） |
 
 ## 数据架构
 
@@ -160,15 +171,25 @@ await apiClient.getAllData()  // 返回 { ledgers, records }
 ```typescript
 import { authService } from '../services/auth'
 
-// 自动登录
-await authService.autoLogin(nickname?, avatar?)
+// 手机号登录
+await authService.phoneLogin(phone, nickname?)
+
+// 自动登录（使用保存的手机号）
+await authService.autoLogin()
+
+// 获取保存的手机号
+authService.getSavedPhone()
 
 // 检查登录状态
 authService.isLoggedIn()
 
-// 登出
+// 登出（清除 token 和保存的手机号）
 authService.logout()
 ```
+
+**存储键**：
+- `pa_user_phone` - 保存的手机号（用于自动登录）
+- `pa_token` - JWT 令牌
 
 ### 记录服务 (record.ts)
 
@@ -259,4 +280,4 @@ wx.switchTab({ url: '/pages/index/index' })
 | 多账本管理 | ✅ | ✅ |
 | 云端数据 | ✅ | ✅ |
 | 首次引导 | ✅ | ✅ |
-| 微信登录 | ✅ | ❌ |
+| 手机号登录 | ✅ | ✅ |
