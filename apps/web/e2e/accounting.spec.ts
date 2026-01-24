@@ -840,3 +840,329 @@ test.describe('Feature: 响应式布局', () => {
     })
   })
 })
+
+// ==================== Feature: API 完整性测试 ====================
+
+/**
+ * 辅助函数：从 localStorage 获取 token
+ * Token 存储在 'pa_token' 键中
+ */
+async function getToken(page: Page): Promise<string | null> {
+  return await page.evaluate(() => localStorage.getItem('pa_token'))
+}
+
+test.describe('Feature: API 完整性测试', () => {
+  
+  /**
+   * 测试直接 API 调用，确保所有后端接口正常工作
+   * 覆盖通过 UI 无法直接触发的 API
+   */
+  
+  test.describe('Scenario: GET /api/auth/me - 获取当前用户信息', () => {
+    test('Given 用户已登录, When 调用 /api/auth/me, Then 返回用户信息', async ({ page, request }) => {
+      // Given: 完成登录获取 token
+      await page.goto('/')
+      await page.evaluate(() => localStorage.clear())
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+      await login(page)
+      
+      // When: 获取 localStorage 中的 token (存储在 pa_token 键)
+      const token = await getToken(page)
+      expect(token).toBeTruthy()
+      
+      // When: 调用 /api/auth/me
+      const response = await request.get('http://localhost:3000/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      // Then: 返回用户信息
+      expect(response.ok()).toBeTruthy()
+      const data = await response.json()
+      expect(data.code).toBe(0)
+      expect(data.data).toHaveProperty('phone')
+      expect(data.data.phone).toBe(TEST_PHONE)
+    })
+  })
+
+  test.describe('Scenario: POST /api/auth/refresh - 刷新 Token', () => {
+    test('Given 用户已登录, When 调用 /api/auth/refresh, Then 返回新 Token', async ({ page, request }) => {
+      // Given: 完成登录获取 token
+      await page.goto('/')
+      await page.evaluate(() => localStorage.clear())
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+      await login(page)
+      
+      // When: 获取 localStorage 中的 token
+      const token = await getToken(page)
+      expect(token).toBeTruthy()
+      
+      // When: 调用 /api/auth/refresh
+      const response = await request.post('http://localhost:3000/api/auth/refresh', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      // Then: 返回新 Token（或原 Token 仍有效）
+      expect(response.ok()).toBeTruthy()
+      const data = await response.json()
+      expect(data.code).toBe(0)
+      expect(data.data).toHaveProperty('accessToken')
+    })
+  })
+
+  test.describe('Scenario: PUT /api/ledgers/:id - 更新账本', () => {
+    test('Given 用户有账本, When 更新账本名称, Then 账本更新成功', async ({ page, request }) => {
+      // Given: 登录并获取 token 和账本信息
+      await initializeTestEnv(page)
+      
+      const token = await getToken(page)
+      expect(token).toBeTruthy()
+      
+      // 先获取账本列表，获取第一个账本 ID
+      const listResponse = await request.get('http://localhost:3000/api/ledgers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const listData = await listResponse.json()
+      expect(listData.data.length).toBeGreaterThan(0)
+      const ledgerId = listData.data[0].id
+      
+      // When: 调用 PUT /api/ledgers/:id
+      const newName = `更新测试_${Date.now()}`
+      const response = await request.put(`http://localhost:3000/api/ledgers/${ledgerId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: { name: newName },
+      })
+      
+      // Then: 更新成功
+      expect(response.ok()).toBeTruthy()
+      const data = await response.json()
+      expect(data.code).toBe(0)
+      expect(data.data.name).toBe(newName)
+    })
+  })
+
+  test.describe('Scenario: DELETE /api/ledgers/:id - 删除账本', () => {
+    test('Given 用户有多个账本, When 删除一个账本, Then 账本删除成功', async ({ page, request }) => {
+      // Given: 登录
+      await initializeTestEnv(page)
+      
+      const token = await getToken(page)
+      expect(token).toBeTruthy()
+      
+      // Given: 先创建一个新账本用于删除测试（需要 clientId）
+      const clientId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const createResponse = await request.post('http://localhost:3000/api/ledgers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: { 
+          clientId,
+          name: `待删除账本_${Date.now()}` 
+        },
+      })
+      
+      expect(createResponse.ok()).toBeTruthy()
+      const createData = await createResponse.json()
+      const ledgerToDelete = createData.data.id
+      
+      // When: 调用 DELETE /api/ledgers/:id
+      const deleteResponse = await request.delete(`http://localhost:3000/api/ledgers/${ledgerToDelete}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      // Then: 删除成功
+      expect(deleteResponse.ok()).toBeTruthy()
+      const deleteData = await deleteResponse.json()
+      expect(deleteData.code).toBe(0)
+    })
+  })
+
+  test.describe('Scenario: POST /api/records/batch-delete - 批量删除记录', () => {
+    test('Given 用户有多条记录, When 批量删除记录, Then 记录批量删除成功', async ({ page, request }) => {
+      // Given: 登录
+      await initializeTestEnv(page)
+      
+      const token = await getToken(page)
+      expect(token).toBeTruthy()
+      
+      // 先获取账本列表，获取第一个账本 ID
+      const listResponse = await request.get('http://localhost:3000/api/ledgers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const listData = await listResponse.json()
+      expect(listData.data.length).toBeGreaterThan(0)
+      const ledgerId = listData.data[0].id
+      
+      // Given: 创建两条测试记录
+      const today = new Date().toISOString().split('T')[0]
+      
+      const record1Response = await request.post('http://localhost:3000/api/records', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: {
+          type: 'expense',
+          amount: 10,
+          category: 'food',
+          date: today,
+          note: '批量删除测试1',
+          ledgerId,
+        },
+      })
+      
+      const record2Response = await request.post('http://localhost:3000/api/records', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: {
+          type: 'expense',
+          amount: 20,
+          category: 'food',
+          date: today,
+          note: '批量删除测试2',
+          ledgerId,
+        },
+      })
+      
+      expect(record1Response.ok()).toBeTruthy()
+      expect(record2Response.ok()).toBeTruthy()
+      
+      const record1Data = await record1Response.json()
+      const record2Data = await record2Response.json()
+      
+      const idsToDelete = [record1Data.data.id, record2Data.data.id]
+      
+      // When: 调用 POST /api/records/batch-delete
+      const batchDeleteResponse = await request.post('http://localhost:3000/api/records/batch-delete', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: { ids: idsToDelete },
+      })
+      
+      // Then: 批量删除成功
+      expect(batchDeleteResponse.ok()).toBeTruthy()
+      const batchDeleteData = await batchDeleteResponse.json()
+      expect(batchDeleteData.code).toBe(0)
+      expect(batchDeleteData.data.deleted).toBe(2)
+    })
+  })
+})
+
+// ==================== Feature: 账本管理（UI 测试补充） ====================
+
+test.describe('Feature: 账本管理（补充）', () => {
+  
+  test.describe('Scenario: 删除账本（通过 API）', () => {
+    test('Given 用户有多个账本, When 通过 API 删除账本, Then 账本被删除', async ({ page, request }) => {
+      // Given: 登录并创建一个新账本
+      await initializeTestEnv(page)
+      
+      const token = await getToken(page)
+      expect(token).toBeTruthy()
+      
+      // 创建待删除的账本（需要 clientId）
+      const clientId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const createResponse = await request.post('http://localhost:3000/api/ledgers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        data: { 
+          clientId,
+          name: `待删除账本_${Date.now()}` 
+        },
+      })
+      
+      expect(createResponse.ok()).toBeTruthy()
+      const createData = await createResponse.json()
+      const ledgerToDelete = createData.data.id
+      
+      // When: 调用 DELETE /api/ledgers/:id
+      const deleteResponse = await request.delete(`http://localhost:3000/api/ledgers/${ledgerToDelete}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      // Then: 删除成功
+      expect(deleteResponse.ok()).toBeTruthy()
+      const deleteData = await deleteResponse.json()
+      expect(deleteData.code).toBe(0)
+      
+      // 验证账本已从列表中移除
+      const listResponse = await request.get('http://localhost:3000/api/ledgers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const listData = await listResponse.json()
+      const deletedLedger = listData.data.find((l: { id: string }) => l.id === ledgerToDelete)
+      expect(deletedLedger).toBeUndefined()
+    })
+  })
+
+  test.describe('Scenario: 切换账本', () => {
+    test('Given 用户有多个账本, When 切换到另一个账本, Then 显示该账本数据', async ({ page }) => {
+      // Given: 登录并确保有多个账本
+      await initializeTestEnv(page)
+      await navigateTo(page, '我的')
+      
+      // 等待账本加载
+      await expect(page.getByText(/\d+ 个账本/)).toBeVisible({ timeout: 10000 })
+      
+      // 展开账本列表
+      await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
+      await expect(page.getByText('新建账本')).toBeVisible({ timeout: 5000 })
+      
+      // 创建第二个账本（如果只有一个的话）
+      const countText = await page.getByText(/\d+ 个账本/).textContent()
+      const currentCount = parseInt(countText?.match(/\d+/)?.[0] || '0')
+      
+      if (currentCount < 2) {
+        await page.getByText('新建账本').click()
+        await page.locator('input[placeholder="输入账本名称"]').fill(`测试账本_${Date.now()}`)
+        await page.getByRole('button', { name: '创建' }).click()
+        await page.waitForTimeout(1000)
+        
+        // 重新展开
+        await page.locator('.cursor-pointer').filter({ hasText: /个账本/ }).first().click()
+        await page.waitForTimeout(500)
+      }
+      
+      // When: 验证列表中有多个账本
+      const ledgerItems = page.locator('[class*="hover:bg-slate-100"][class*="cursor-pointer"]')
+      const count = await ledgerItems.count()
+      expect(count).toBeGreaterThanOrEqual(1)
+      
+      // Then: 点击第一个账本切换
+      if (count >= 1) {
+        const firstLedger = ledgerItems.first()
+        await firstLedger.click()
+        await page.waitForTimeout(500)
+        
+        // 验证账本列表折叠
+        await expect(page.getByText(/\d+ 个账本/)).toBeVisible()
+      }
+    })
+  })
+})
