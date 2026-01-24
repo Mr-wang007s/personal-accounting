@@ -35,8 +35,9 @@ FROM node:18-alpine AS runner
 
 WORKDIR /app
 
-# Install pnpm for production
-RUN npm install -g pnpm@9
+# Install OpenSSL for Prisma and pnpm
+RUN apk add --no-cache openssl openssl-dev && \
+    npm install -g pnpm
 
 # Copy entire node_modules from builder (includes Prisma client)
 COPY --from=builder /app/node_modules ./node_modules
