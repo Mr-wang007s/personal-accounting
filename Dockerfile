@@ -1,6 +1,9 @@
 # Build stage
 FROM node:18-alpine AS builder
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl openssl-dev libc6-compat
+
 # Install pnpm
 RUN npm install -g pnpm@9
 
@@ -34,6 +37,9 @@ RUN pnpm --filter @personal-accounting/backend build
 FROM node:18-alpine AS runner
 
 WORKDIR /app
+
+# Install OpenSSL and required libs for Prisma
+RUN apk add --no-cache openssl openssl-dev libc6-compat
 
 RUN npm install -g pnpm@9
 
