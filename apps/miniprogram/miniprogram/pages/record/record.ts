@@ -1,6 +1,6 @@
 /**
  * 记账表单页
- * 重构：移除本地存储，使用 API 操作
+ * 新增/编辑记录，直接调用云端 API
  */
 import type { Category, RecordType } from '../../shared/types'
 import { getCategoriesByType, CATEGORY_COLORS } from '../../shared/constants'

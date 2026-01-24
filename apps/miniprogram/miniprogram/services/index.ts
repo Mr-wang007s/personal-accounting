@@ -1,6 +1,6 @@
 /**
  * Services 模块入口
- * 重构：移除本地存储和同步服务
+ * 所有数据操作通过云端 API 完成
  */
 
 export { LedgerService } from './ledger'

@@ -153,7 +153,7 @@ Page({
 
     const app = getApp<IAppOption>()
     
-    // 更新本地显示
+    // 更新界面显示
     this.setData({
       currentLedger: app.globalData.currentLedger,
     })

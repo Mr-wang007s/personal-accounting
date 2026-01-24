@@ -1,13 +1,13 @@
 /**
  * 账本服务 - 账本管理相关操作
- * 重构：简化代码，所有操作直接通过 API 完成
+ * 所有操作直接通过 API 完成，数据来自云端
  */
 import type { Ledger, UserProfile } from '../shared/types'
 import { generateId, getNowISO } from '../shared/utils'
 import { apiClient, CloudLedger, CreateLedgerRequest, UpdateLedgerRequest } from './apiClient'
 
 /**
- * 将云端账本转换为本地格式
+ * 转换云端账本数据
  */
 function transformCloudLedger(cloudLedger: CloudLedger): Ledger {
   return {

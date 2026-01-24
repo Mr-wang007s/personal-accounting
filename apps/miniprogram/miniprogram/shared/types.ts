@@ -1,13 +1,12 @@
 /**
  * 类型定义 - 与 @personal-accounting/shared 保持一致
  * 小程序环境下的类型定义副本
+ * 
+ * 所有数据直接来自云端，无本地存储
  */
 
 // 记录类型
 export type RecordType = 'income' | 'expense'
-
-// 同步状态：local = 仅本地，synced = 已同步到云端
-export type SyncStatus = 'local' | 'synced'
 
 // 记账记录
 export interface Record {
@@ -18,10 +17,8 @@ export interface Record {
   date: string
   note?: string
   createdAt: string
-  ledgerId: string // 所属账本 ID（必填）
-  // 简化的同步状态
-  syncStatus?: SyncStatus // 默认 'local'
-  updatedAt?: string // 更新时间
+  updatedAt: string
+  ledgerId: string // 所属账本 ID
 }
 
 // 分类

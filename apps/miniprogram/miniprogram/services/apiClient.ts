@@ -10,7 +10,7 @@
 // 云托管配置
 const CLOUD_CONFIG = {
   env: 'prod-5gqmub7sd1872233',
-  service: 'pa-api',  // 新的云托管服务名
+  service: 'express-g8es',  // 云托管服务名
 }
 
 export interface ApiResponse<T> {

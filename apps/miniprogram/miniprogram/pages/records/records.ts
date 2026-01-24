@@ -1,6 +1,6 @@
 /**
  * 账单明细页
- * 重构：使用 globalData 缓存数据，刷新时从云端加载
+ * 从 globalData 读取缓存数据，刷新时从云端加载
  */
 import type { Record, CategoryStat, MonthlyData } from '../../shared/types'
 import { getCategoryById, CATEGORY_COLORS } from '../../shared/constants'

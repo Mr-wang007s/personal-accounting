@@ -1,6 +1,6 @@
 /**
  * 记录服务 - 记账记录相关操作
- * 重构：简化代码，所有操作直接通过 API 完成
+ * 所有操作直接通过 API 完成，数据来自云端
  */
 import type { Record, RecordType, GroupedRecords, Statistics } from '../shared/types'
 import { generateId, getDateLabel } from '../shared/utils'
@@ -10,7 +10,7 @@ import { StatisticsService } from '../business-logic/statistics'
 import { apiClient, CloudRecord, CreateRecordRequest, UpdateRecordRequest } from './apiClient'
 
 /**
- * 将云端记录转换为本地格式
+ * 转换云端记录数据
  */
 function transformCloudRecord(cloudRecord: CloudRecord): Record {
   return {
@@ -23,7 +23,6 @@ function transformCloudRecord(cloudRecord: CloudRecord): Record {
     createdAt: cloudRecord.createdAt,
     updatedAt: cloudRecord.updatedAt,
     ledgerId: cloudRecord.ledgerId,
-    syncStatus: 'synced',
   }
 }
 

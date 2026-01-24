@@ -4,6 +4,8 @@
  * 
  * 流程：自动登录 → 获取用户信息 → 加载账本 → 加载记录
  * 新用户：后端自动创建默认账本，无需引导页
+ * 
+ * 所有数据直接来自云端，无本地存储
  */
 import { apiClient, CloudLedger, CloudRecord } from './services/apiClient';
 import { authService } from './services/auth';
@@ -12,7 +14,7 @@ import type { Ledger, Record, UserProfile } from './shared/types';
 const LOG_TAG = '[App]';
 
 /**
- * 云端账本转换为本地账本格式
+ * 转换云端账本数据
  */
 function transformCloudLedger(cloudLedger: CloudLedger): Ledger {
   return {
@@ -26,7 +28,7 @@ function transformCloudLedger(cloudLedger: CloudLedger): Ledger {
 }
 
 /**
- * 云端记录转换为本地记录格式
+ * 转换云端记录数据
  */
 function transformCloudRecord(cloudRecord: CloudRecord): Record {
   return {
@@ -39,7 +41,6 @@ function transformCloudRecord(cloudRecord: CloudRecord): Record {
     createdAt: cloudRecord.createdAt,
     updatedAt: cloudRecord.updatedAt,
     ledgerId: cloudRecord.ledgerId,
-    syncStatus: 'synced' as const,
   };
 }
 
@@ -233,7 +234,7 @@ App<IAppOption>({
     if (!this.globalData.userProfile) return;
     
     try {
-      // 更新本地状态
+      // 更新内存状态
       if (nickname) {
         this.globalData.userProfile.nickname = nickname;
       }
