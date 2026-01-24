@@ -12,17 +12,17 @@
     
     <!-- 登录卡片 -->
     <view class="login-card">
-      <text class="card-title">手机号登录</text>
+      <text class="card-title">输入唯一标识</text>
       
       <!-- 手机号输入 -->
       <view class="input-group">
-        <text class="input-label">手机号</text>
+        <text class="input-label">输入唯一标识</text>
         <view class="input-wrapper">
           <text class="input-icon">📱</text>
           <input 
             type="number"
             class="phone-input" 
-            placeholder="请输入手机号" 
+            placeholder="输入唯一标识" 
             value="{{phone}}"
             bindinput="onPhoneInput"
             maxlength="11"
