@@ -79,10 +79,13 @@ lib/
 
 ## 云托管配置
 
-默认服务器地址（可在登录页面修改）：
-```
-https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com/api
-```
+| 配置 | 值 |
+|------|------|
+| **服务地址** | https://express-g8es-213254-5-1253552496.sh.run.tcloudbase.com/api |
+| **环境 ID** | `prod-5gqmub7sd1872233` |
+| **服务名** | `express-g8es` |
+
+可在登录页面修改服务器地址。
 
 ## 状态管理
 

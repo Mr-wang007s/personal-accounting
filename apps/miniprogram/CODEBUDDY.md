@@ -19,6 +19,22 @@ npm install             # 安装依赖
 - **纯云端数据** 所有数据直接通过 API 操作，无本地存储
 - **手机号登录** 与 Web 端统一的认证方式
 
+## 云托管配置
+
+| 配置 | 值 |
+|------|------|
+| **环境 ID** | `prod-5gqmub7sd1872233` |
+| **服务名** | `express-g8es` |
+| **服务地址** | https://express-g8es-213254-5-1253552496.sh.run.tcloudbase.com |
+
+```typescript
+// apiClient.ts 中的配置
+const CLOUD_CONFIG = {
+  env: 'prod-5gqmub7sd1872233',
+  service: 'express-g8es',
+}
+```
+
 
 ## 目录结构
 

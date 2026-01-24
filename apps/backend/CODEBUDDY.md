@@ -253,9 +253,13 @@ CacheService.keys.userStats(userId, dateRange)
 
 ```bash
 # 使用 Dockerfile 部署
-docker build -t pa-api .
+docker build -t express-g8es .
 ```
 
-**生产地址**: https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com
+| 配置 | 值 |
+|------|------|
+| **服务地址** | https://express-g8es-213254-5-1253552496.sh.run.tcloudbase.com |
+| **环境 ID** | `prod-5gqmub7sd1872233` |
+| **服务名** | `express-g8es` |
 
 

@@ -198,7 +198,9 @@ interface User {
 
 | 服务 | 地址 |
 |------|------|
-| **后端 API** | https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com |
+| **后端 API（云托管）** | https://express-g8es-213254-5-1253552496.sh.run.tcloudbase.com |
+| **云托管环境** | `prod-5gqmub7sd1872233` |
+| **云托管服务名** | `express-g8es` |
 
 
 ## 子模块文档
