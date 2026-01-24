@@ -256,14 +256,6 @@ CacheService.keys.userStats(userId, dateRange)
 docker build -t pa-api .
 ```
 
-**CloudBase 配置** (`cloudbaserc.json`):
-```json
-{
-  "envId": "my-100-app-7g9jwge5b3870b6a",
-  "cloudrun": { "name": "pa-api" }
-}
-```
-
 **生产地址**: https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com
 
 

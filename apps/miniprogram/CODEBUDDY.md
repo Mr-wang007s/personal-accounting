@@ -19,15 +19,6 @@ npm install             # 安装依赖
 - **纯云端数据** 所有数据直接通过 API 操作，无本地存储
 - **手机号登录** 与 Web 端统一的认证方式
 
-## 云托管配置
-
-```typescript
-// services/apiClient.ts
-const CLOUD_CONFIG = {
-  env: 'my-100-app-7g9jwge5b3870b6a',  // CloudBase 环境 ID
-  service: 'pa-api',                    // 云托管服务名
-}
-```
 
 ## 目录结构
 

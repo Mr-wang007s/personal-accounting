@@ -198,13 +198,8 @@ interface User {
 
 | 服务 | 地址 |
 |------|------|
-| **前端** | https://my-100-app-7g9jwge5b3870b6a-1253552496.tcloudbaseapp.com/ |
 | **后端 API** | https://pa-api-213254-5-1253552496.sh.run.tcloudbase.com |
 
-**CloudBase 配置**：
-- 环境 ID: `my-100-app-7g9jwge5b3870b6a`
-- 区域: 上海
-- 云托管服务: `pa-api`
 
 ## 子模块文档
 

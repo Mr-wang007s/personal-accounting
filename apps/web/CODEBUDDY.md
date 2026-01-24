@@ -175,9 +175,3 @@ cd apps/web && npx playwright test e2e/accounting.spec.ts --grep "添加支出"
 ```
 
 测试覆盖：记录 CRUD、导航、表单验证、数据持久化。
-
-## 部署
-
-**生产地址**: https://my-100-app-7g9jwge5b3870b6a-1253552496.tcloudbaseapp.com/
-
-使用腾讯云 CloudBase 静态网站托管。
